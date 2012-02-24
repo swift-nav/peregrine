@@ -29,8 +29,10 @@ import matplotlib
 import getSamples
 
 def probeData(settings = initSettings.initSettings):
+
+  samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   
-  samples = getSamples.int8(settings.fileName,10*settings.samplesPerCode,settings.skipNumberOfBytes)
+  samples = getSamples.int8(settings.fileName,10*samplesPerCode,settings.skipNumberOfBytes)
   
   #Initialize figure
   fig = pylab.figure()
@@ -41,7 +43,7 @@ def probeData(settings = initSettings.initSettings):
                range(0,int(round((5e-3 + 1/settings.samplingFreq)*settings.samplingFreq)))]
   #Time domain plot
   pylab.subplot(2,2,1)
-  plot_max = int(round(settings.samplesPerCode/50))
+  plot_max = int(round(samplesPerCode/50))
   pylab.plot([1000*i for i in timeScale[0:plot_max]],samples[0:plot_max])
   pylab.title('Time domain plot')
   pylab.xlabel('Time (ms)')

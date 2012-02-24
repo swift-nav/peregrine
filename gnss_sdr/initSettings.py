@@ -32,10 +32,10 @@ class initSettings:
 #  fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs16_368-if4_092.bin'
 #  IF                   = 4.092e6        #Hz
 #  samplingFreq         = 16.368e6       #Hz
-  samplingPeriod       = 1/samplingFreq #seconds
+#  samplingPeriod       = 1/samplingFreq #seconds
   codeFreqBasis        = 1.023e6        #Hz
   codeLength           = 1023
-  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
+#  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
   acqSatelliteList     = range(0,32,1)
   acqSearchBand        = 14     #KHz
   acqThreshold         = 2.5

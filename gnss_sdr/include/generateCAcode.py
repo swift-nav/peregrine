@@ -21,6 +21,7 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 #USA.
 #--------------------------------------------------------------------------
+import pylab as p
 
 def generateCAcode(PRN):
   #--- Make the code shift array. The shift depends on the PRN number -----
@@ -42,9 +43,11 @@ def generateCAcode(PRN):
   #--- Generate G1 code ---------------------------------------------------
   
   #--- Initialize g1 output to speed up the function -
-  g1 = [0]*1023
+#  g1 = [0]*1023
+  g1 = [0 for i in range(1023)]
   #--- Load shift register -
-  reg = [-1]*10
+#  reg = [-1]*10
+  reg = [-1 for i in range(10)]
   
   #--- Generate all G1 signal chips based on the G1 feedback polynomial ---
   for i in range(0,1023):
@@ -56,9 +59,11 @@ def generateCAcode(PRN):
   #--- Generate G2 code -----------------------------------------------------
   
   #--- Initialize g2 output to speed up the function ---
-  g2 = [0]*1023
+#  g2 = [0]*1023
+  g2 = [0 for i in range(1023)]
   #--- Load shift register ---
-  reg = [-1]*10
+#  reg = [-1]*10
+  reg = [-1 for i in range(10)]
   
   #--- Generate all G2 signal chips based on the G2 feedback polynomial -----
   for i in range(0,1023):

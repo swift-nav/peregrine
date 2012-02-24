@@ -51,7 +51,8 @@ import getSamples
 from acquisition import acquisition
 print "\nAcquiring satellites...\n"
 #Get 11ms of acquisition samples for fine frequency estimation
-acqSamples = getSamples.int8(settings.fileName,11*settings.samplesPerCode,settings.skipNumberOfBytes)
+samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
+acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
 acqResults = acquisition(acqSamples,settings)
 
 #pylab.show()

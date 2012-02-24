@@ -24,22 +24,25 @@
 
 from generateCAcode import generateCAcode
 import math
-import numpy
+import numpy as np
 
 def makeCaTable(settings):
+
+  # Number of samples per code period
+  samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   
   #Find time constants
-  ts = settings.samplingPeriod
+  ts = 1/settings.samplingFreq
   tc = 1/settings.codeFreqBasis
   
   #Make array of code value indexes to sample code up to our sampling frequency
-  codeValueIndex = [int(math.ceil(ts*i/tc)-1) for i in range(1,settings.samplesPerCode+1)]
+  codeValueIndex = np.array([int(math.ceil(ts*i/tc)-1) for i in range(1,samplesPerCode+1)])
   codeValueIndex[len(codeValueIndex)-1] = 1022
   
   #Upsample each PRN and return as a 32 x len(codeValueIndex) list
-  caCodesTable = [[0 for i in range(settings.samplesPerCode)] for j in range(32)]
+  caCodesTable = [[0 for i in range(0,1023)] for j in range(0,32)]
   for PRN in range(0,32):
     caCode = generateCAcode(PRN)
     caCodesTable[PRN] = [caCode[i] for i in codeValueIndex]
-  
-  return numpy.array(caCodesTable)
+
+  return caCodesTable
