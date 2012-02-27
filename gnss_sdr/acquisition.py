@@ -24,50 +24,37 @@
 
 import numpy as np
 import pylab
+import sys
 import math
 from makeCaTable import makeCaTable
-#import sys
-#sys.path.append('./include/');
 from generateCAcode import generateCAcode
 
 def acquisition(longSignal,settings):
-
   # Number of samples per code period
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
-  
   # Create two 1msec vectors of data to correlate with and one with zero DC
   signal1 = np.array(longSignal[0:samplesPerCode])
   signal2 = np.array(longSignal[samplesPerCode:2*samplesPerCode])
   signal0DC = np.array(longSignal - np.mean(longSignal))
-  
   # Find sampling period
   ts = 1/settings.samplingFreq
-
   # Find phases for the local carrier
   phasePoints = np.array([2*math.pi*i*ts for i in range(0,samplesPerCode)])
-
   # Number of frequency bins for the given acquisition band (500 Hz steps)
   numberOfFrqBins = int(math.floor(settings.acqSearchBand*1e3/500 + 1))
-
   # Generate all C/A codes and sample them according to the sampling freq
   caCodesTable = np.array(makeCaTable(settings))
-
   # Initialize arrays
   results = np.zeros((numberOfFrqBins, samplesPerCode))
-
   # Carrier frequencies of the frequency bins
   frqBins = np.zeros((numberOfFrqBins))
-
   # Initialize acqResults
   acqResults = [acqResults_class for i in range(32)]
-
   print "(",
-  
-#  for PRN in range(32):
-  for PRN in range(1):
-#    for frqBinIndex in range(numberOfFrqBins):
+  sys.stdout.flush()
+  for PRN in range(32):
     caCodeFreqDom = np.conj(np.fft.fft(caCodesTable[PRN]))
-    for frqBinIndex in range(0,1):
+    for frqBinIndex in range(numberOfFrqBins):
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
       frqBins[frqBinIndex] = settings.IF \
                              - settings.acqSearchBand/2*1000 \
@@ -95,7 +82,6 @@ def acquisition(longSignal,settings):
         results[frqBinIndex] = acqRes1
       else:
         results[frqBinIndex] = acqRes2
-
     #--- Find the correlation peak and the carrier frequency ----------
     peakSize = 0 
     for i in range(len(results)):
@@ -120,29 +106,49 @@ def acquisition(longSignal,settings):
     elif (excludeRangeIndex2 >= (samplesPerCode-1)):
       codePhaseRange = range(excludeRangeIndex2-samplesPerCode,excludeRangeIndex1+1)
     else:
-      codePhaseRange = np.concatenate((range(0,excludeRangeIndex1+1),range(excludeRangeIndex2,samplesPerCode)))
-
+      codePhaseRange = np.concatenate((range(0,excludeRangeIndex1+1),\
+                                       range(excludeRangeIndex2,samplesPerCode)))
     #Find the second highest correlation peak in the same freq bin
     secondPeakSize = 0
     for i in codePhaseRange:
       if (secondPeakSize < results[frequencyBinIndex][i]):
         secondPeakSize = results[frequencyBinIndex][i]
-    
     #Store result
     acqResults[PRN].peakMetric = peakSize/secondPeakSize
-    
     #If the result is above the threshold, then we have acquired the satellite 
-#    if (acqResults[PRN].peakMetric > settings.acqThreshold):
+    if (acqResults[PRN].peakMetric > settings.acqThreshold):
       #Fine resolution frequency search
-    print PRN,
+      print (PRN+1),
+      sys.stdout.flush()
       #Generate 8msc long C/A codes sequence for given PRN
-    caCode = generateCAcode(PRN)
-    codeValueIndex = np.array([int(math.floor(ts*i*settings.codeFreqBasis)) for i in \
-                                 range(1,8*samplesPerCode+1)])
-    longCaCode = [caCode[i] for i in np.remainder(codeValueIndex,1023)]
-    #Remove CA code modulation from the original signal
-    xCarrier = signal0DC[]*longCaCode
-
+      caCode = generateCAcode(PRN)
+      codeValueIndex = np.array([int(math.floor(ts*i*settings.codeFreqBasis)) for i in \
+                                   range(1,8*samplesPerCode+1)])
+      longCaCode = np.array([caCode[i] for i in np.remainder(codeValueIndex,1023)])
+      #Remove CA code modulation from the original signal
+      xCarrier = np.array([signal0DC[codePhase+i]*longCaCode[i] for i in range(0,8*samplesPerCode)])
+      #Find next highest power of 2 and increase by 8x
+      fftNumPts = 8*(2**int(math.ceil(math.log(len(xCarrier),2))))
+      #Compute the magnitude of the FFT, find the maximum, and the associated carrrier frequency
+      #for some reason the output of this fft is different than Octave's, but they seem to 
+      #preeeeetty much reach the same conclusion for the best carrier frequency
+      fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
+      uniqFftPts = int(math.ceil((fftNumPts+1)/2))
+      fftMax = 0
+      for i in range(4,uniqFftPts-5):
+        if (fftMax < fftxc[i]):
+          fftMax = fftxc[i]
+          fftMaxIndex = i
+      fftFreqBins = np.array([i*settings.samplingFreq/fftNumPts for i in range(uniqFftPts)])
+      #Save properties of the detected satellite signal
+      acqResults[PRN].carrFreq = fftFreqBins[fftMaxIndex]
+      acqResults[PRN].codePhase = codePhase
+    #If the result is NOT above the threshold, we haven't acquired the satellite
+    else:
+      print ".",
+      sys.stdout.flush()
+  #Acquisition is over 
+  print ")"
 class acqResults_class:
   carrFreq = 0.0
   codePhase = 0.0
