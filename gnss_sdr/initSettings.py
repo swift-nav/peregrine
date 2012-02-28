@@ -35,6 +35,8 @@ class initSettings:
 #  samplingPeriod       = 1/samplingFreq #seconds
   codeFreqBasis        = 1.023e6        #Hz
   codeLength           = 1023
+  skipAcquisition      = True
+#  skipAcquisition      = False
 #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
   acqSatelliteList     = range(0,32,1)
   acqSearchBand        = 14     #KHz

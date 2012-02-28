@@ -53,6 +53,13 @@ print "\nAcquiring satellites...\n"
 #Get 11ms of acquisition samples for fine frequency estimation
 samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
 acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
-acqResults = acquisition(acqSamples,settings)
+import pickle
+if settings.skipAcquisition:
+  acqResults = pickle.load(open("acqResults.p","rb"))
+else:
+  acqResults = acquisition(acqSamples,settings)
+  pickle.dump(acqResults,open("acqResults.p","wb"))
+from plotAcquisition import plotAcquisition
+plotAcquisition(acqResults,settings)
 
 #pylab.show()

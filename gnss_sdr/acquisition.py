@@ -49,10 +49,10 @@ def acquisition(longSignal,settings):
   # Carrier frequencies of the frequency bins
   frqBins = np.zeros((numberOfFrqBins))
   # Initialize acqResults
-  acqResults = [acqResults_class for i in range(32)]
+  acqResults = [[0.0,0.0,0.0] for i in range(32)]
   print "(",
   sys.stdout.flush()
-  for PRN in range(32):
+  for PRN in settings.acqSatelliteList:
     caCodeFreqDom = np.conj(np.fft.fft(caCodesTable[PRN]))
     for frqBinIndex in range(numberOfFrqBins):
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
@@ -114,9 +114,9 @@ def acquisition(longSignal,settings):
       if (secondPeakSize < results[frequencyBinIndex][i]):
         secondPeakSize = results[frequencyBinIndex][i]
     #Store result
-    acqResults[PRN].peakMetric = peakSize/secondPeakSize
+    acqResults[PRN][0] = peakSize/secondPeakSize
     #If the result is above the threshold, then we have acquired the satellite 
-    if (acqResults[PRN].peakMetric > settings.acqThreshold):
+    if (acqResults[PRN][0] > settings.acqThreshold):
       #Fine resolution frequency search
       print (PRN+1),
       sys.stdout.flush()
@@ -141,15 +141,18 @@ def acquisition(longSignal,settings):
           fftMaxIndex = i
       fftFreqBins = np.array([i*settings.samplingFreq/fftNumPts for i in range(uniqFftPts)])
       #Save properties of the detected satellite signal
-      acqResults[PRN].carrFreq = fftFreqBins[fftMaxIndex]
-      acqResults[PRN].codePhase = codePhase
+#      acqResults[PRN].carrFreq = fftFreqBins[fftMaxIndex]
+#      acqResults[PRN].codePhase = codePhase
+      acqResults[PRN][1] = fftFreqBins[fftMaxIndex]
+      acqResults[PRN][2] = codePhase
     #If the result is NOT above the threshold, we haven't acquired the satellite
     else:
       print ".",
       sys.stdout.flush()
   #Acquisition is over 
   print ")"
-class acqResults_class:
-  carrFreq = 0.0
-  codePhase = 0.0
-  peakMetric = 0.0
+  return acqResults
+#class acqResults_class:
+#  carrFreq = 0.0
+#  codePhase = 0.0
+#  peakMetric = 0.0
