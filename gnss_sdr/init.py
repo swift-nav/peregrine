@@ -43,7 +43,7 @@ settings = initSettings
 import pylab
 from probeData import probeData
 print "Probing data", settings.fileName
-fig1 = probeData(settings)
+probeFigure = probeData(settings)
 pylab.draw()
 
 #Do acquisition
@@ -60,6 +60,9 @@ else:
   acqResults = acquisition(acqSamples,settings)
   pickle.dump(acqResults,open("acqResults.p","wb"))
 from plotAcquisition import plotAcquisition
-plotAcquisition(acqResults,settings)
+acqFigure = plotAcquisition(acqResults,settings)
 
-#pylab.show()
+#Do tracking
+
+
+pylab.show()

@@ -28,13 +28,20 @@ import matplotlib.pyplot as plt
 def plotAcquisition(acqResults,settings):
   acqResults = np.array(acqResults)
   plt.figure(101)
+  plt.hold(True)
+  barplot = []
   for i in range(32):
     if (acqResults[i][0] > settings.acqThreshold):
-      barplot = plt.bar(i,acqResults[i][0],color='g')
+      barplot.append(plt.bar(i,acqResults[i][0],color='g'))
+      there = i
     else:
-      barplot = plt.bar(i,acqResults[i][0],color='r')
-#  plt.legend(('Green - There', 'Red - Aint There'))
+      barplot.append(plt.bar(i,acqResults[i][0],color='r'))
+      nthere = i
+  plt.legend((barplot[there],barplot[nthere]),('Green - SV acq\'d', 'Red - SV not acq\'d'))
+  plt.axis([0,32,0,max(np.array(acqResults).T[0])*1.2])
+        
   plt.title('Acquisition results')
   plt.xlabel('PRN number')
   plt.ylabel('Acquisition metric')
-  plt.show()
+   
+  return barplot
