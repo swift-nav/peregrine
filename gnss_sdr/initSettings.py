@@ -45,7 +45,7 @@ class initSettings:
   dllNoiseBandwidth    = 2      #Hz
   dllCorrelatorSpacing = 0.5    #chips
   pllDampingRatio      = 0.7
-  plNoiseBandwidth     = 25     #Hz
+  pllNoiseBandwidth    = 25     #Hz
   navSolPeriod         = 500    #ms
   elevationMask        = 10     #degrees
   useTropCorr          = True

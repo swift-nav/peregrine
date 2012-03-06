@@ -44,7 +44,7 @@ import pylab
 from probeData import probeData
 print "Probing data", settings.fileName
 probeFigure = probeData(settings)
-pylab.draw()
+#pylab.draw()
 
 #Do acquisition
 import getSamples
@@ -61,8 +61,36 @@ else:
   pickle.dump(acqResults,open("acqResults.p","wb"))
 from plotAcquisition import plotAcquisition
 acqFigure = plotAcquisition(acqResults,settings)
+print "Acquisition finished"
+#pylab.draw()
 
 #Do tracking
-
+#Find if any satellites were acquired
+acqSuccessful = False
+for i in range(32): #Add PRN number to each results
+    acqResults[i].append(i)
+#for i in settings.acqSatelliteList:
+for i in range(32-1,-1,-1):
+  if acqResults[i][0] > settings.acqThreshold:
+    acqSuccessful = True
+  else: #if satellite wasn't found, pop it off the list
+    acqResults.pop(i)
+#If any satellites were acquired, set up tracking channels
+from preRun import preRun
+if acqSuccessful:
+  channel = preRun(acqResults,settings)
+  from showChannelStatus import showChannelStatus
+  showChannelStatus(channel,settings)
+else:
+  print "No satellites acquired, not continuing to tracking"
+  pylab.show()
+#Track the signal
+trackSamples = getSamples.int8(settings.fileName,settings.msToProcess,11*samplesPerCode) #11*samplesPerCode is number of samples used in acquisition
+from datetime import datetime
+startTime = datetime.now()
+print "\nTracking started at", startTime
+from tracking import track
+(trackResults, channel) = track(trackSamples, channel, settings)
+print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
 
 pylab.show()
