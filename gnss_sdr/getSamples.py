@@ -34,7 +34,7 @@ def int8(fileName,numReadSamples,numSkipSamples):
   count = len(data_byte)
 
   if (count < numReadSamples):
-    raise Exception("Couldn't read 10ms of samples from sample file")
+    raise Exception("Couldn't read %d of samples from sample file" % (numReadSamples))
 
   #Convert to ints
   data = [0]*count

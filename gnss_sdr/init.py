@@ -76,14 +76,33 @@ for i in range(32-1,-1,-1):
   else: #if satellite wasn't found, pop it off the list
     acqResults.pop(i)
 #If any satellites were acquired, set up tracking channels
-from preRun import preRun
-if acqSuccessful:
-  channel = preRun(acqResults,settings)
-  from showChannelStatus import showChannelStatus
-  showChannelStatus(channel,settings)
-else:
-  print "No satellites acquired, not continuing to tracking"
-  pylab.show()
+#from preRun import preRun
+#if acqSuccessful:
+#  channel = preRun(acqResults,settings)
+#else:
+#  print "No satellites acquired, not continuing to tracking"
+#  pylab.show()
+#Use Octave results instead
+from preRun import track_chan_init_state
+channel = [track_chan_init_state() for i in range(8)]
+channel[0].PRN = 20; channel[0].acquiredFreq = 9547426.3420104980; channel[0].codePhase = 35228; channel[0].status = 'T';
+channel[1].PRN = 17; channel[1].acquiredFreq = 9548236.7477416992; channel[1].codePhase = 4357; channel[1].status = 'T';
+channel[2].PRN = 21; channel[2].acquiredFreq = 9549684.5512390137; channel[2].codePhase = 28111; channel[2].status = 'T';
+channel[3].PRN = 14; channel[3].acquiredFreq = 9549921.2989807129; channel[3].codePhase = 19953; channel[3].status = 'T';
+channel[4].PRN = 25; channel[4].acquiredFreq = 9545013.3361816406; channel[4].codePhase = 10460; channel[4].status = 'T';
+channel[5].PRN = 5; channel[5].acquiredFreq = 9544312.1986389160; channel[5].codePhase = 11834; channel[5].status = 'T';
+channel[6].PRN = 2; channel[6].acquiredFreq = 9549903.0876159668; channel[6].codePhase = 17842; channel[6].status = 'T';
+channel[7].PRN = 8; channel[7].acquiredFreq = 9550831.8672180176; channel[7].codePhase = 26519; channel[7].status = 'T';
+#for i in range(len(channel)):
+#  print "\n%d" % (i)
+#  print "channel[%d].PRN = %d" % (i,channel[i].PRN)
+#  print "channel[%d].acquiredFreq = %8.10f" % (i,channel[i].acquiredFreq)
+#  print "channel[%d].codePhase = %f" % (i,channel[i].codePhase)
+#  print "settings.IF = %d" % (settings.IF)
+#  print "doppler = %d" % (settings.IF-channel[i].acquiredFreq)
+from showChannelStatus import showChannelStatus
+showChannelStatus(channel,settings)
+
 #Track the signal
 trackSamples = getSamples.int8(settings.fileName,settings.msToProcess,11*samplesPerCode) #11*samplesPerCode is number of samples used in acquisition
 from datetime import datetime
@@ -93,4 +112,4 @@ from tracking import track
 (trackResults, channel) = track(trackSamples, channel, settings)
 print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
 
-pylab.show()
+#pylab.show()

@@ -30,11 +30,12 @@ def showChannelStatus(channel,settings):
   for channelNr in range(len(channel)):
     if not(channel[channelNr].status == '-'):
       print("|      %2d | %3d |  %2.5e  |   % 5d   |  %9s  |    %1s   |" % \
-            (channelNr, \
+            (channelNr+1, \
             channel[channelNr].PRN + 1, \
             channel[channelNr].acquiredFreq, \
-            channel[channelNr].acquiredFreq - settings.IF, \
-            ("%4.4f" % (1023-(channel[channelNr].codePhase)/(settings.samplingFreq/1.023e6))), \
+            round(channel[channelNr].acquiredFreq - settings.IF), \
+            #+1 to match octave
+            ("%4.4f" % (1023-(channel[channelNr].codePhase+1)/(settings.samplingFreq/1.023e6))), \
             channel[channelNr].status))
     else:
       print("|      %2d | --- |  ------------ |   -----   |    ------   |   Off  |" % channelNr)
