@@ -55,10 +55,10 @@ samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / set
 acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
 import pickle
 if settings.skipAcquisition:
-  acqResults = pickle.load(open("acqResults.p","rb"))
+  acqResults = pickle.load(open("acqResults.pickle","rb"))
 else:
   acqResults = acquisition(acqSamples,settings)
-  pickle.dump(acqResults,open("acqResults.p","wb"))
+  pickle.dump(acqResults,open("acqResults.pickle","wb"))
 from plotAcquisition import plotAcquisition
 acqFigure = plotAcquisition(acqResults,settings)
 print "Acquisition finished"

@@ -22,9 +22,9 @@
 #USA.
 #--------------------------------------------------------------------------
 class initSettings:
-  msToProcess          = 8
+  msToProcess          = 1
   numberOfChannels     = 8
-  skipNumberOfBytes    = 0
+  skipNumberOfBytes    = 16368
   #dataType             = 'int8'
   fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs38_192-if9_55.bin'
   IF                   = 9.548e6        #Hz
