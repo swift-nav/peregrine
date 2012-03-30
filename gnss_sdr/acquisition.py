@@ -26,6 +26,8 @@ import numpy as np
 import pylab
 import sys
 import math
+import sys
+sys.path.append('./include/');
 from makeCaTable import makeCaTable
 from generateCAcode import generateCAcode
 

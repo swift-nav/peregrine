@@ -22,7 +22,14 @@
 #USA.
 #--------------------------------------------------------------------------
 class initSettings:
-  msToProcess          = 1
+  plotSignal           = True
+  plotAcquisition      = True
+  plotTracking         = True
+
+  skipAcquisition      = True
+  skipTracking         = False
+
+  msToProcess          = 37000
   numberOfChannels     = 8
   skipNumberOfBytes    = 16368
   #dataType             = 'int8'
@@ -35,8 +42,6 @@ class initSettings:
 #  samplingPeriod       = 1/samplingFreq #seconds
   codeFreqBasis        = 1.023e6        #Hz
   codeLength           = 1023
-  skipAcquisition      = True
-#  skipAcquisition      = False
 #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
   acqSatelliteList     = range(0,32,1)
   acqSearchBand        = 14     #KHz
@@ -52,6 +57,5 @@ class initSettings:
   truePositionE        = float('NaN')
   truePositionN        = float('NaN')
   truePositionU        = float('NaN')
-  plotTracking         = True
   c                    = 299792458
   startOffset          = 68.802
