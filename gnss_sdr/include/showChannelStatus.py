@@ -24,6 +24,7 @@
 
 def showChannelStatus(channel,settings):
   print ""
+  print "*======================ACQUISITION RESULTS=========================*"
   print "*=========*=====*===============*===========*=============*========*"
   print "| Channel | PRN |   Frequency   |  Doppler  | Code Offset | Status |"
   print "*=========*=====*===============*===========*=============*========*"
@@ -40,3 +41,5 @@ def showChannelStatus(channel,settings):
     else:
       print("|      %2d | --- |  ------------ |   -----   |    ------   |   Off  |" % channelNr)
 
+  print "*=========*=====*===============*===========*=============*========*"
+  print "*==================================================================*"

@@ -25,19 +25,37 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plotTracking(channelList, trackResults, settings):
-  fig = [[]]
-#  for channelNr in channelList:
-  for channelNr in range(1):
-    fig[channelNr].append(plt.figure(channelNr + 200))
-    fig[channelNr][0].clf()
-    plt.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : I/Q Diagram, PLL Disc, and DLL Disc" % (channelNr,trackResults[channelNr].PRN))
-    fig[channelNr][0].add_subplot(3,2,1);
-    plt.plot(trackResults[channelNr].I_P, trackResults[channelNr].Q_P,'.')
-
-    fig[channelNr].append(plt.figure(channelNr + 250))
-    fig[channelNr][1].clf()
-    plt.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : Correlations" % (channelNr,trackResults[channelNr].PRN))
-    fig[channelNr][1].add_subplot(2,1,1);
+def plotTrackingHigh(channel, trackResults, settings):
+  fig = plt.figure(225)
+  fig.clf()
+  if (settings.plotTrackingNumPts > len(trackResults[0].pllDiscr)):
+    x_pts = [i*0.001 for i in range(len(trackResults[0].pllDiscr))] 
+  else:
+    x_pts = [i*0.001 for i in range(settings.plotTrackingNumPts)] 
+  colors = [(0,0,0),\
+            (0,0,1),\
+            (0,1,0),\
+            (0,1,1),\
+            (1,0,0),\
+            (1,0,1),\
+            (1,1,0),\
+            (0,0,0.5),\
+            (0,0.5,0),\
+            (0,0.5,0.5),\
+            (0.5,0,0),\
+            (0.5,0,0.5),\
+            (0.5,0.5,0),\
+            (0.5,0.5,0.5)]
+  plt.title("Prompt correlation magnitude of each channel")
+  plt.xlabel("Time")
+  plt.hold(True)
+  
+  for channelNr in range(len(trackResults)):
+    plt.plot(x_pts,\
+             np.sqrt(np.square(trackResults[channelNr].I_P[0:len(x_pts)])\
+               + np.square(trackResults[channelNr].Q_P[0:len(x_pts)])),\
+             color=colors[channelNr], label=("PRN %2d" % (channel[channelNr].PRN)))
+  plt.legend()
+  plt.hold(False)
 
   return fig

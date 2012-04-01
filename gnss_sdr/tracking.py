@@ -44,13 +44,11 @@ def track(samples, channel, settings):
   ##PLL Variables##
   PDIcarr = 0.001
   (tau1carr,tau2carr) = calcLoopCoef(settings.pllNoiseBandwidth,settings.pllDampingRatio,0.25)
-  
-  #Progress bar
+
   progbar = Waitbar(True)
   
   #Do tracking for each channel
   for channelNr in range(len(channel)):
-#  for channelNr in range(1):
     trackResults[channelNr].PRN = channel[channelNr].PRN
     #Get a vector with the C/A code sampled 1x/chip
     caCode = np.array(generateCAcode(channel[channelNr].PRN))
@@ -76,9 +74,11 @@ def track(samples, channel, settings):
   
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
-      #Update progress bar every 50 loops
+      #Update progress every 50 loops
       if (np.remainder(loopCnt,50)==0):
-        progbar.update((channelNr*settings.msToProcess+loopCnt)/(len(channel)*settings.msToProcess))
+        progbar.updated(float(loopCnt + channelNr*settings.msToProcess)\
+                        / float(len(channel)*settings.msToProcess))
+#        print "Channel %d/%d, %d/%d ms" % (channelNr+1,len(channel),loopCnt, settings.msToProcess)
       #Update the code phase rate based on code freq and sampling freq
       codePhaseStep = codeFreq/settings.samplingFreq
       codePhaseStep = codePhaseStep*(10**12) #round it in the same way we are in octave
@@ -188,6 +188,8 @@ def track(samples, channel, settings):
 
     #Possibility for lock-detection later
     trackResults[channelNr].status = 'T'
+
+  print ""
 
   return (trackResults,channel)
 

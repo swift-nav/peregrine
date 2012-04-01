@@ -35,7 +35,8 @@ from preRun import track_chan_init_state
 from showChannelStatus import showChannelStatus
 from datetime import datetime
 from tracking import track
-from plotTracking import plotTracking
+from plotTrackingLow import plotTrackingLow
+from plotTrackingHigh import plotTrackingHigh
 
 #Add ./geofunctions and ./include to search directory for import calls
 sys.path.append('./include/');
@@ -57,24 +58,24 @@ settings = initSettings
 print "Probing data", settings.fileName
 if settings.plotSignal:
   probeFigure = probeData(settings)
-pylab.draw()
+  pylab.draw()
 
 #Do acquisition
 #Get 11ms of acquisition samples for fine frequency estimation
 samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
 acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
 if settings.skipAcquisition:
-  print "\nLoading old acquisition results..."
+  print "\nLoading old acquisition results ...",
   acqResults = pickle.load(open("acqResults.pickle","rb"))
-  print "Finished loading old acquisition results"
+  print "done"
 else:
-  print "\nAcquiring satellites..."
+  print "\nAcquiring satellites ...",
   acqResults = acquisition(acqSamples,settings)
   pickle.dump(acqResults,open("acqResults.pickle","wb"))
-  print "Acquisition finished"
+  print "done"
 if settings.plotAcquisition:
   acqFigure = plotAcquisition(acqResults,settings)
-pylab.draw()
+  pylab.draw()
 
 #Do tracking
 #Find if any satellites were acquired
@@ -109,16 +110,18 @@ pylab.draw()
 #Track the signal
 trackSamples = getSamples.int8(settings.fileName,settings.msToProcess,11*samplesPerCode) #11*samplesPerCode is number of samples used in acquisition
 if settings.skipTracking:
-  print "\nLoading old tracking results..."
+  print "\nLoading old tracking results ... ",
   (trackResults,channel) = pickle.load(open("trackResults.pickle","rb"))
-  print "Finished loading old tracking results"
+  print "done"
 else:
   startTime = datetime.now()
   print "\nTracking started at", startTime
   (trackResults,channel) = track(trackSamples, channel, settings)
   pickle.dump((trackResults,channel),open("trackResults.pickle","wb"))
   print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
-if settings.plotTracking:
-  trackFigures = plotTracking(range(len(channel)), trackResults,settings)
+if settings.plotTrackingLow:
+  trackLowFigures = plotTrackingLow(trackResults,settings)
+if settings.plotTrackingHigh:
+  trackHighFigure = plotTrackingHigh(channel,trackResults,settings)
 
 pylab.show()

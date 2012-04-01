@@ -35,7 +35,7 @@ def probeData(settings = initSettings.initSettings):
   samples = getSamples.int8(settings.fileName,10*samplesPerCode,settings.skipNumberOfBytes)
   
   #Initialize figure
-  fig = pylab.figure()
+  fig = pylab.figure(1)
   pylab.clf()
   
   #X axis

@@ -24,22 +24,26 @@
 class initSettings:
   plotSignal           = True
   plotAcquisition      = True
-  plotTracking         = True
+
+  plotTrackingHigh     = True
+
+  plotTrackingLow      = False
+  plotTrackingLowInds  = range(1)
+  plotTrackingLowCorr  = True
+  plotTrackingLowDisc  = False
+
+  plotTrackingNumPts   = 200
 
   skipAcquisition      = True
   skipTracking         = False
 
-  msToProcess          = 37000
+  msToProcess          = 500
   numberOfChannels     = 8
   skipNumberOfBytes    = 16368
   #dataType             = 'int8'
   fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs38_192-if9_55.bin'
   IF                   = 9.548e6        #Hz
   samplingFreq         = 38.192e6       #Hz
-#  fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs16_368-if4_092.bin'
-#  IF                   = 4.092e6        #Hz
-#  samplingFreq         = 16.368e6       #Hz
-#  samplingPeriod       = 1/samplingFreq #seconds
   codeFreqBasis        = 1.023e6        #Hz
   codeLength           = 1023
 #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
