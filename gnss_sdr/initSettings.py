@@ -24,18 +24,18 @@
 class initSettings:
   plotSignal           = True
   plotAcquisition      = True
-
   plotTrackingHigh     = True
-
   plotTrackingLow      = False
+  plotNavigation       = True
+
   plotTrackingLowInds  = range(1)
   plotTrackingLowCorr  = True
   plotTrackingLowDisc  = False
-
   plotTrackingNumPts   = 200
 
   skipAcquisition      = True
-  skipTracking         = False
+  skipTracking         = True
+  skipNavigation       = False
 
   msToProcess          = 500
   numberOfChannels     = 8

@@ -37,6 +37,7 @@ from datetime import datetime
 from tracking import track
 from plotTrackingLow import plotTrackingLow
 from plotTrackingHigh import plotTrackingHigh
+from navigation import navigation
 
 #Add ./geofunctions and ./include to search directory for import calls
 sys.path.append('./include/');
@@ -116,12 +117,24 @@ if settings.skipTracking:
 else:
   startTime = datetime.now()
   print "\nTracking started at", startTime
-  (trackResults,channel) = track(trackSamples, channel, settings)
-  pickle.dump((trackResults,channel),open("trackResults.pickle","wb"))
+  (trackResults, channel) = track(trackSamples, channel, settings)
+  pickle.dump((trackResults, channel),open("trackResults.pickle","wb"))
   print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
 if settings.plotTrackingLow:
   trackLowFigures = plotTrackingLow(trackResults,settings)
 if settings.plotTrackingHigh:
   trackHighFigure = plotTrackingHigh(channel,trackResults,settings)
 
-pylab.show()
+#Do navigation
+if settings.skipNavigation:
+  print "\nLoading old navigation results ... ",
+  (navSolutions, eph) = pickle.load(open("navResults.pickle","rb"))
+  print "done"
+else:
+  startTime = datetime.now()
+  print "\nNavigation started at", startTime
+  (navSolutions, eph) = navigation(trackResults, settings)
+  pickle.dump((navSolutions, eph),open("navResults.pickle","wb"))
+  print "Navigation Done. Elapsed time =", (datetime.now() - startTime)
+
+#pylab.show()
