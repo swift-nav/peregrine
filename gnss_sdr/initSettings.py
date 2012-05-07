@@ -21,23 +21,23 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 #USA.
 #--------------------------------------------------------------------------
-class initSettings:
-  plotSignal           = True
-  plotAcquisition      = True
-  plotTrackingHigh     = True
-  plotTrackingLow      = False
-  plotNavigation       = True
+class initSettings():
+  plotSignal           = False
+  plotAcquisition      = False
+  plotTrackingHigh     = False
+  plotTrackingLow      = True
+  plotNavigation       = False
 
   plotTrackingLowInds  = range(1)
   plotTrackingLowCorr  = True
-  plotTrackingLowDisc  = False
+  plotTrackingLowDisc  = True
   plotTrackingNumPts   = 200
 
   skipAcquisition      = True
   skipTracking         = True
   skipNavigation       = False
 
-  msToProcess          = 500
+  msToProcess          = 37000
   numberOfChannels     = 8
   skipNumberOfBytes    = 16368
   #dataType             = 'int8'

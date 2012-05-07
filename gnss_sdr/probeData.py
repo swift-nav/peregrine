@@ -28,7 +28,9 @@ import numpy
 import matplotlib
 import getSamples
 
-def probeData(settings = initSettings.initSettings):
+def probeData(settings):
+
+  print "Probing data", settings.fileName
 
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   
@@ -71,3 +73,9 @@ def probeData(settings = initSettings.initSettings):
   pylab.title('Histogram');
   
   return fig
+
+if __name__ == "__main__":
+  settings = initSettings.initSettings()
+  fig = probeData(settings)
+  print "Plotting data", settings.fileName
+  pylab.show()

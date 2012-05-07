@@ -53,11 +53,11 @@ print 'is free software  you  are  welcome  to  redistribute  it under'
 print 'the terms described in the license.\n'
 
 #Initialize constants, settings
-settings = initSettings
+settings = initSettings()
 
 #Generate plot of raw data
-print "Probing data", settings.fileName
 if settings.plotSignal:
+  print "Plotting data", settings.fileName
   probeFigure = probeData(settings)
   pylab.draw()
 
@@ -81,8 +81,6 @@ if settings.plotAcquisition:
 #Do tracking
 #Find if any satellites were acquired
 acqSuccessful = False
-for i in range(32): #Add PRN number to each results
-    acqResults[i].append(i)
 #for i in settings.acqSatelliteList:
 for i in range(32-1,-1,-1):
   if acqResults[i][0] > settings.acqThreshold:
@@ -137,4 +135,4 @@ else:
   pickle.dump((navSolutions, eph),open("navResults.pickle","wb"))
   print "Navigation Done. Elapsed time =", (datetime.now() - startTime)
 
-#pylab.show()
+pylab.show()
