@@ -36,5 +36,11 @@ def navigation(trackResults, settings):
 
   (firstSubFrame, activeChnList) = findPreambles(trackResults,settings)
 
+  for a in activeChnList:
+    print "activeChnList = %s" % (str(a))
+
+  for a in firstSubFrame:
+    print "firstSubFrame = %s" % (str(a))
+
   (navSolutions, eph) = (0,0)
   return (navSolutions, eph)
