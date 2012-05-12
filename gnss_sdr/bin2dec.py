@@ -22,26 +22,28 @@
 #USA.
 #--------------------------------------------------------------------------
 import numpy as np
-from findPreambles import findPreambles
-
-def navigation(trackResults, settings):
-  numGoodSats = 0
-  for i in range(len(trackResults)):
-    if (trackResults[i].status == 'T'):
-      numGoodSats = numGoodSats + 1
-  if (numGoodSats >= 4):
-    Exception('Too few satellites to calculate nav solution')
-  if (len(trackResults) < 36000):
-    Exception('Length of tracking too short to calculate nav solution')
-
-  (firstSubFrame, activeChnList) = findPreambles(trackResults,settings)
-
-  for channelNr in activeChnList:
-    navBits = corrs2navbits(trackResults[channelNr].I_P[subFrameStart[channelNr]-20:subFrameStart[channelNr] + (1500*20)])
-
-  (navSolutions, eph) = (0,0)
-  return (navSolutions, eph)
-
-def corrs2navbits(corrs):
-  bits = np.sign(np.sum(np.reshape(corrs,(len(corrs)/20,20)),1))
-  return bits
+def unsigned(inbin):
+  #Check that inbin is a list of 0's and 1's
+  if not((np.unique(inbin) == np.array([0])).all() or \
+           (np.unique(inbin) == np.array([0,1])).all() or \
+             (np.unique(inbin) == np.array([1])).all()):
+    raise Exception('input must be a list of 0s and 1s')
+  #Convert list of 1's and 0's to string of 1's and 0's
+  tmp = ''
+  for i in inbin:
+    tmp += str(i)
+  #Convert string of 1's and 0's to decimal
+  tmp = int(tmp,2)
+  return tmp 
+def twoscomp(inbin):
+  #Check that inbin is a list of 0's and 1's
+  if not((np.unique(inbin) == np.array([0])).all() or \
+           (np.unique(inbin) == np.array([0,1])).all() or \
+             (np.unique(inbin) == np.array([1])).all()):
+    raise Exception('input must be a list of 0s and 1s')
+  #Compute magnitude of unsigned portion
+  tmp = unsigned(inbin[1::])
+  #Convert to negative if signed
+  if inbin[0] == 1:
+    tmp = tmp - 2**(len(inbin)-1)
+  return tmp
