@@ -26,7 +26,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def plotTrackingHigh(channel, trackResults, settings):
-  fig = plt.figure(225)
+  fig = plt.figure()
   fig.clf()
   if (settings.plotTrackingNumPts > len(trackResults[0].pllDiscr)):
     x_pts = [i*0.001 for i in range(len(trackResults[0].pllDiscr))] 

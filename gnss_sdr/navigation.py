@@ -23,6 +23,8 @@
 #--------------------------------------------------------------------------
 import numpy as np
 from findPreambles import findPreambles
+from ephemeris import ephemeris
+import corrs2bits
 
 def navigation(trackResults, settings):
   numGoodSats = 0
@@ -34,14 +36,13 @@ def navigation(trackResults, settings):
   if (len(trackResults) < 36000):
     Exception('Length of tracking too short to calculate nav solution')
 
-  (firstSubFrame, activeChnList) = findPreambles(trackResults,settings)
+  (subFrameStart, activeChnList) = findPreambles(trackResults,settings)
 
+  eph = [[] for i in range(32)]
+#  eph = [i for i in range(32)]
   for channelNr in activeChnList:
-    navBits = corrs2navbits(trackResults[channelNr].I_P[subFrameStart[channelNr]-20:subFrameStart[channelNr] + (1500*20)])
+    navBits = corrs2bits.unsigned(trackResults[channelNr].I_P[subFrameStart[channelNr]-20:subFrameStart[channelNr] + (1500*20)])
+#    (eph[trackResults[channelNr].PRN], TOW) = ephemeris(navBits[])
 
   (navSolutions, eph) = (0,0)
   return (navSolutions, eph)
-
-def corrs2navbits(corrs):
-  bits = np.sign(np.sum(np.reshape(corrs,(len(corrs)/20,20)),1))
-  return bits

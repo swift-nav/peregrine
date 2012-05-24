@@ -35,7 +35,7 @@ def plotTrackingLow(trackResults, settings):
   for channelNr in settings.plotTrackingLowInds:
     fig.append([])
     if settings.plotTrackingLowDisc:
-      fig[channelNr].append(plt.figure(channelNr + 200))
+      fig[channelNr].append(plt.figure())
       fig[channelNr][-1].clf()
       plt.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : I/Q Diagram, PLL Disc, and DLL Disc" % (channelNr,trackResults[channelNr].PRN))
 
@@ -65,7 +65,7 @@ def plotTrackingLow(trackResults, settings):
       plt.xlabel('Time')
 
     if settings.plotTrackingLowCorr:
-      fig[channelNr].append(plt.figure(channelNr + 250))
+      fig[channelNr].append(plt.figure())
       fig[channelNr][-1].clf()
       plt.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : Correlations" % (channelNr,trackResults[channelNr].PRN))
 

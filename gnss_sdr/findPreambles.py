@@ -22,8 +22,8 @@
 #USA.
 #--------------------------------------------------------------------------
 import numpy as np
-import matplotlib.pyplot as plt
 from navPartyChk import navPartyChk
+import corrs2bits
 
 def findPreambles(trackResults, settings):
   #Preamble search can be delayed to a later point in the track
@@ -68,10 +68,10 @@ def findPreambles(trackResults, settings):
       index2 = index - index[i]
       #If we find preambles 6000 ms apart, check the preambles of the TLM and HOW
       if any(np.equal(index2,6000)):
-        tlmstar = corrs2navbits(trackResults[channelNr].I_P[index[i]-40:index[i]])
-        tlm = corrs2navbits(trackResults[channelNr].I_P[index[i]:index[i] + 20*30])
-        howstar = corrs2navbits(trackResults[channelNr].I_P[index[i]+20*30-40:index[i]+20*30])
-        how = corrs2navbits(trackResults[channelNr].I_P[index[i] + 20*30:index[i]+20*60])
+        tlmstar = corrs2bits.signed(trackResults[channelNr].I_P[index[i]-40:index[i]])
+        tlm = corrs2bits.signed(trackResults[channelNr].I_P[index[i]:index[i] + 20*30])
+        howstar = corrs2bits.signed(trackResults[channelNr].I_P[index[i]+20*30-40:index[i]+20*30])
+        how = corrs2bits.signed(trackResults[channelNr].I_P[index[i] + 20*30:index[i]+20*60])
         #Check the parity of the TLM and HOW words
         if (navPartyChk(tlmstar,tlm) != 0) and (navPartyChk(howstar,how) != 0):
           #Parity was okay. Record the preamble start position. Skip the rest of
@@ -84,7 +84,3 @@ def findPreambles(trackResults, settings):
       activeChnList.pop(channelNr)
 
   return (firstSubFrame, activeChnList)
-
-def corrs2navbits(corrs):
-  bits = np.sign(np.sum(np.reshape(corrs,(len(corrs)/20,20)),1))
-  return bits

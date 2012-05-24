@@ -24,8 +24,8 @@
 class initSettings():
   plotSignal           = False
   plotAcquisition      = False
-  plotTrackingHigh     = False
-  plotTrackingLow      = True
+  plotTrackingHigh     = True
+  plotTrackingLow      = False
   plotNavigation       = False
 
   plotTrackingLowInds  = range(1)

@@ -50,7 +50,7 @@ print 'and converted to Python by Colin Beighley (colinbeighley@gmail.com).'
 print 'The software receiver softGNSS comes with ABSOLUTELY NO WARRANTY;'
 print 'for details please read license details in the file license.txt. This'
 print 'is free software  you  are  welcome  to  redistribute  it under'
-print 'the terms described in the license.\n'
+print 'the terms described in the license.'
 
 #Initialize constants, settings
 settings = initSettings()
@@ -73,7 +73,7 @@ else:
   print "\nAcquiring satellites ...",
   acqResults = acquisition(acqSamples,settings)
   pickle.dump(acqResults,open("acqResults.pickle","wb"))
-  print "done"
+#  print "done"
 if settings.plotAcquisition:
   acqFigure = plotAcquisition(acqResults,settings)
   pylab.draw()
@@ -104,7 +104,6 @@ channel[5].PRN = 5; channel[5].acquiredFreq = 9544312.1986389160; channel[5].cod
 channel[6].PRN = 2; channel[6].acquiredFreq = 9549903.0876159668; channel[6].codePhase = 17842; channel[6].status = 'T';
 channel[7].PRN = 8; channel[7].acquiredFreq = 9550831.8672180176; channel[7].codePhase = 26519; channel[7].status = 'T';
 showChannelStatus(channel,settings)
-pylab.draw()
 
 #Track the signal
 trackSamples = getSamples.int8(settings.fileName,settings.msToProcess,11*samplesPerCode) #11*samplesPerCode is number of samples used in acquisition

@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 def plotAcquisition(acqResults,settings):
   acqResults = np.array(acqResults)
-  plt.figure(101)
+  plt.figure()
   plt.hold(True)
   barplot = []
   for i in range(32):
