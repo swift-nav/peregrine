@@ -26,7 +26,7 @@ class initSettings():
   plotAcquisition      = False
   plotTrackingHigh     = True
   plotTrackingLow      = False
-  plotNavigation       = False
+  plotNavigation       = True
 
   plotTrackingLowInds  = range(1)
   plotTrackingLowCorr  = True

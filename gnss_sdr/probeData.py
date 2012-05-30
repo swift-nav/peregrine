@@ -53,9 +53,9 @@ def probeData(settings):
   
   #Frequency domain plot
   (Pxx,freqs) = matplotlib.mlab.psd(x = samples-numpy.mean(samples),\
+                                                    noverlap = 1024,\
                                                         NFFT = 2048,\
-                                     Fs = settings.samplingFreq/1e6,\
-                                                    noverlap = 1024)
+                                     Fs = settings.samplingFreq/1e6)
   pylab.subplot(2,2,2)
   pylab.semilogy(freqs,Pxx)
   pylab.title('Frequency Domain Plot')
