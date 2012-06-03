@@ -40,7 +40,8 @@ def preRun(acqResults,settings):
   return channel
   
 class track_chan_init_state:
-  PRN          = 0
-  acquiredFreq = 0.0
-  codePhase    = 0
-  status       = '-'
+  def __init__(self):
+    self.PRN          = 0
+    self.acquiredFreq = 0.0
+    self.codePhase    = 0
+    self.status       = '-'

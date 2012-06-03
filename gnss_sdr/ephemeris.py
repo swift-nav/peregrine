@@ -69,7 +69,7 @@ def ephemeris(bits,D30star):
     elif (subframeID==2): #First section of ephemeris parameters
       eph.IODE_sf2 = bin2dec.unsigned(subframe[60:68])
       eph.C_rs     = bin2dec.twoscomp(subframe[68:84]) *2**(-5)
-      eph.deltan   = bin2dec.twoscomp(subframe[90:106]) *2**(-43) * gpsPi
+      eph.deltan   = bin2dec.twoscomp(subframe[90:106]) *2**(-43)*gpsPi
       eph.M_0      = bin2dec.twoscomp(np.concatenate((subframe[106:114],subframe[120:144]))) *2**(-31)*gpsPi
       eph.C_uc     = bin2dec.twoscomp(subframe[150:166]) *2**(-29)
       eph.e        = bin2dec.unsigned(np.concatenate((subframe[166:174],subframe[180:204]))) *2**(-33)
@@ -83,41 +83,45 @@ def ephemeris(bits,D30star):
       eph.i_0      = bin2dec.twoscomp(np.concatenate((subframe[136:144],subframe[150:174]))) *2**(-31)*gpsPi
       eph.C_rc     = bin2dec.twoscomp(subframe[180:196]) *2**(-5)
       eph.omega    = bin2dec.twoscomp(np.concatenate((subframe[196:204],subframe[210:234]))) *2**(-31)*gpsPi
-      eph.omegaDot = bin2dec.twoscomp(subframe[240:264]) *2**(-43) * gpsPi
+      eph.omegaDot = bin2dec.twoscomp(subframe[240:264]) *2**(-43)*gpsPi
       eph.IODE_sf3 = bin2dec.unsigned(subframe[270:278])
-      eph.iDot     = bin2dec.twoscomp(subframe[278:292]) *2**(-43) * gpsPi
+      eph.iDot     = bin2dec.twoscomp(subframe[278:292]) *2**(-43)*gpsPi
 
+    #We want TOW of first subframe in bit list. Each HOW (second word in subframe) has the trucated z count.
+    #TOW at start of subframe is truncated z count * 6, but TOW of subframe n is actually the TOW of 
+    #subframe n+1, so we subtract 6 from the first subframe's TOW
     if (i==0):
-      TOW = bin2dec.unsigned(subframe[30:47])*6 - 6
+      truncated_zcount = bin2dec.unsigned(subframe[30:47])
+      TOW = truncated_zcount*6 - 6 
   
   return (eph, TOW)
 
 class eph_class:
-  def __init__():
-    eph.weekNumber  = 0.0
-    eph.accuracy    = 0.0
-    eph.health      = 0.0
-    eph.T_GD        = 0.0
-    eph.IODC        = 0.0
-    eph.t_oc        = 0.0
-    eph.a_f2        = 0.0
-    eph.a_f1        = 0.0
-    eph.a_f0        = 0.0
-    eph.IODE_sf2    = 0.0
-    eph.C_rs        = 0.0
-    eph.deltan      = 0.0
-    eph.M_0         = 0.0
-    eph.C_uc        = 0.0
-    eph.e           = 0.0
-    eph.C_us        = 0.0
-    eph.sqrtA       = 0.0
-    eph.t_oe        = 0.0
-    eph.C_ic        = 0.0
-    eph.omega_0     = 0.0
-    eph.C_is        = 0.0
-    eph.i_0         = 0.0
-    eph.C_rc        = 0.0
-    eph.omega       = 0.0
-    eph.omegaDot    = 0.0
-    eph.IODE_sf3    = 0.0
-    eph.iDot        = 0.0
+  def __init__(self):
+    self.weekNumber  = 0.0
+    self.accuracy    = 0
+    self.health      = 0
+    self.T_GD        = 0.0
+    self.IODC        = 0
+    self.t_oc        = 0.0
+    self.a_f2        = 0.0
+    self.a_f1        = 0.0
+    self.a_f0        = 0.0
+    self.IODE_sf2    = 0
+    self.C_rs        = 0.0
+    self.deltan      = 0.0
+    self.M_0         = 0.0
+    self.C_uc        = 0.0
+    self.e           = 0.0
+    self.C_us        = 0.0
+    self.sqrtA       = 0.0
+    self.t_oe        = 0.0
+    self.C_ic        = 0.0
+    self.omega_0     = 0.0
+    self.C_is        = 0.0
+    self.i_0         = 0.0
+    self.C_rc        = 0.0
+    self.omega       = 0.0
+    self.omegaDot    = 0.0
+    self.IODE_sf3    = 0
+    self.iDot        = 0.0

@@ -27,6 +27,7 @@ import getSamples
 from waitbar import Waitbar
 import math
 from save import save
+from calcLoopCoef import calcLoopCoef
 
 def track(samples, channel, settings):
   #Create list of tracking channels results (correlations, freqs, etc)
@@ -39,7 +40,6 @@ def track(samples, channel, settings):
   #Summation interval
   PDIcode = 0.001
   #Filter coefficient values
-  from calcLoopCoef import calcLoopCoef
   (tau1code, tau2code) = calcLoopCoef(settings.dllNoiseBandwidth,settings.dllDampingRatio,1.0)
   ##PLL Variables##
   PDIcarr = 0.001
@@ -196,6 +196,7 @@ def track(samples, channel, settings):
 class trackResults_class:
   def __init__(self,settings):
     self.status = '-'
+    self.PRN = 40 #invalid Goldcode number
     self.absoluteSample = np.zeros(settings.msToProcess)
     self.codeFreq = np.inf*np.ones(settings.msToProcess)
     self.carrFreq = np.inf*np.ones(settings.msToProcess)

@@ -21,45 +21,46 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 #USA.
 #--------------------------------------------------------------------------
-class initSettings():
-  plotSignal           = False
-  plotAcquisition      = False
-  plotTrackingHigh     = True
-  plotTrackingLow      = False
-  plotNavigation       = True
+class initSettings:
+  def __init__(self):
+    self.plotSignal           = False
+    self.plotAcquisition      = False
+    self.plotTrackingHigh     = True
+    self.plotTrackingLow      = False
+    self.plotNavigation       = True
 
-  plotTrackingLowInds  = range(1)
-  plotTrackingLowCorr  = True
-  plotTrackingLowDisc  = True
-  plotTrackingNumPts   = 200
+    self.plotTrackingLowInds  = range(1)
+    self.plotTrackingLowCorr  = True
+    self.plotTrackingLowDisc  = True
+    self.plotTrackingNumPts   = 200
 
-  skipAcquisition      = True
-  skipTracking         = True
-  skipNavigation       = False
+    self.skipAcquisition      = True
+    self.skipTracking         = True
+    self.skipNavigation       = False
 
-  msToProcess          = 37000
-  numberOfChannels     = 8
-  skipNumberOfBytes    = 16368
-  #dataType             = 'int8'
-  fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs38_192-if9_55.bin'
-  IF                   = 9.548e6        #Hz
-  samplingFreq         = 38.192e6       #Hz
-  codeFreqBasis        = 1.023e6        #Hz
-  codeLength           = 1023
-#  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
-  acqSatelliteList     = range(0,32,1)
-  acqSearchBand        = 14     #KHz
-  acqThreshold         = 2.5
-  dllDampingRatio      = 0.7
-  dllNoiseBandwidth    = 2      #Hz
-  dllCorrelatorSpacing = 0.5    #chips
-  pllDampingRatio      = 0.7
-  pllNoiseBandwidth    = 25     #Hz
-  navSolPeriod         = 500    #ms
-  elevationMask        = 10     #degrees
-  useTropCorr          = True
-  truePositionE        = float('NaN')
-  truePositionN        = float('NaN')
-  truePositionU        = float('NaN')
-  c                    = 299792458
-  startOffset          = 68.802
+    self.msToProcess          = 37000
+    self.numberOfChannels     = 8
+    self.skipNumberOfBytes    = 16368
+    #dataType             = 'int8'
+    self.fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs38_192-if9_55.bin'
+    self.IF                   = 9.548e6        #Hz
+    self.samplingFreq         = 38.192e6       #Hz
+    self.codeFreqBasis        = 1.023e6        #Hz
+    self.codeLength           = 1023
+  #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
+    self.acqSatelliteList     = range(0,32,1)
+    self.acqSearchBand        = 14     #KHz
+    self.acqThreshold         = 2.5
+    self.dllDampingRatio      = 0.7
+    self.dllNoiseBandwidth    = 2      #Hz
+    self.dllCorrelatorSpacing = 0.5    #chips
+    self.pllDampingRatio      = 0.7
+    self.pllNoiseBandwidth    = 25     #Hz
+    self.navSolPeriod         = 500    #ms
+    self.elevationMask        = 10     #degrees
+    self.useTropCorr          = True
+    self.truePositionE        = float('NaN')
+    self.truePositionN        = float('NaN')
+    self.truePositionU        = float('NaN')
+    self.c                    = 299792458
+    self.startOffset          = 68.802
