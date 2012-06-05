@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -22,9 +22,17 @@
 #USA.
 #--------------------------------------------------------------------------
 
+def ascii_int8(fileName, numReadSamples, numSkipSamples):
+  f = open(fileName, 'r')
+  samps = map(int, f.readlines())
+  for s in samps:
+    if not s in [-7, -5, -3, -1, 1, 3, 5, 7]:
+      raise Exception("Sample out of range")
+  return samps[numSkipSamples:numSkipSamples+numReadSamples]
+
 def int8(fileName,numReadSamples,numSkipSamples):
 
-  #Plot raw data
+  #Open file and seek to appropriate sample
   f = open(fileName,'r')
   f.seek(numSkipSamples)
 
