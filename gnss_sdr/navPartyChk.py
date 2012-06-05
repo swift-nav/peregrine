@@ -3,10 +3,10 @@
 # Based on the flowchart in Figure 2-10 in the 2nd Edition of the GPS-SPS
 # Signal Spec.
 #
-# status = navPartyChk(bt)
+# status = navPartyChk(word)
 #
 #   Inputs: 
-#       bt          - an array (1x32) of 32 bits represent a GPS navigation
+#       word          - an array (1x32) of 32 bits represent a GPS navigation
 #                   word which is 30 bits plus two previous bits used in
 #                   the parity calculation [-2,-1,0,1,2, ... ,28,29]
 #
@@ -41,30 +41,30 @@
 #--------------------------------------------------------------------------
 import numpy as np
 
-def navPartyChk(bt):
+def navPartyChk(wordstar,word):
 
   #Check if the data bits must be inverted
-  if (bt[1] == -1):
-    bt[2:26] = -np.ones(24)*bt[2:26]
+  if (wordstar[1] == -1):
+    word[0:24] = -np.ones(24)*word[0:24]
 
   #Calculate 6 parity bits according to table 20-XIV in ICD-200C
   prty = np.ones(6)
-  prty[0] = bt[0] *bt[2] *bt[3] *bt[4] *bt[6] *bt[7] *bt[11]* \
-            bt[12]*bt[13]*bt[14]*bt[15]*bt[18]*bt[19]*bt[21]*bt[24]
-  prty[1] = bt[1] *bt[3] *bt[4] *bt[5] *bt[7] *bt[8] *bt[12]* \
-            bt[13]*bt[14]*bt[15]*bt[16]*bt[19]*bt[20]*bt[22]*bt[25]
-  prty[2] = bt[0] *bt[2] *bt[4] *bt[5] *bt[6] *bt[8] *bt[9]* \
-            bt[13]*bt[14]*bt[15]*bt[16]*bt[17]*bt[20]*bt[21]*bt[23]
-  prty[3] = bt[1] *bt[3] *bt[5] *bt[6] *bt[7] *bt[9] *bt[10]* \
-            bt[14]*bt[15]*bt[16]*bt[17]*bt[18]*bt[21]*bt[22]*bt[24]
-  prty[4] = bt[1] *bt[2] *bt[4] *bt[6] *bt[7] *bt[8] *bt[10]*bt[11]* \
-            bt[15]*bt[16]*bt[17]*bt[18]*bt[19]*bt[22]*bt[23]*bt[25]
-  prty[5] = bt[0] *bt[4] *bt[6] *bt[7] *bt[9] *bt[10]*bt[11]* \
-            bt[12]*bt[14]*bt[16]*bt[20]*bt[23]*bt[24]*bt[25]
+  prty[0] = wordstar[0] *word[0] *word[1] *word[2] *word[4] *word[5] *word[9]* \
+            word[10]*word[11]*word[12]*word[13]*word[16]*word[17]*word[19]*word[22]
+  prty[1] = wordstar[1] *word[1] *word[2] *word[3] *word[5] *word[6] *word[10]* \
+            word[11]*word[12]*word[13]*word[14]*word[17]*word[18]*word[20]*word[23]
+  prty[2] = wordstar[0] *word[0] *word[2] *word[3] *word[4] *word[6] *word[7]* \
+            word[11]*word[12]*word[13]*word[14]*word[15]*word[18]*word[19]*word[21]
+  prty[3] = wordstar[1] *word[1] *word[3] *word[4] *word[5] *word[7] *word[8]* \
+            word[12]*word[13]*word[14]*word[15]*word[16]*word[19]*word[20]*word[22]
+  prty[4] = wordstar[1] *word[0] *word[2] *word[4] *word[5] *word[6] *word[8]*word[9]* \
+            word[13]*word[14]*word[15]*word[16]*word[17]*word[20]*word[21]*word[23]
+  prty[5] = wordstar[0] *word[2] *word[4] *word[5] *word[7] *word[8] *word[9]* \
+            word[10]*word[12]*word[14]*word[18]*word[21]*word[22]*word[23]
 
   #Compare if the received parity is equal to the calculated parity
-  if (np.sum(np.array(np.equal(prty,bt[26:32]),dtype=int)) == 6):
-    status = -1 * ndat[1] #Parity check successful, -1 if inverted
+  if (np.sum(np.array(np.equal(prty,word[24:30]),dtype=int)) == 6):
+    status = -1 * wordstar[1] #Parity check successful, -1 if inverted
   else:
     status = 0 #Parity check was not successful
 

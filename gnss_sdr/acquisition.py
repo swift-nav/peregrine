@@ -24,7 +24,6 @@
 
 import numpy as np
 import pylab
-import sys
 import math
 import sys
 sys.path.append('./include/');
@@ -151,10 +150,30 @@ def acquisition(longSignal,settings):
     else:
       print ".",
       sys.stdout.flush()
+    for i in range(32): #Add PRN number to each result
+      acqResults[i].append(i)
   #Acquisition is over 
   print ")"
   return acqResults
-#class acqResults_class:
-#  carrFreq = 0.0
-#  codePhase = 0.0
-#  peakMetric = 0.0
+
+if __name__ == "__main__":
+  from initSettings import initSettings
+  import getSamples
+  from showChannelStatus import showChannelStatus
+  from preRun import preRun
+  from plotAcquisition import plotAcquisition
+  settings = initSettings()
+  #11 ms of samples
+  samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
+  acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
+  print "Acquiring satellites ...",
+  acqResults = acquisition(acqSamples,settings)
+  acqFigure = plotAcquisition(acqResults,settings)
+  #if satellite wasn't found, pop it off the list
+  for i in range(32-1,-1,-1):
+    if acqResults[i][0] > settings.acqThreshold:
+      acqSuccessful = True
+    else: 
+      acqResults.pop(i)
+  showChannelStatus(preRun(acqResults,settings),settings)
+  pylab.show()

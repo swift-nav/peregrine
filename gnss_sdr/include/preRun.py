@@ -22,18 +22,20 @@
 #USA.
 #--------------------------------------------------------------------------
 
-from operator import itemgetter
+#from operator import itemgetter
 
 def preRun(acqResults,settings):
+  numToTrack = min(len(acqResults),settings.numberOfChannels)
   #Initialize list of tracking channel initial states
-  channel = [track_chan_init_state() for i in range(min(len(acqResults),settings.numberOfChannels))]
+  channel = [track_chan_init_state() for i in range(numToTrack)]
   #Sort acqResults by peak strength
-  acqResults_sorted = sorted(acqResults,reverse=True,key=itemgetter(0))
+  acqResults_sorted = sorted(acqResults,reverse=True)
+  #acqResults_sorted = sorted(acqResults,reverse=False,key=itemgetter(0))
   #Assign highest peaks from acquisition to track chan init list
-  for i in range(min(len(acqResults),settings.numberOfChannels)):
-    channel[i].PRN = acqResults[i][3]
-    channel[i].codePhase = acqResults[i][2]
-    channel[i].acquiredFreq = acqResults[i][1]
+  for i in range(numToTrack):
+    channel[i].PRN = acqResults_sorted[i][3]
+    channel[i].codePhase = acqResults_sorted[i][2]
+    channel[i].acquiredFreq = acqResults_sorted[i][1]
     channel[i].status = 'T'
   return channel
   

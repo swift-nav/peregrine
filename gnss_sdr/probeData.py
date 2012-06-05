@@ -28,14 +28,16 @@ import numpy
 import matplotlib
 import getSamples
 
-def probeData(settings = initSettings.initSettings):
+def probeData(settings):
+
+  print "Probing data", settings.fileName
 
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   
   samples = getSamples.int8(settings.fileName,10*samplesPerCode,settings.skipNumberOfBytes)
   
   #Initialize figure
-  fig = pylab.figure(1)
+  fig = pylab.figure()
   pylab.clf()
   
   #X axis
@@ -51,9 +53,9 @@ def probeData(settings = initSettings.initSettings):
   
   #Frequency domain plot
   (Pxx,freqs) = matplotlib.mlab.psd(x = samples-numpy.mean(samples),\
+                                                    noverlap = 1024,\
                                                         NFFT = 2048,\
-                                     Fs = settings.samplingFreq/1e6,\
-                                                    noverlap = 1024)
+                                     Fs = settings.samplingFreq/1e6)
   pylab.subplot(2,2,2)
   pylab.semilogy(freqs,Pxx)
   pylab.title('Frequency Domain Plot')
@@ -71,3 +73,9 @@ def probeData(settings = initSettings.initSettings):
   pylab.title('Histogram');
   
   return fig
+
+if __name__ == "__main__":
+  settings = initSettings.initSettings()
+  fig = probeData(settings)
+  print "Plotting data", settings.fileName
+  pylab.show()

@@ -23,18 +23,37 @@
 #--------------------------------------------------------------------------
 import numpy as np
 from findPreambles import findPreambles
+from ephemeris import ephemeris
+import corrs2bits
 
 def navigation(trackResults, settings):
   numGoodSats = 0
   for i in range(len(trackResults)):
     if (trackResults[i].status == 'T'):
       numGoodSats = numGoodSats + 1
-  if (numGoodSats >= 4):
-    Exception('Too few satellites to calculate nav solution')
-  if (len(trackResults) < 36000):
-    Exception('Length of tracking too short to calculate nav solution')
+  if (numGoodSats < 4):
+    raise Exception('Too few satellites to calculate nav solution')
+  ##TODO : check lengths of all trackResults prompt correlations?
+  if (len(trackResults[0].I_P) < 36000):
+    raise Exception('Length of tracking too short to calculate nav solution')
 
-  (firstSubFrame, activeChnList) = findPreambles(trackResults,settings)
+  (subFrameStart, activeChnList) = findPreambles(trackResults,settings)
+  
+  #Pass 1500 nav bits (5 subframes), starting at a subframe preamble, to ephemeris.py to get ephemeris
+  eph = [[] for i in range(32)]
+#  for channelNr in activeChnList:
+  ##TODO : CHANGE FOR LOOP BACK TO OVER activeChnList##
+  for channelNr in [0]:
+    #Get 1500 nav bits starting at a subframe
+    navBitsIndices = np.r_[subFrameStart[channelNr]:subFrameStart[channelNr]+(1500*20)]
+    navBits = corrs2bits.unsigned(trackResults[channelNr].I_P[navBitsIndices])
+    #Get the last parity bit of the previous subFrame 
+    #subFrame's first 24 bits are XOR'd with it before transmission
+    D30starIndices = np.r_[subFrameStart[channelNr]-20:subFrameStart[channelNr]]
+    D30star = corrs2bits.unsigned(trackResults[channelNr].I_P[D30starIndices])
+    #Extract ephemeris from the 5 subFrames
+    (eph[trackResults[channelNr].PRN], TOW) = ephemeris(navBits,D30star)
 
+  ##TODO : remove below statement
   (navSolutions, eph) = (0,0)
   return (navSolutions, eph)
