@@ -22,29 +22,19 @@
 #USA.
 #--------------------------------------------------------------------------
 
-import numpy as np
-import matplotlib.pyplot as plt
+def satpos(transmitTime, prnList, eph, settings):
+  numOfSatellites = len(prnList)
+  gpsPi       = 3.1415926535898   # Pi used in the GPS coordinate system
+  Omegae_dot  = 7.2921151467e-5;  # Earth rotation rate, [rad/s]
+  GM          = 3.986005e14;      # Universal gravitational constant times
+                                  # the mass of the Earth, [m^3/s^2]
+  F           = -4.442807633e-10; # Constant, [sec/(meter)^(1/2)]
 
-def plotAcquisition(acqResults,settings):
-  acqResults = np.array(acqResults)
-  plt.figure()
-  plt.hold(True)
-  barplot = []
-  sat_not_there = None
-  sat_there = None
-  for i in range(32):
-    if (acqResults[i][0] > settings.acqThreshold):
-      barplot.append(plt.bar(i,acqResults[i][0],color='g'))
-      sat_there = i
-    else:
-      barplot.append(plt.bar(i,acqResults[i][0],color='r'))
-      sat_not_there = i
-  if not sat_there is None and not sat_not_there is None:
-    plt.legend((barplot[sat_there],barplot[sat_not_there]),('Green - SV acq\'d', 'Red - SV not acq\'d'))
-  plt.axis([0,32,0,max(np.array(acqResults).T[0])*1.2])
-        
-  plt.title('Acquisition results')
-  plt.xlabel('PRN number')
-  plt.ylabel('Acquisition metric')
-   
-  return barplot
+  satClkCorr   = [[] for i in range(numOfSatellites)]
+  satPositions = [[] for i in range(numOfSatellites)]
+
+  for satNr = range(numOfSatellites):
+    prn = prnList[satNr]
+    #Find initial satellite clock correction
+    #Find time difference
+    dt = check_t(transmitTime - eph[prn].t_oc)

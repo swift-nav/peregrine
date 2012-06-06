@@ -22,29 +22,13 @@
 #USA.
 #--------------------------------------------------------------------------
 
-import numpy as np
-import matplotlib.pyplot as plt
-
-def plotAcquisition(acqResults,settings):
-  acqResults = np.array(acqResults)
-  plt.figure()
-  plt.hold(True)
-  barplot = []
-  sat_not_there = None
-  sat_there = None
-  for i in range(32):
-    if (acqResults[i][0] > settings.acqThreshold):
-      barplot.append(plt.bar(i,acqResults[i][0],color='g'))
-      sat_there = i
-    else:
-      barplot.append(plt.bar(i,acqResults[i][0],color='r'))
-      sat_not_there = i
-  if not sat_there is None and not sat_not_there is None:
-    plt.legend((barplot[sat_there],barplot[sat_not_there]),('Green - SV acq\'d', 'Red - SV not acq\'d'))
-  plt.axis([0,32,0,max(np.array(acqResults).T[0])*1.2])
-        
-  plt.title('Acquisition results')
-  plt.xlabel('PRN number')
-  plt.ylabel('Acquisition metric')
-   
-  return barplot
+def calculatePseudoranges.py(trackResults,msOfTheSignal,channelList,settings):
+  travelTime = np.inf*np.ones(settings.numberOfChannels)
+  samplesPerCode = round(settings.samplingFreq \
+                     / (settings.codeFreqBasis / settings.CodeLength))
+  travelTime = [trackResults[i].absoluteSample(msOfTheSignal[i]) \
+                 / samplesPerCode for i in channelList]
+  minimum = np.floor(min(travelTime))
+  travelTime = travelTime - minimum + settings.startOffset
+  pseudoranges = tuple([i*(settings.c/1000) for i in travelTime])
+  return pseudoranges

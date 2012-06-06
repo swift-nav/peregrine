@@ -76,6 +76,10 @@ def probeData(settings):
 
 if __name__ == "__main__":
   settings = initSettings.initSettings()
+  settings.fileName = '../gnss_signal_records/tehdataz'
+  settings.IF = 4.092e6
+  settings.samplingFreq = 16.368e6
+
   fig = probeData(settings)
   print "Plotting data", settings.fileName
   pylab.show()

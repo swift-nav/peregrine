@@ -163,6 +163,9 @@ if __name__ == "__main__":
   from preRun import preRun
   from plotAcquisition import plotAcquisition
   settings = initSettings()
+#  settings.fileName = '../gnss_signal_records/tehdataz'
+#  settings.IF = 4.092e6
+#  settings.samplingFreq = 16.368e6
   #11 ms of samples
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)

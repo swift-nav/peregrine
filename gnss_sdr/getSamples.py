@@ -30,6 +30,24 @@ def ascii_int8(fileName, numReadSamples, numSkipSamples):
       raise Exception("Sample out of range")
   return samps[numSkipSamples:numSkipSamples+numReadSamples]
 
+def uint8(fileName, numReadSamples, numSkipSamples):
+  signmag_dict = {0: 1,  \
+                  1: 3,  \
+                  2: 5,  \
+                  3: 7,  \
+                  4: -1, \
+                  5: -3, \
+                  6: -5, \
+                  7: -7}
+  f = open(fileName, 'r')
+  f.seek(numSkipSamples)
+  samps_uint8 = f.read(numReadSamples)
+  samps = [signmag_dict[ord(i)] for i in samps_uint8]
+  for s in samps:
+    if not s in [-7, -5, -3, -1, 1, 3, 5, 7]:
+      raise Exception("Sample out of range")
+  return samps
+
 def int8(fileName,numReadSamples,numSkipSamples):
 
   #Open file and seek to appropriate sample
