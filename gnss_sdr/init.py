@@ -105,7 +105,7 @@ channel[6].PRN = 2; channel[6].acquiredFreq = 9549903.0876159668; channel[6].cod
 channel[7].PRN = 8; channel[7].acquiredFreq = 9550831.8672180176; channel[7].codePhase = 26519; channel[7].status = 'T';
 showChannelStatus(channel,settings)
 
-#Track the signal
+#Track the acquired satellites
 trackSamples = getSamples.int8(settings.fileName,settings.msToProcess,11*samplesPerCode) #11*samplesPerCode is number of samples used in acquisition
 if settings.skipTracking:
   print "\nLoading old tracking results ... ",

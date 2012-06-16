@@ -22,11 +22,12 @@
 #USA.
 #--------------------------------------------------------------------------
 
-def calculatePseudoranges.py(trackResults,msOfTheSignal,channelList,settings):
+import numpy as np
+def calculatePseudoranges(trackResults,msOfTheSignal,channelList,settings):
   travelTime = np.inf*np.ones(settings.numberOfChannels)
   samplesPerCode = round(settings.samplingFreq \
-                     / (settings.codeFreqBasis / settings.CodeLength))
-  travelTime = [trackResults[i].absoluteSample(msOfTheSignal[i]) \
+                     / (settings.codeFreqBasis / settings.codeLength))
+  travelTime = [trackResults[i].absoluteSample[msOfTheSignal[i]] \
                  / samplesPerCode for i in channelList]
   minimum = np.floor(min(travelTime))
   travelTime = travelTime - minimum + settings.startOffset

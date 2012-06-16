@@ -26,6 +26,7 @@ from findPreambles import findPreambles
 from ephemeris import ephemeris
 import corrs2bits
 from initSettings import initSettings
+from calculatePseudoranges import calculatePseudoranges
 
 def navigation(trackResults, settings):
 
@@ -69,30 +70,40 @@ def navigation(trackResults, settings):
   #Include all satellites for first iteration of the nav solution
   satElev = np.ones(len(activeChnList))*90
 
-  for currMeasNr in range(np.int(np.floor((settings.msToProcess-max(subFrameStart))/settings.navSolPeriod))):
-    activeChnList = gThanMask(satElev)
-    navSolutions.channel.PRN[currMeasNr] = tuple(trackingResults[i].PRN for i in activeChnList)
-    navSolutions.channel.el[currMeasNr] = [[] for i in len(activeChnList)]
-    navSolutions.channel.az[currMeasNr] = [[] for i in len(activeChnList)]
-    
-    #Find initial pseudoranges
-    navSolutions.channel.rawP[currMeasNr] = calculatePseudoranges(
-                                              trackResults, \
-                                              subFrameStart + settings.navSolPeriod * (currMeasNr), \
-                                              activeChnList, \
-                                              settings);
+  readyChnList = activeChnList[:]
 
-    
+  transmitTime = TOW
+
+  msToProcessNavigation = np.int(np.floor((settings.msToProcess-max(subFrameStart))/settings.navSolPeriod))
+  navSolutions = navSolutions_class(msToProcessNavigation)
+  for currMeasNr in range(msToProcessNavigation):
+    activeChnList = gThanMask(satElev)
+    navSolutions.channel.PRN[currMeasNr] = tuple([trackResults[i].PRN for i in activeChnList])
+    navSolutions.channel.el[currMeasNr] = [[] for i in range(len(activeChnList))]
+    navSolutions.channel.az[currMeasNr] = [[] for i in range(len(activeChnList))]
+
+    #Find initial pseudoranges
+    navSolutions.channel.rawP[currMeasNr] = calculatePseudoranges(trackResults, \
+                                      [i + settings.navSolPeriod * (currMeasNr) for i in subFrameStart], \
+                                      activeChnList, \
+                                      settings)
+
+    #Find satellite positions and clock corrections
+#    (satPositions, satClkCorr) = satpos(transmitTime, \
+#                                        trackResults[np.array(activeChnList)].PRN, \
+#                                        eph, \
+#                                        settings)
+
   #TODO : remove below statement
   (navSolutions, eph) = (0,0)
   return (navSolutions, eph)
 
 #TODO: update gThanMask so it accounts for elevation mask being changed during runtime, or find better way 
 #to apply elevation mask than this function (preferable) - use map or filter or some such function(s)?
-def gThanMask(elevationsDegrees):
+def gThanMask(elevationDegrees):
   settings = initSettings()
   aboveMaskIndices = []
-  for i in range(elevationsDegrees):
+  for i in range(len(elevationDegrees)):
     if elevationDegrees[i] > settings.elevationMask:
       aboveMaskIndices.append(i)
   return np.array(aboveMaskIndices)
