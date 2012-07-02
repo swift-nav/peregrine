@@ -26,6 +26,6 @@ def check_t(time):
   half_week = 302400 #seconds
   if time > half_week:
     time = time - 2*half_week
-  elif time < -halfweek:
+  elif time < -half_week:
     time = time + 2*half_week
-  return corrTime
+  return time

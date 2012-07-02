@@ -27,6 +27,7 @@ from ephemeris import ephemeris
 import corrs2bits
 from initSettings import initSettings
 from calculatePseudoranges import calculatePseudoranges
+from satpos import satpos
 
 def navigation(trackResults, settings):
 
@@ -76,23 +77,37 @@ def navigation(trackResults, settings):
 
   msToProcessNavigation = np.int(np.floor((settings.msToProcess-max(subFrameStart))/settings.navSolPeriod))
   navSolutions = navSolutions_class(msToProcessNavigation)
-  for currMeasNr in range(msToProcessNavigation):
+
+  for currMeasNr in range(1):
+#  for currMeasNr in range(msToProcessNavigation):
     activeChnList = gThanMask(satElev)
-    navSolutions.channel.PRN[currMeasNr] = tuple([trackResults[i].PRN for i in activeChnList])
+    for i in activeChnList:
+      navSolutions.channel.PRN[i][currMeasNr] = trackResults[i].PRN
     navSolutions.channel.el[currMeasNr] = [[] for i in range(len(activeChnList))]
     navSolutions.channel.az[currMeasNr] = [[] for i in range(len(activeChnList))]
 
     #Find initial pseudoranges
-    navSolutions.channel.rawP[currMeasNr] = calculatePseudoranges(trackResults, \
+    navSolutions.channel.rawP[np.r_[activeChnList]][currMeasNr] = calculatePseudoranges(trackResults, \
                                       [i + settings.navSolPeriod * (currMeasNr) for i in subFrameStart], \
                                       activeChnList, \
                                       settings)
 
     #Find satellite positions and clock corrections
-#    (satPositions, satClkCorr) = satpos(transmitTime, \
-#                                        trackResults[np.array(activeChnList)].PRN, \
-#                                        eph, \
-#                                        settings)
+    (satPositions, satClkCorr) = satpos(transmitTime, \
+                                        [trackResults[i].PRN for i in activeChnList], \
+                                        eph, \
+                                        settings)
+
+    #Find receiver position
+    #We can only calculate solution if >= 4 satellites are found
+    if len(activeChnList) > 3:
+      #Calculate receiver position
+      (xyzdt, \
+        navSolutions.channel.el, \
+        navSolutions.channel.az, \
+        navSolutions.DOP[currMeasNr]) = leastSquarePos(satPositions, navSolutions.channel.rawP[np.r_[activeChnList]][currMeasNr] + satClkCorr*settings.c, settings)
+      
+      
 
   #TODO : remove below statement
   (navSolutions, eph) = (0,0)
