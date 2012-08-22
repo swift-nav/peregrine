@@ -26,7 +26,7 @@ from findPreambles import findPreambles
 from ephemeris import ephemeris
 import corrs2bits
 from initSettings import initSettings
-from calculatePseudoranges import calculatePseudoranges
+from calculatePseudorange import calculatePseudorange
 from satpos import satpos
 
 def navigation(trackResults, settings):
@@ -80,16 +80,20 @@ def navigation(trackResults, settings):
 
   for currMeasNr in range(1):
 #  for currMeasNr in range(msToProcessNavigation):
+    if currMeasNr == 0: #append indexes to arrays that need them appended
+      for i in range(len(activeChnList)):
+        navSolutions.channel.rawP[]
     activeChnList = gThanMask(satElev)
     for i in activeChnList:
-      navSolutions.channel.PRN[i][currMeasNr] = trackResults[i].PRN
+      navSolutions.channel.PRN[i].append(trackResults[i].PRN)
     navSolutions.channel.el[currMeasNr] = [[] for i in range(len(activeChnList))]
     navSolutions.channel.az[currMeasNr] = [[] for i in range(len(activeChnList))]
 
-    #Find initial pseudoranges
-    navSolutions.channel.rawP[np.r_[activeChnList]][currMeasNr] = calculatePseudoranges(trackResults, \
+    #Find pseudoranges
+    for channelNumber in activeChnList:
+      navSolutions.channel.rawP[channelNumber][currMeasNr] = calculatePseudorange(trackResults, \
                                       [i + settings.navSolPeriod * (currMeasNr) for i in subFrameStart], \
-                                      activeChnList, \
+                                      channelNumber, \
                                       settings)
 
     #Find satellite positions and clock corrections

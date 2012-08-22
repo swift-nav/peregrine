@@ -40,7 +40,7 @@ class initSettings:
 
     self.msToProcess          = 37000
     self.numberOfChannels     = 8
-    self.skipNumberOfBytes    = 16368
+    self.skipNumberOfBytes    = 16368*3
     #dataType             = 'int8'
     self.fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs38_192-if9_55.bin'
     self.IF                   = 9.548e6        #Hz
