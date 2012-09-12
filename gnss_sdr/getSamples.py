@@ -22,6 +22,8 @@
 #USA.
 #--------------------------------------------------------------------------
 
+import numpy
+
 def ascii_int8(fileName, numReadSamples, numSkipSamples):
   f = open(fileName, 'r')
   samps = map(int, f.readlines())
@@ -53,26 +55,11 @@ def int8(fileName,numReadSamples,numSkipSamples):
   #Open file and seek to appropriate sample
   f = open(fileName,'r')
   f.seek(numSkipSamples)
-
-  #Find number of samples per code period
-  data_byte = f.read(numReadSamples)
+  data = numpy.fromfile(f, dtype=numpy.int8, count=numReadSamples)
   f.close()
-  count = len(data_byte)
+  count = len(data)
 
   if (count < numReadSamples):
     raise Exception("Couldn't read %d of samples from sample file" % (numReadSamples))
-
-  #Convert to ints
-  data = [0]*count
-  for i in range(0,count):
-    ord_dbi = ord(data_byte[i])
-    #data[i] positive or zero
-    if (ord_dbi >= 0) and (ord_dbi < 8):
-      data[i] = ord_dbi
-    #data[i] negative
-    elif (ord_dbi > 247) and (ord_dbi < 256):
-      data[i] = -256 + ord_dbi
-    else:
-      raise Exception("Encountered an unknown char in sample file")
 
   return data
