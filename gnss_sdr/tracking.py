@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -29,6 +29,7 @@ import math
 from save import save
 from calcLoopCoef import calcLoopCoef
 
+#@profile
 def track(samples, channel, settings):
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
@@ -46,7 +47,7 @@ def track(samples, channel, settings):
   (tau1carr,tau2carr) = calcLoopCoef(settings.pllNoiseBandwidth,settings.pllDampingRatio,0.25)
 
   progbar = Waitbar(True)
-  
+
   #Do tracking for each channel
   for channelNr in range(len(channel)):
     trackResults[channelNr].PRN = channel[channelNr].PRN
@@ -60,18 +61,18 @@ def track(samples, channel, settings):
     carrFreq = channel[channelNr].acquiredFreq
     carrFreqBasis = channel[channelNr].acquiredFreq
     remCarrPhase = 0.0 #residual carrier phase
-    
+
     #code tracking loop parameters
     oldCodeNco = 0.0
     oldCodeError = 0.0
-   
+
     #carrier/Costas loop parameters
     oldCarrNco = 0.0
     oldCarrError = 0.0
 
     #number of samples to seek ahead in file
     numSamplesToSkip = settings.skipNumberOfBytes + channel[channelNr].codePhase
-  
+
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
       #Update progress every 50 loops
@@ -105,12 +106,13 @@ def track(samples, channel, settings):
                     (blksize*codePhaseStep+remCodePhase) : \
                     codePhaseStep]
       promptCode = caCode[np.int_(np.ceil(tcode))]
-      
+
       remCodePhase = (tcode[blksize-1] + codePhaseStep) - 1023
-      
+
       #Generate the carrier frequency to mix the signal to baseband
-      time = np.r_[0:blksize+1] / settings.samplingFreq #(seconds)
-      
+      #time = np.r_[0:blksize+1] / settings.samplingFreq #(seconds)
+      time = np.arange(0, (blksize+1) / settings.samplingFreq, 1/settings.samplingFreq) #(seconds)
+
       #Get the argument to sin/cos functions
       trigarg = (carrFreq * 2.0 * math.pi)*time + remCarrPhase
       remCarrPhase = np.remainder(trigarg[blksize],(2*math.pi))
@@ -118,7 +120,7 @@ def track(samples, channel, settings):
       #Finally compute the signal to mix the collected data to baseband
       carrCos = np.cos(trigarg[0:blksize])
       carrSin = np.sin(trigarg[0:blksize])
-      
+
       #Mix signals to baseband
       qBasebandSignal = carrCos*rawSignal
       iBasebandSignal = carrSin*rawSignal
