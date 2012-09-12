@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -35,8 +35,8 @@ class initSettings:
     self.plotTrackingNumPts   = 200
 
     self.skipAcquisition      = True
-    self.skipTracking         = True
-    self.skipNavigation       = False
+    self.skipTracking         = False
+    self.skipNavigation       = True
 
     self.msToProcess          = 37000
     self.numberOfChannels     = 8
