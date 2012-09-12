@@ -37,7 +37,6 @@ from datetime import datetime
 from tracking import track
 from plotTrackingLow import plotTrackingLow
 from plotTrackingHigh import plotTrackingHigh
-from navigation import navigation
 
 #Add ./geofunctions and ./include to search directory for import calls
 sys.path.append('./include/');
@@ -128,6 +127,7 @@ if settings.skipNavigation:
   (navSolutions, eph) = pickle.load(open("navResults.pickle","rb"))
   print "done"
 else:
+  from navigation import navigation
   startTime = datetime.now()
   print "\nNavigation started at", startTime
   (navSolutions, eph) = navigation(trackResults, settings)
