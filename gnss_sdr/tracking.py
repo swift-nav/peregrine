@@ -29,67 +29,18 @@ import math
 from save import save
 from calcLoopCoef import calcLoopCoef
 
-#@profile
-def track(samples, channel, settings):
-  #Create list of tracking channels results (correlations, freqs, etc)
-  trackResults = [trackResults_class(settings) for i in range(len(channel))]
-  #Initialize tracking variables
-  codePeriods = settings.msToProcess
-  ##DLL Variables##
-  #Define early-late offset
-  earlyLateSpc = settings.dllCorrelatorSpacing
-  #Summation interval
-  PDIcode = 0.001
-  #Filter coefficient values
-  (tau1code, tau2code) = calcLoopCoef(settings.dllNoiseBandwidth,settings.dllDampingRatio,1.0)
-  ##PLL Variables##
-  PDIcarr = 0.001
-  (tau1carr,tau2carr) = calcLoopCoef(settings.pllNoiseBandwidth,settings.pllDampingRatio,0.25)
+import track_correlate
 
-  progbar = Waitbar(True)
-
-  #Do tracking for each channel
-  for channelNr in range(len(channel)):
-    trackResults[channelNr].PRN = channel[channelNr].PRN
-    #Get a vector with the C/A code sampled 1x/chip
-    caCode = np.array(generateCAcode(channel[channelNr].PRN))
-    #Add wrapping to either end to be able to do early/late
-    caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
-    #Initialize phases and frequencies
-    codeFreq = settings.codeFreqBasis
-    remCodePhase = 0.0 #residual code phase
-    carrFreq = channel[channelNr].acquiredFreq
-    carrFreqBasis = channel[channelNr].acquiredFreq
-    remCarrPhase = 0.0 #residual carrier phase
-
-    #code tracking loop parameters
-    oldCodeNco = 0.0
-    oldCodeError = 0.0
-
-    #carrier/Costas loop parameters
-    oldCarrNco = 0.0
-    oldCarrError = 0.0
-
-    #number of samples to seek ahead in file
-    numSamplesToSkip = settings.skipNumberOfBytes + channel[channelNr].codePhase
-
-    #Process the specified number of ms
-    for loopCnt in range(settings.msToProcess):
-      #Update progress every 50 loops
-      if (np.remainder(loopCnt,50)==0):
-        progbar.updated(float(loopCnt + channelNr*settings.msToProcess)\
-                        / float(len(channel)*settings.msToProcess))
-#        print "Channel %d/%d, %d/%d ms" % (channelNr+1,len(channel),loopCnt, settings.msToProcess)
+def track_correlate_(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings):
+      earlyLateSpc = settings.dllCorrelatorSpacing
       #Update the code phase rate based on code freq and sampling freq
       codePhaseStep = codeFreq/settings.samplingFreq
       codePhaseStep = codePhaseStep*(10**12) #round it in the same way we are in octave
       codePhaseStep = round(codePhaseStep)
       codePhaseStep = codePhaseStep*(10**(-12))
-      blksize = int(np.ceil((settings.codeLength - remCodePhase)/codePhaseStep))
+      blksize = int(math.ceil((settings.codeLength - remCodePhase)/codePhaseStep))
       #Read samples for this integration period
-      rawSignal = np.array(getSamples.int8(settings.fileName,blksize,numSamplesToSkip))
-
-      numSamplesToSkip = numSamplesToSkip + blksize
+      rawSignal = rawSignal[:blksize]
 
       #Define index into early code vector
       tcode = np.r_[(remCodePhase-earlyLateSpc) : \
@@ -133,9 +84,70 @@ def track(samples, channel, settings):
       I_L = np.sum(lateCode * iBasebandSignal)
       Q_L = np.sum(lateCode * qBasebandSignal)
 
+      return (I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase)
+
+def track(samples, channel, settings):
+  #Create list of tracking channels results (correlations, freqs, etc)
+  trackResults = [trackResults_class(settings) for i in range(len(channel))]
+  #Initialize tracking variables
+  codePeriods = settings.msToProcess
+  ##DLL Variables##
+  #Define early-late offset
+  #Summation interval
+  PDIcode = 0.001
+  #Filter coefficient values
+  (tau1code, tau2code) = calcLoopCoef(settings.dllNoiseBandwidth,settings.dllDampingRatio,1.0)
+  ##PLL Variables##
+  PDIcarr = 0.001
+  (tau1carr,tau2carr) = calcLoopCoef(settings.pllNoiseBandwidth,settings.pllDampingRatio,0.25)
+
+  progbar = Waitbar(True)
+
+  #Do tracking for each channel
+  for channelNr in range(len(channel)):
+    trackResults[channelNr].PRN = channel[channelNr].PRN
+    #Get a vector with the C/A code sampled 1x/chip
+    caCode = np.array(generateCAcode(channel[channelNr].PRN))
+    #Add wrapping to either end to be able to do early/late
+    caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
+    #Initialize phases and frequencies
+    codeFreq = settings.codeFreqBasis
+    #remCodePhase = 0.0 #residual code phase
+    remCodePhase = 0.0 #residual code phase
+    carrFreq = channel[channelNr].acquiredFreq
+    carrFreqBasis = channel[channelNr].acquiredFreq
+    remCarrPhase = 0.0 #residual carrier phase
+
+    #code tracking loop parameters
+    oldCodeNco = 0.0
+    oldCodeError = 0.0
+
+    #carrier/Costas loop parameters
+    oldCarrNco = 0.0
+    oldCarrError = 0.0
+
+    blksize_ = int(settings.samplingFreq * 1e-3 + 10)
+    #number of samples to seek ahead in file
+    numSamplesToSkip = settings.skipNumberOfBytes + channel[channelNr].codePhase
+
+    #Process the specified number of ms
+    for loopCnt in range(settings.msToProcess):
+      #Update progress every 50 loops
+      if (np.remainder(loopCnt,50)==0):
+        progbar.updated(float(loopCnt + channelNr*settings.msToProcess)\
+                        / float(len(channel)*settings.msToProcess))
+#        print "Channel %d/%d, %d/%d ms" % (channelNr+1,len(channel),loopCnt, settings.msToProcess)
+      codePhaseStep = codeFreq/settings.samplingFreq
+      rawSignal = np.array(getSamples.int8(settings.fileName,blksize_,numSamplesToSkip))
+
+      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate.track_correlate_cy(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
+      #I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate_(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
+      numSamplesToSkip += blksize
+      #print remCodePhase, remCarrPhase
+
       #Find PLL error and update carrier NCO
       #Carrier loop discriminator (phase detector)
-      carrError = math.atan(Q_P/I_P) / (2.0 * math.pi)
+      carrError = math.atan(Q_P/(I_P+1e-10)) / (2.0 * math.pi)
       #Carrier loop filter and NCO
       carrNco = oldCarrNco + (tau2carr/tau1carr) * \
                  (carrError-oldCarrError) + carrError*(PDIcarr/tau1carr)
@@ -147,7 +159,7 @@ def track(samples, channel, settings):
 
       #Find DLL error and update code NCO
       codeError = (math.sqrt(I_E*I_E + Q_E*Q_E) - math.sqrt(I_L*I_L + Q_L*Q_L)) / \
-                   (math.sqrt(I_E*I_E + Q_E*Q_E) + math.sqrt(I_L*I_L + Q_L*Q_L))
+                   (math.sqrt(I_E*I_E + Q_E*Q_E) + math.sqrt(I_L*I_L + Q_L*Q_L) + 1e-10)
       codeNco = oldCodeNco + (tau2code/tau1code)*(codeError-oldCodeError) \
                    + codeError*(PDIcode/tau1code)
       oldCodeNco = codeNco
@@ -180,13 +192,13 @@ def track(samples, channel, settings):
 #      print ("tR[%d].pllDiscrFilt[%d]   = %f" % (channelNr,loopCnt,trackResults[channelNr].pllDiscrFilt[loopCnt]))
 #      print ("tR[%d].carrFreq[%d]       = %f" % (channelNr,loopCnt,trackResults[channelNr].carrFreq[loopCnt]))
 #
-#      print ("tR[%d].I_E[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_E[loopCnt]))
-#      print ("tR[%d].I_P[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_P[loopCnt]))
-#      print ("tR[%d].I_L[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_L[loopCnt]))
-#      print ("tR[%d].Q_E[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_E[loopCnt]))
-#      print ("tR[%d].Q_P[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_P[loopCnt]))
-#      print ("tR[%d].Q_L[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_L[loopCnt]))
-#      print ""
+      #print ("tR[%d].I_E[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_E[loopCnt]))
+      #print ("tR[%d].I_P[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_P[loopCnt]))
+      #print ("tR[%d].I_L[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_L[loopCnt]))
+      #print ("tR[%d].Q_E[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_E[loopCnt]))
+      #print ("tR[%d].Q_P[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_P[loopCnt]))
+      #print ("tR[%d].Q_L[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_L[loopCnt]))
+      #print ""
 
     #Possibility for lock-detection later
     trackResults[channelNr].status = 'T'
