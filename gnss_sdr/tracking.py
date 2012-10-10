@@ -29,7 +29,7 @@ import math
 from save import save
 from calcLoopCoef import calcLoopCoef
 
-import swiftnav.track as track
+import swiftnav.track
 
 def track_correlate_old(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings):
       earlyLateSpc = settings.dllCorrelatorSpacing
@@ -140,7 +140,7 @@ def track(samples, channel, settings):
       codePhaseStep = codeFreq/settings.samplingFreq
       rawSignal = np.array(getSamples.int8(settings.fileName,blksize_,numSamplesToSkip))
 
-      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track.track_correlate(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
+      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = swiftnav.track.track_correlate(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
       #I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate_old(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize
       #print remCodePhase, remCarrPhase
