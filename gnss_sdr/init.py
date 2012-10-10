@@ -123,8 +123,8 @@ if settings.plotTrackingHigh:
 
 #Do navigation
 if settings.skipNavigation:
-  print "\nLoading old navigation results ... ",
-  (navSolutions, eph) = pickle.load(open("navResults.pickle","rb"))
+  #print "\nLoading old navigation results ... ",
+  #(navSolutions, eph) = pickle.load(open("navResults.pickle","rb"))
   print "done"
 else:
   from navigation import navigation
