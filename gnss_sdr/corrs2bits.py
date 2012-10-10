@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy as np
-#Takes tracking loop correlations of length a and returns 
+#Takes tracking loop correlations of length a and returns
 #bits (sign of average of 20 correltions) of length a/20
 def signed(incorrs):
   #Check that input is a numpy.ndarray
@@ -32,15 +32,7 @@ def signed(incorrs):
 
 #Same as signed, except instead of (-1,1), bits are (0,1)
 def unsigned(incorrs):
-  #Check that input is a numpy.ndarray
-  if not(type(incorrs)==np.ndarray):
-    raise Exception('input must be a numpy.ndarray')
-  #Check that length of input is a multiple of 20
-  if not((len(incorrs) % 20) == 0):
-    raise Exception('length of input must be a multiple of 20')
-  tmp = np.reshape(incorrs,(len(incorrs)/20,20))
-  tmp = np.sum(tmp,1)
-  tmp = np.sign(tmp)
+  tmp = signed(incorrs)
   tmp = (tmp+1)/2
-  tmp = np.array(map(int,tmp))
+  tmp = tmp.astype('int')
   return tmp
