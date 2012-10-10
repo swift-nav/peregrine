@@ -87,21 +87,21 @@ for i in range(32-1,-1,-1):
   else: #if satellite wasn't found, pop it off the list
     acqResults.pop(i)
 #If any satellites were acquired, set up tracking channels
-#if acqSuccessful:
-#  channel = preRun(acqResults,settings)
-#else:
-#  print "No satellites acquired, not continuing to tracking"
-#  pylab.show()
+if acqSuccessful:
+  channel = preRun(acqResults,settings)
+else:
+  print "No satellites acquired, not continuing to tracking"
+  pylab.show()
 #Use Octave results instead
-channel = [track_chan_init_state() for i in range(8)]
-channel[0].PRN = 20; channel[0].acquiredFreq = 9547426.3420104980; channel[0].codePhase = 35228; channel[0].status = 'T';
-channel[1].PRN = 17; channel[1].acquiredFreq = 9548236.7477416992; channel[1].codePhase = 4357; channel[1].status = 'T';
-channel[2].PRN = 21; channel[2].acquiredFreq = 9549684.5512390137; channel[2].codePhase = 28111; channel[2].status = 'T';
-channel[3].PRN = 14; channel[3].acquiredFreq = 9549921.2989807129; channel[3].codePhase = 19953; channel[3].status = 'T';
-channel[4].PRN = 25; channel[4].acquiredFreq = 9545013.3361816406; channel[4].codePhase = 10460; channel[4].status = 'T';
-channel[5].PRN = 5; channel[5].acquiredFreq = 9544312.1986389160; channel[5].codePhase = 11834; channel[5].status = 'T';
-channel[6].PRN = 2; channel[6].acquiredFreq = 9549903.0876159668; channel[6].codePhase = 17842; channel[6].status = 'T';
-channel[7].PRN = 8; channel[7].acquiredFreq = 9550831.8672180176; channel[7].codePhase = 26519; channel[7].status = 'T';
+#channel = [track_chan_init_state() for i in range(8)]
+#channel[0].PRN = 20; channel[0].acquiredFreq = 9547426.3420104980; channel[0].codePhase = 35228; channel[0].status = 'T';
+#channel[1].PRN = 17; channel[1].acquiredFreq = 9548236.7477416992; channel[1].codePhase = 4357; channel[1].status = 'T';
+#channel[2].PRN = 21; channel[2].acquiredFreq = 9549684.5512390137; channel[2].codePhase = 28111; channel[2].status = 'T';
+#channel[3].PRN = 14; channel[3].acquiredFreq = 9549921.2989807129; channel[3].codePhase = 19953; channel[3].status = 'T';
+#channel[4].PRN = 25; channel[4].acquiredFreq = 9545013.3361816406; channel[4].codePhase = 10460; channel[4].status = 'T';
+#channel[5].PRN = 5; channel[5].acquiredFreq = 9544312.1986389160; channel[5].codePhase = 11834; channel[5].status = 'T';
+#channel[6].PRN = 2; channel[6].acquiredFreq = 9549903.0876159668; channel[6].codePhase = 17842; channel[6].status = 'T';
+#channel[7].PRN = 8; channel[7].acquiredFreq = 9550831.8672180176; channel[7].codePhase = 26519; channel[7].status = 'T';
 showChannelStatus(channel,settings)
 
 #Track the acquired satellites
