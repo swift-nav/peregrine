@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -28,6 +28,8 @@ import corrs2bits
 from initSettings import initSettings
 from calculatePseudorange import calculatePseudorange
 from satpos import satpos
+import pprint
+import swiftnav.nav_msg
 
 def navigation(trackResults, settings):
 
@@ -43,24 +45,33 @@ def navigation(trackResults, settings):
 
   (subFrameStart, activeChnList) = findPreambles(trackResults,settings)
 
-  #Pass 1500 nav bits (5 subframes), starting at a subframe preamble, 
+  #Pass 1500 nav bits (5 subframes), starting at a subframe preamble,
   #to ephemeris.py to get ephemeris
   eph = [[] for i in range(32)]
   for channelNr in reversed(activeChnList):
     #Get 1500 nav bits starting at a subframe
     navBitsIndices = np.r_[subFrameStart[channelNr]:subFrameStart[channelNr]+(1500*20)]
     navBits = corrs2bits.unsigned(trackResults[channelNr].I_P[navBitsIndices])
-    #Get the last parity bit of the previous subFrame 
+    #Get the last parity bit of the previous subFrame
     #subFrame's first 24 bits are XOR'd with it before transmission
     D30starIndices = np.r_[subFrameStart[channelNr]-20:subFrameStart[channelNr]]
     D30star = corrs2bits.unsigned(trackResults[channelNr].I_P[D30starIndices])
     #Extract ephemeris from the 5 subFrames
     (eph[trackResults[channelNr].PRN], TOW) = ephemeris(navBits,D30star)
+    print
+    print "=========================================================="
+    pprint.pprint(vars(eph[trackResults[channelNr].PRN]))
+    print "----------------------------------------------------------"
+    nm = swiftnav.nav_msg.NavMsg()
+    for cpi in trackResults[channelNr].I_P:
+      nm.update(cpi)
+    print "=========================================================="
+    print
     #TODO : Implement better way to determine if satellite is usable (health, accuracy)
     #Exclude satellite if for some reason ephemeris parameters weren't assigned
     #(subframe ID's 1-3 weren't assigned?)
-    if (eph[trackResults[channelNr].PRN].IODC==0 and 
-          eph[trackResults[channelNr].PRN].IODC_sf2==0 and 
+    if (eph[trackResults[channelNr].PRN].IODC==0 and
+          eph[trackResults[channelNr].PRN].IODC_sf2==0 and
             eph[trackResults[channelNr].PRN].IODC_sf3==0):
       activeChnList.pop(channelNr)
   #If we don't have enough satellites after rejecting those whose ephemerides failed
@@ -82,7 +93,8 @@ def navigation(trackResults, settings):
 #  for currMeasNr in range(msToProcessNavigation):
     if currMeasNr == 0: #append indexes to arrays that need them appended
       for i in range(len(activeChnList)):
-        navSolutions.channel.rawP[]
+        #navSolutions.channel.rawP[]
+        pass
     activeChnList = gThanMask(satElev)
     for i in activeChnList:
       navSolutions.channel.PRN[i].append(trackResults[i].PRN)
@@ -110,14 +122,14 @@ def navigation(trackResults, settings):
         navSolutions.channel.el, \
         navSolutions.channel.az, \
         navSolutions.DOP[currMeasNr]) = leastSquarePos(satPositions, navSolutions.channel.rawP[np.r_[activeChnList]][currMeasNr] + satClkCorr*settings.c, settings)
-      
-      
+
+
 
   #TODO : remove below statement
   (navSolutions, eph) = (0,0)
   return (navSolutions, eph)
 
-#TODO: update gThanMask so it accounts for elevation mask being changed during runtime, or find better way 
+#TODO: update gThanMask so it accounts for elevation mask being changed during runtime, or find better way
 #to apply elevation mask than this function (preferable) - use map or filter or some such function(s)?
 def gThanMask(elevationDegrees):
   settings = initSettings()
