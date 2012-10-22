@@ -166,6 +166,7 @@ def track(samples, channel, settings):
       oldCodeError = codeError
       #Code freq based on NCO
       codeFreq = settings.codeFreqBasis - codeNco
+      trackResults[channelNr].codePhase[loopCnt] = remCodePhase
       trackResults[channelNr].codeFreq[loopCnt] = codeFreq
 
       #Record stuff for postprocessing
@@ -212,6 +213,7 @@ class trackResults_class:
     self.status = '-'
     self.PRN = 40 #invalid Goldcode number
     self.absoluteSample = np.zeros(settings.msToProcess)
+    self.codePhase = np.zeros(settings.msToProcess)
     self.codeFreq = np.inf*np.ones(settings.msToProcess)
     self.carrFreq = np.inf*np.ones(settings.msToProcess)
     self.I_E = np.zeros(settings.msToProcess)
