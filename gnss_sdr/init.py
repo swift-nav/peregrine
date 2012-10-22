@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -130,8 +130,8 @@ else:
   from navigation import navigation
   startTime = datetime.now()
   print "\nNavigation started at", startTime
-  (navSolutions, eph) = navigation(trackResults, settings)
-  pickle.dump((navSolutions, eph),open("navResults.pickle","wb"))
+  navSolutions = navigation(trackResults, settings)
+  pickle.dump(navSolutions,open("navResults.pickle","wb"))
   print "Navigation Done. Elapsed time =", (datetime.now() - startTime)
 
 pylab.show()
