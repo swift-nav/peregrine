@@ -22,122 +22,74 @@
 #USA.
 #--------------------------------------------------------------------------
 import numpy as np
-from findPreambles import findPreambles
-from ephemeris import ephemeris
-import corrs2bits
 from initSettings import initSettings
 from calculatePseudorange import calculatePseudorange
 from satpos import satpos
-import pprint
 import swiftnav.nav_msg
+import swiftnav.track
+import swiftnav.pvt
 
 def navigation(trackResults, settings):
 
-  numGoodSats = 0
-  for i in range(len(trackResults)):
-    if (trackResults[i].status == 'T'):
-      numGoodSats = numGoodSats + 1
-  if (numGoodSats < 4):
+  goodChannels = [n for n, tr in enumerate(trackResults) if tr.status == 'T']
+  numGoodSats = len(goodChannels)
+  if numGoodSats < 4:
     raise Exception('Too few satellites to calculate nav solution')
-  #TODO : check lengths of all trackResults prompt correlations?
-  if (len(trackResults[0].I_P) < 36000):
-    raise Exception('Length of tracking too short to calculate nav solution')
 
-  (subFrameStart, activeChnList) = findPreambles(trackResults,settings)
+  for chan in goodChannels:
+    if len(trackResults[chan].I_P) < 36000:
+      raise Exception('Length of tracking too short to calculate nav solution')
 
-  #Pass 1500 nav bits (5 subframes), starting at a subframe preamble,
-  #to ephemeris.py to get ephemeris
-  eph = [[] for i in range(32)]
-  for channelNr in reversed(activeChnList):
-    #Get 1500 nav bits starting at a subframe
-    navBitsIndices = np.r_[subFrameStart[channelNr]:subFrameStart[channelNr]+(1500*20)]
-    navBits = corrs2bits.unsigned(trackResults[channelNr].I_P[navBitsIndices])
-    #Get the last parity bit of the previous subFrame
-    #subFrame's first 24 bits are XOR'd with it before transmission
-    D30starIndices = np.r_[subFrameStart[channelNr]-20:subFrameStart[channelNr]]
-    D30star = corrs2bits.unsigned(trackResults[channelNr].I_P[D30starIndices])
-    #Extract ephemeris from the 5 subFrames
-    (eph[trackResults[channelNr].PRN], TOW) = ephemeris(navBits,D30star)
-    print
-    print "=========================================================="
-    pprint.pprint(vars(eph[trackResults[channelNr].PRN]))
-    print "----------------------------------------------------------"
-    nm = swiftnav.nav_msg.NavMsg()
-    for cpi in trackResults[channelNr].I_P:
-      nm.update(cpi)
-    print "=========================================================="
-    print
-    #TODO : Implement better way to determine if satellite is usable (health, accuracy)
-    #Exclude satellite if for some reason ephemeris parameters weren't assigned
-    #(subframe ID's 1-3 weren't assigned?)
-    if (eph[trackResults[channelNr].PRN].IODC==0 and
-          eph[trackResults[channelNr].PRN].IODC_sf2==0 and
-            eph[trackResults[channelNr].PRN].IODC_sf3==0):
-      activeChnList.pop(channelNr)
-  #If we don't have enough satellites after rejecting those whose ephemerides failed
-  #to extract properly, then we can't calculate the nav solution
-  if len(activeChnList) < 4:
+  navMsgs = [swiftnav.nav_msg.NavMsg() for c in goodChannels]
+  towIndicies = [[] for c in goodChannels]
+  for n, chan in enumerate(goodChannels):
+    for i, cpi in enumerate(trackResults[chan].I_P):
+      tow = navMsgs[n].update(cpi)
+      if tow:
+        towIndicies[n] = (i, tow)
+
+    # Ditch channels that dont give us a valid ephemeris
+    if not navMsgs[n].eph_valid:
+      print "Ditching chan ", (chan, trackResults[chan].PRN)
+      goodChannels.pop(chan)
+
+  print [(chan, trackResults[chan].PRN) for chan in goodChannels]
+  if len(goodChannels) < 4:
     raise Exception('Not enough satellites after extracting ephemerides to calculate nav solution')
-  #TODO : include support for an initial position here and associated elevation mask
-  #Include all satellites for first iteration of the nav solution
-  satElev = np.ones(len(activeChnList))*90
 
-  readyChnList = activeChnList[:]
+  #ms = 30000
+  navSolutions = []
+  for ms in range(10000, 35000, 200):
+    #print "------------------------------------------"
+    #print ms
+    cms = []
+    for chan in goodChannels:
+      i, tow_e = towIndicies[chan]
+      tow = tow_e + (ms - i)
+      cm = swiftnav.track.ChannelMeasurement(
+        trackResults[chan].PRN,
+        trackResults[chan].codePhase[ms],
+        trackResults[chan].codeFreq[ms],
+        0,
+        trackResults[chan].carrFreq[ms] - settings.IF,
+        tow,
+        trackResults[chan].absoluteSample[ms] / settings.samplingFreq,
+        #trackResults[chan].absoluteSample[ms] / samplesPerCode,
+        100
+      )
+      cms += [cm]
+    #for cm in cms:
+      #print cm
 
-  transmitTime = TOW
+    nms = swiftnav.track.calc_navigation_measurement(ms/1000.0, cms, navMsgs)
+    #for nm in nms:
+      #print nm
 
-  msToProcessNavigation = np.int(np.floor((settings.msToProcess-max(subFrameStart))/settings.navSolPeriod))
-  navSolutions = navSolutions_class(msToProcessNavigation)
+    llh = swiftnav.pvt.foo(nms)
+    print "%f,%f,%f" % (57.2957795*llh[0], 57.2957795*llh[1], llh[2])
+    navSolutions += [llh]
 
-  for currMeasNr in range(1):
-#  for currMeasNr in range(msToProcessNavigation):
-    if currMeasNr == 0: #append indexes to arrays that need them appended
-      for i in range(len(activeChnList)):
-        #navSolutions.channel.rawP[]
-        pass
-    activeChnList = gThanMask(satElev)
-    for i in activeChnList:
-      navSolutions.channel.PRN[i].append(trackResults[i].PRN)
-    navSolutions.channel.el[currMeasNr] = [[] for i in range(len(activeChnList))]
-    navSolutions.channel.az[currMeasNr] = [[] for i in range(len(activeChnList))]
-
-    #Find pseudoranges
-    for channelNumber in activeChnList:
-      navSolutions.channel.rawP[channelNumber][currMeasNr] = calculatePseudorange(trackResults, \
-                                      [i + settings.navSolPeriod * (currMeasNr) for i in subFrameStart], \
-                                      channelNumber, \
-                                      settings)
-
-    #Find satellite positions and clock corrections
-    (satPositions, satClkCorr) = satpos(transmitTime, \
-                                        [trackResults[i].PRN for i in activeChnList], \
-                                        eph, \
-                                        settings)
-
-    #Find receiver position
-    #We can only calculate solution if >= 4 satellites are found
-    if len(activeChnList) > 3:
-      #Calculate receiver position
-      (xyzdt, \
-        navSolutions.channel.el, \
-        navSolutions.channel.az, \
-        navSolutions.DOP[currMeasNr]) = leastSquarePos(satPositions, navSolutions.channel.rawP[np.r_[activeChnList]][currMeasNr] + satClkCorr*settings.c, settings)
-
-
-
-  #TODO : remove below statement
-  (navSolutions, eph) = (0,0)
-  return (navSolutions, eph)
-
-#TODO: update gThanMask so it accounts for elevation mask being changed during runtime, or find better way
-#to apply elevation mask than this function (preferable) - use map or filter or some such function(s)?
-def gThanMask(elevationDegrees):
-  settings = initSettings()
-  aboveMaskIndices = []
-  for i in range(len(elevationDegrees)):
-    if elevationDegrees[i] > settings.elevationMask:
-      aboveMaskIndices.append(i)
-  return np.array(aboveMaskIndices)
+  return navSolutions
 
 class navSolutions_class:
   def __init__(self,length):
