@@ -84,32 +84,7 @@ def navigation(trackResults, settings):
     #for nm in nms:
       #print nm
 
-    llh = swiftnav.pvt.foo(nms)
-    print "%f,%f,%f" % (57.2957795*llh[0], 57.2957795*llh[1], llh[2])
-    navSolutions += [llh]
+    s = swiftnav.pvt.calc_PVT(nms)
+    navSolutions += [s]
 
   return navSolutions
-
-class navSolutions_class:
-  def __init__(self,length):
-    self.channel   = navChannel_class(length)
-    self.DOP       = [[] for i in range(length)]
-    self.utmZone   = [[] for i in range(length)]
-    self.X         = [[] for i in range(length)]
-    self.Y         = [[] for i in range(length)]
-    self.Z         = [[] for i in range(length)]
-    self.dt        = [[] for i in range(length)]
-    self.latitude  = [[] for i in range(length)]
-    self.longitude = [[] for i in range(length)]
-    self.height    = [[] for i in range(length)]
-    self.E         = [[] for i in range(length)]
-    self.N         = [[] for i in range(length)]
-    self.U         = [[] for i in range(length)]
-
-class navChannel_class:
-  def __init__(self,length):
-    self.PRN =  [[] for i in range(length)]
-    self.rawP = [[] for i in range(length)]
-    self.el =   [[] for i in range(length)]
-    self.az =   [[] for i in range(length)]
-    self.correctedP = [[] for i in range(length)]

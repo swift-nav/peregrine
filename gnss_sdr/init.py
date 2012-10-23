@@ -131,7 +131,8 @@ else:
   startTime = datetime.now()
   print "\nNavigation started at", startTime
   navSolutions = navigation(trackResults, settings)
-  pickle.dump(navSolutions,open("navResults.pickle","wb"))
+  print navSolutions
+  #pickle.dump(navSolutions,open("navResults.pickle","wb"))
   print "Navigation Done. Elapsed time =", (datetime.now() - startTime)
 
 pylab.show()
