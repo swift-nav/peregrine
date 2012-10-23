@@ -41,15 +41,6 @@ from plotTrackingHigh import plotTrackingHigh
 #Add ./geofunctions and ./include to search directory for import calls
 sys.path.append('./include/');
 sys.path.append('./geoFunctions/');
-print '\nWelcome to:   softGNSS'
-print 'An open source GNSS SDR software project initiated by:'
-print '              Danish GPS Center/Aalborg University'
-print 'The code was improved by GNSS Laboratory/University of Colorado'
-print 'and converted to Python by Colin Beighley (colinbeighley@gmail.com).'
-print 'The software receiver softGNSS comes with ABSOLUTELY NO WARRANTY;'
-print 'for details please read license details in the file license.txt. This'
-print 'is free software  you  are  welcome  to  redistribute  it under'
-print 'the terms described in the license.'
 
 #Initialize constants, settings
 settings = initSettings()
