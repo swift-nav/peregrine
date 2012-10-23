@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -26,9 +26,8 @@ import numpy as np
 import pylab
 import math
 import sys
-sys.path.append('./include/');
-from makeCaTable import makeCaTable
-from generateCAcode import generateCAcode
+from include.makeCaTable import makeCaTable
+from include.generateCAcode import generateCAcode
 
 def acquisition(longSignal,settings):
   # Number of samples per code period
@@ -84,7 +83,7 @@ def acquisition(longSignal,settings):
       else:
         results[frqBinIndex] = acqRes2
     #--- Find the correlation peak and the carrier frequency ----------
-    peakSize = 0 
+    peakSize = 0
     for i in range(len(results)):
       if (max(results[i]) > peakSize):
         peakSize = max(results[i])
@@ -116,7 +115,7 @@ def acquisition(longSignal,settings):
         secondPeakSize = results[frequencyBinIndex][i]
     #Store result
     acqResults[PRN][0] = peakSize/secondPeakSize
-    #If the result is above the threshold, then we have acquired the satellite 
+    #If the result is above the threshold, then we have acquired the satellite
     if (acqResults[PRN][0] > settings.acqThreshold):
       #Fine resolution frequency search
       print (PRN+1),
@@ -131,7 +130,7 @@ def acquisition(longSignal,settings):
       #Find next highest power of 2 and increase by 8x
       fftNumPts = 8*(2**int(math.ceil(math.log(len(xCarrier),2))))
       #Compute the magnitude of the FFT, find the maximum, and the associated carrrier frequency
-      #for some reason the output of this fft is different than Octave's, but they seem to 
+      #for some reason the output of this fft is different than Octave's, but they seem to
       #preeeeetty much reach the same conclusion for the best carrier frequency
       fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
       uniqFftPts = int(math.ceil((fftNumPts+1)/2))
@@ -152,7 +151,7 @@ def acquisition(longSignal,settings):
       sys.stdout.flush()
     for i in range(32): #Add PRN number to each result
       acqResults[i].append(i)
-  #Acquisition is over 
+  #Acquisition is over
   print ")"
   return acqResults
 
@@ -176,7 +175,7 @@ if __name__ == "__main__":
   for i in range(32-1,-1,-1):
     if acqResults[i][0] > settings.acqThreshold:
       acqSuccessful = True
-    else: 
+    else:
       acqResults.pop(i)
   showChannelStatus(preRun(acqResults,settings),settings)
   pylab.show()

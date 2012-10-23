@@ -30,17 +30,13 @@ import getSamples
 from acquisition import acquisition
 import pickle
 from plotAcquisition import plotAcquisition
-from preRun import preRun
-from preRun import track_chan_init_state
-from showChannelStatus import showChannelStatus
+from include.preRun import preRun
+from include.preRun import track_chan_init_state
+from include.showChannelStatus import showChannelStatus
 from datetime import datetime
 from tracking import track
 from plotTrackingLow import plotTrackingLow
 from plotTrackingHigh import plotTrackingHigh
-
-#Add ./geofunctions and ./include to search directory for import calls
-sys.path.append('./include/');
-sys.path.append('./geoFunctions/');
 
 #Initialize constants, settings
 settings = initSettings()

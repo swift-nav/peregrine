@@ -22,12 +22,12 @@
 #USA.
 #--------------------------------------------------------------------------
 import numpy as np
-from generateCAcode import generateCAcode
+from include.generateCAcode import generateCAcode
 import getSamples
-from waitbar import Waitbar
+from include.waitbar import Waitbar
 import math
 from save import save
-from calcLoopCoef import calcLoopCoef
+from include.calcLoopCoef import calcLoopCoef
 
 import swiftnav.track
 
