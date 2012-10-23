@@ -23,7 +23,6 @@
 #--------------------------------------------------------------------------
 import numpy as np
 from initSettings import initSettings
-from satpos import satpos
 import swiftnav.nav_msg
 import swiftnav.track
 import swiftnav.pvt
