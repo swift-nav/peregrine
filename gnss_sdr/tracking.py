@@ -184,23 +184,6 @@ def track(samples, channel, settings):
       trackResults[channelNr].Q_P[loopCnt] = Q_P
       trackResults[channelNr].Q_L[loopCnt] = Q_L
 
-#      print ("tR[%d].absoluteSample[%d] = %d" % (channelNr,loopCnt,trackResults[channelNr].absoluteSample[loopCnt]))
-#
-#      print ("tR[%d].dllDiscr[%d]       = %f" % (channelNr,loopCnt,trackResults[channelNr].dllDiscr[loopCnt]))
-#      print ("tR[%d].dllDiscrFilt[%d]   = %f" % (channelNr,loopCnt,trackResults[channelNr].dllDiscrFilt[loopCnt]))
-#      print ("tR[%d].codeFreq[%d]       = %f" % (channelNr,loopCnt,trackResults[channelNr].codeFreq[loopCnt]))
-#      print ("tR[%d].pllDiscr[%d]       = %f" % (channelNr,loopCnt,trackResults[channelNr].pllDiscr[loopCnt]))
-#      print ("tR[%d].pllDiscrFilt[%d]   = %f" % (channelNr,loopCnt,trackResults[channelNr].pllDiscrFilt[loopCnt]))
-#      print ("tR[%d].carrFreq[%d]       = %f" % (channelNr,loopCnt,trackResults[channelNr].carrFreq[loopCnt]))
-#
-      #print ("tR[%d].I_E[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_E[loopCnt]))
-      #print ("tR[%d].I_P[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_P[loopCnt]))
-      #print ("tR[%d].I_L[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].I_L[loopCnt]))
-      #print ("tR[%d].Q_E[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_E[loopCnt]))
-      #print ("tR[%d].Q_P[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_P[loopCnt]))
-      #print ("tR[%d].Q_L[%d] = %f" % (channelNr,loopCnt,trackResults[channelNr].Q_L[loopCnt]))
-      #print ""
-
     #Possibility for lock-detection later
     trackResults[channelNr].status = 'T'
 
