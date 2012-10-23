@@ -31,61 +31,6 @@ from include.calcLoopCoef import calcLoopCoef
 
 import swiftnav.track
 
-def track_correlate_old(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings):
-      earlyLateSpc = settings.dllCorrelatorSpacing
-      #Update the code phase rate based on code freq and sampling freq
-      codePhaseStep = codeFreq/settings.samplingFreq
-      codePhaseStep = codePhaseStep*(10**12) #round it in the same way we are in octave
-      codePhaseStep = round(codePhaseStep)
-      codePhaseStep = codePhaseStep*(10**(-12))
-      blksize = int(math.ceil((settings.codeLength - remCodePhase)/codePhaseStep))
-      #Read samples for this integration period
-      rawSignal = rawSignal[:blksize]
-
-      #Define index into early code vector
-      tcode = np.r_[(remCodePhase-earlyLateSpc) : \
-                    (blksize*codePhaseStep+remCodePhase-earlyLateSpc) : \
-                    codePhaseStep]
-      earlyCode = caCode[np.int_(np.ceil(tcode))]
-      #Define index into late code vector
-      tcode = np.r_[(remCodePhase+earlyLateSpc) : \
-                    (blksize*codePhaseStep+remCodePhase+earlyLateSpc) : \
-                    codePhaseStep]
-      lateCode = caCode[np.int_(np.ceil(tcode))]
-      #Define index into prompt code vector
-      tcode = np.r_[(remCodePhase) : \
-                    (blksize*codePhaseStep+remCodePhase) : \
-                    codePhaseStep]
-      promptCode = caCode[np.int_(np.ceil(tcode))]
-
-      remCodePhase = (tcode[blksize-1] + codePhaseStep) - 1023
-
-      #Generate the carrier frequency to mix the signal to baseband
-      #time = np.r_[0:blksize+1] / settings.samplingFreq #(seconds)
-      time = np.arange(0, (blksize+1) / settings.samplingFreq, 1/settings.samplingFreq) #(seconds)
-
-      #Get the argument to sin/cos functions
-      trigarg = (carrFreq * 2.0 * math.pi)*time + remCarrPhase
-      remCarrPhase = np.remainder(trigarg[blksize],(2*math.pi))
-
-      #Finally compute the signal to mix the collected data to baseband
-      carrCos = np.cos(trigarg[0:blksize])
-      carrSin = np.sin(trigarg[0:blksize])
-
-      #Mix signals to baseband
-      qBasebandSignal = carrCos*rawSignal
-      iBasebandSignal = carrSin*rawSignal
-
-      #Get early, prompt, and late I/Q correlations
-      I_E = np.sum(earlyCode * iBasebandSignal)
-      Q_E = np.sum(earlyCode * qBasebandSignal)
-      I_P = np.sum(promptCode * iBasebandSignal)
-      Q_P = np.sum(promptCode * qBasebandSignal)
-      I_L = np.sum(lateCode * iBasebandSignal)
-      Q_L = np.sum(lateCode * qBasebandSignal)
-
-      return (I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase)
-
 def track(samples, channel, settings):
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
