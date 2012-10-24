@@ -30,7 +30,7 @@ class initSettings:
 
     self.msToProcess          = 37000
     self.numberOfChannels     = 8
-    self.skipNumberOfBytes    = 16368*3
+    self.skipNumberOfBytes    = 16368
     #dataType             = 'int8'
     self.IF                   = 9.548e6        #Hz
     self.samplingFreq         = 38.192e6       #Hz
