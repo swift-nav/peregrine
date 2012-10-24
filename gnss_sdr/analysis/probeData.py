@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -21,7 +21,11 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 #USA.
 #--------------------------------------------------------------------------
+import sys
+sys.path.append("..")
+
 import initSettings
+import argparse
 import pylab
 import math
 import numpy
@@ -29,17 +33,14 @@ import matplotlib
 import getSamples
 
 def probeData(settings):
-
-  print "Probing data", settings.fileName
-
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
-  
+
   samples = getSamples.int8(settings.fileName,10*samplesPerCode,settings.skipNumberOfBytes)
-  
+
   #Initialize figure
   fig = pylab.figure()
   pylab.clf()
-  
+
   #X axis
   timeScale = [x*(1/settings.samplingFreq) for x in \
                range(0,int(round((5e-3 + 1/settings.samplingFreq)*settings.samplingFreq)))]
@@ -50,7 +51,7 @@ def probeData(settings):
   pylab.title('Time domain plot')
   pylab.xlabel('Time (ms)')
   pylab.ylabel('Amplitude')
-  
+
   #Frequency domain plot
   (Pxx,freqs) = matplotlib.mlab.psd(x = samples-numpy.mean(samples),\
                                                     noverlap = 1024,\
@@ -61,7 +62,7 @@ def probeData(settings):
   pylab.title('Frequency Domain Plot')
   pylab.xlabel('Frequency (MHz)')
   pylab.ylabel('Magnitude')
-  
+
   #Histogram
   pylab.subplot(2,2,3)
   xticks = pylab.unique(samples)
@@ -71,15 +72,14 @@ def probeData(settings):
   xticks = pylab.unique(pylab.round_(xticks))
   pylab.xticks(xticks)
   pylab.title('Histogram');
-  
+
   return fig
 
 if __name__ == "__main__":
   settings = initSettings.initSettings()
-  settings.fileName = '../gnss_signal_records/tehdataz'
-  settings.IF = 4.092e6
-  settings.samplingFreq = 16.368e6
-
+  parser = argparse.ArgumentParser()
+  parser.add_argument("file", help="the sample data file to analyse")
+  args = parser.parse_args()
+  settings.fileName = args.file
   fig = probeData(settings)
-  print "Plotting data", settings.fileName
   pylab.show()

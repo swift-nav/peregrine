@@ -24,28 +24,18 @@
 
 import sys
 from initSettings import initSettings
-import pylab
-from probeData import probeData
 import getSamples
 from acquisition import acquisition
 import pickle
-from plotAcquisition import plotAcquisition
 from include.preRun import preRun
 from include.preRun import track_chan_init_state
 from include.showChannelStatus import showChannelStatus
 from datetime import datetime
 from tracking import track
-from plotTrackingLow import plotTrackingLow
-from plotTrackingHigh import plotTrackingHigh
 
 #Initialize constants, settings
 settings = initSettings()
 
-#Generate plot of raw data
-if settings.plotSignal:
-  print "Plotting data", settings.fileName
-  probeFigure = probeData(settings)
-  pylab.draw()
 
 #Do acquisition
 #Get 11ms of acquisition samples for fine frequency estimation
@@ -60,9 +50,6 @@ else:
   acqResults = acquisition(acqSamples,settings)
   pickle.dump(acqResults,open("acqResults.pickle","wb"))
 #  print "done"
-if settings.plotAcquisition:
-  acqFigure = plotAcquisition(acqResults,settings)
-  pylab.draw()
 
 #Do tracking
 #Find if any satellites were acquired
@@ -103,10 +90,6 @@ else:
   (trackResults, channel) = track(trackSamples, channel, settings)
   pickle.dump((trackResults, channel),open("trackResults.pickle","wb"))
   print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
-if settings.plotTrackingLow:
-  trackLowFigures = plotTrackingLow(trackResults,settings)
-if settings.plotTrackingHigh:
-  trackHighFigure = plotTrackingHigh(channel,trackResults,settings)
 
 #Do navigation
 if settings.skipNavigation:
@@ -121,5 +104,3 @@ else:
   print navSolutions
   #pickle.dump(navSolutions,open("navResults.pickle","wb"))
   print "Navigation Done. Elapsed time =", (datetime.now() - startTime)
-
-pylab.show()

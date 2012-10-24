@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -22,16 +22,22 @@
 #USA.
 #--------------------------------------------------------------------------
 
-import numpy as np
-import matplotlib.pyplot as plt
+import sys
+sys.path.append("..")
 
-def plotTrackingHigh(channel, trackResults, settings):
-  fig = plt.figure()
+import initSettings
+import argparse
+import numpy as np
+import pylab
+import pickle
+
+def plotTrackingHigh(trackResults, settings):
+  fig = pylab.figure()
   fig.clf()
-  if (settings.plotTrackingNumPts > len(trackResults[0].pllDiscr)):
-    x_pts = [i*0.001 for i in range(len(trackResults[0].pllDiscr))] 
+  if (settings.plotTrackingNumPts > len(trackResults[0].I_P)):
+    x_pts = [i*0.001 for i in range(len(trackResults[0].I_P))]
   else:
-    x_pts = [i*0.001 for i in range(settings.plotTrackingNumPts)] 
+    x_pts = [i*0.001 for i in range(settings.plotTrackingNumPts)]
   colors = [(0,0,0),\
             (0,0,1),\
             (0,1,0),\
@@ -46,16 +52,27 @@ def plotTrackingHigh(channel, trackResults, settings):
             (0.5,0,0.5),\
             (0.5,0.5,0),\
             (0.5,0.5,0.5)]
-  plt.title("Prompt correlation magnitude of each channel")
-  plt.xlabel("Time")
-  plt.hold(True)
-  
+  pylab.title("Prompt correlation magnitude of each channel")
+  pylab.xlabel("Time")
+  pylab.hold(True)
+
   for channelNr in range(len(trackResults)):
-    plt.plot(x_pts,\
+    pylab.plot(x_pts,\
              np.sqrt(np.square(trackResults[channelNr].I_P[0:len(x_pts)])\
                + np.square(trackResults[channelNr].Q_P[0:len(x_pts)])),\
-             color=colors[channelNr], label=("PRN %2d" % (channel[channelNr].PRN)))
-  plt.legend()
-  plt.hold(False)
+             color=colors[channelNr], label=("PRN %2d" % (trackResults[channelNr].PRN)))
+  pylab.legend()
+  pylab.hold(False)
 
   return fig
+
+if __name__ == "__main__":
+  settings = initSettings.initSettings()
+  parser = argparse.ArgumentParser()
+  parser.add_argument("file", help="the tracking results file to analyse")
+  args = parser.parse_args()
+  settings.fileName = args.file
+  with open(settings.fileName, "rb") as f:
+    trackResults, channel = pickle.load(f)
+    fig = plotTrackingHigh(trackResults, settings)
+  pylab.show()

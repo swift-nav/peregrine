@@ -23,12 +23,6 @@
 #--------------------------------------------------------------------------
 class initSettings:
   def __init__(self):
-    self.plotSignal           = False
-    self.plotAcquisition      = False
-    self.plotTrackingHigh     = True
-    self.plotTrackingLow      = False
-    self.plotNavigation       = True
-
     self.plotTrackingLowInds  = range(1)
     self.plotTrackingLowCorr  = True
     self.plotTrackingLowDisc  = True

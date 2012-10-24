@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -22,8 +22,14 @@
 #USA.
 #--------------------------------------------------------------------------
 
+import sys
+sys.path.append("..")
+
+import initSettings
+import argparse
 import numpy as np
-import matplotlib.pyplot as plt
+import pylab
+import pickle
 
 def plotTrackingLow(trackResults, settings):
   fig = []
@@ -35,55 +41,66 @@ def plotTrackingLow(trackResults, settings):
   for channelNr in settings.plotTrackingLowInds:
     fig.append([])
     if settings.plotTrackingLowDisc:
-      fig[channelNr].append(plt.figure())
+      fig[channelNr].append(pylab.figure())
       fig[channelNr][-1].clf()
-      plt.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : I/Q Diagram, PLL Disc, and DLL Disc" % (channelNr,trackResults[channelNr].PRN))
+      pylab.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : I/Q Diagram, PLL Disc, and DLL Disc" % (channelNr,trackResults[channelNr].PRN))
 
       fig[channelNr][-1].add_subplot(3,2,1)
-      plt.plot(trackResults[channelNr].I_P[0:len(x_pts)], trackResults[channelNr].Q_P[0:len(x_pts)],'.')
-      plt.ylabel('IQ Diagram\nQuadrature')
-      plt.xlabel('In-phase')
+      pylab.plot(trackResults[channelNr].I_P[0:len(x_pts)], trackResults[channelNr].Q_P[0:len(x_pts)],'.')
+      pylab.ylabel('IQ Diagram\nQuadrature')
+      pylab.xlabel('In-phase')
 
       fig[channelNr][-1].add_subplot(3,2,3)
-      plt.plot(x_pts,trackResults[channelNr].pllDiscr[0:len(x_pts)],'b.')
-      plt.ylabel('PLL Discriminant')
-      plt.xlabel('Time')
+      pylab.plot(x_pts,trackResults[channelNr].pllDiscr[0:len(x_pts)],'b.')
+      pylab.ylabel('PLL Discriminant')
+      pylab.xlabel('Time')
 
       fig[channelNr][-1].add_subplot(3,2,4)
-      plt.plot(x_pts,trackResults[channelNr].pllDiscrFilt[0:len(x_pts)],'r.')
-      plt.ylabel('Filtered PLL Discriminant')
-      plt.xlabel('Time')
+      pylab.plot(x_pts,trackResults[channelNr].pllDiscrFilt[0:len(x_pts)],'r.')
+      pylab.ylabel('Filtered PLL Discriminant')
+      pylab.xlabel('Time')
 
       fig[channelNr][-1].add_subplot(3,2,5)
-      plt.plot(x_pts,trackResults[channelNr].dllDiscr[0:len(x_pts)],'b.')
-      plt.ylabel('DLL Discriminant')
-      plt.xlabel('Time')
+      pylab.plot(x_pts,trackResults[channelNr].dllDiscr[0:len(x_pts)],'b.')
+      pylab.ylabel('DLL Discriminant')
+      pylab.xlabel('Time')
 
       fig[channelNr][-1].add_subplot(3,2,6)
-      plt.plot(x_pts,trackResults[channelNr].dllDiscrFilt[0:len(x_pts)],'r.')
-      plt.ylabel('Filtered DLL Discriminant')
-      plt.xlabel('Time')
+      pylab.plot(x_pts,trackResults[channelNr].dllDiscrFilt[0:len(x_pts)],'r.')
+      pylab.ylabel('Filtered DLL Discriminant')
+      pylab.xlabel('Time')
 
     if settings.plotTrackingLowCorr:
-      fig[channelNr].append(plt.figure())
+      fig[channelNr].append(pylab.figure())
       fig[channelNr][-1].clf()
-      plt.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : Correlations" % (channelNr,trackResults[channelNr].PRN))
+      pylab.figtext(0.02,0.95,"Channel %d (PRN %d) Tracking Results : Correlations" % (channelNr,trackResults[channelNr].PRN))
 
       fig[channelNr][-1].add_subplot(2,1,1);
-      plt.plot(x_pts,trackResults[channelNr].I_P[0:len(x_pts)],'b')
-      plt.ylabel('IP Correlation')
-      plt.xlabel('Time')
+      pylab.plot(x_pts,trackResults[channelNr].I_P[0:len(x_pts)],'b')
+      pylab.ylabel('IP Correlation')
+      pylab.xlabel('Time')
 
       fig[channelNr][-1].add_subplot(2,1,2);
-      plt.hold(True)
-      plt.plot(x_pts,np.sqrt(np.square(trackResults[channelNr].I_E[0:len(x_pts)])\
+      pylab.hold(True)
+      pylab.plot(x_pts,np.sqrt(np.square(trackResults[channelNr].I_E[0:len(x_pts)])\
                            + np.square(trackResults[channelNr].Q_E[0:len(x_pts)])),'y')
-      plt.plot(x_pts,np.sqrt(np.square(trackResults[channelNr].I_P[0:len(x_pts)])\
+      pylab.plot(x_pts,np.sqrt(np.square(trackResults[channelNr].I_P[0:len(x_pts)])\
                            + np.square(trackResults[channelNr].Q_P[0:len(x_pts)])),'b')
-      plt.plot(x_pts,np.sqrt(np.square(trackResults[channelNr].I_L[0:len(x_pts)])\
+      pylab.plot(x_pts,np.sqrt(np.square(trackResults[channelNr].I_L[0:len(x_pts)])\
                            + np.square(trackResults[channelNr].Q_L[0:len(x_pts)])),'r')
-      plt.ylabel('Early / Prompt / Late Power')
-      plt.xlabel('Time')
-      plt.hold(False)
+      pylab.ylabel('Early / Prompt / Late Power')
+      pylab.xlabel('Time')
+      pylab.hold(False)
 
   return fig
+
+if __name__ == "__main__":
+  settings = initSettings.initSettings()
+  parser = argparse.ArgumentParser()
+  parser.add_argument("file", help="the tracking results file to analyse")
+  args = parser.parse_args()
+  settings.fileName = args.file
+  with open(settings.fileName, "rb") as f:
+    trackResults, channel = pickle.load(f)
+    fig = plotTrackingLow(trackResults, settings)
+  pylab.show()
