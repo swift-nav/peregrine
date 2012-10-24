@@ -69,7 +69,6 @@ else:
 showChannelStatus(channel,settings)
 
 #Track the acquired satellites
-trackSamples = getSamples.int8(settings.fileName,settings.msToProcess,11*samplesPerCode) #11*samplesPerCode is number of samples used in acquisition
 if settings.skipTracking:
   print "\nLoading old tracking results ... ",
   (trackResults,channel) = pickle.load(open("trackResults.pickle","rb"))
@@ -77,7 +76,7 @@ if settings.skipTracking:
 else:
   startTime = datetime.now()
   print "\nTracking started at", startTime
-  (trackResults, channel) = track(trackSamples, channel, settings)
+  (trackResults, channel) = track(channel, settings)
   pickle.dump((trackResults, channel),open("trackResults.pickle","wb"))
   print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
 

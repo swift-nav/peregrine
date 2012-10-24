@@ -31,7 +31,7 @@ from include.calcLoopCoef import calcLoopCoef
 
 import swiftnav.track
 
-def track(samples, channel, settings):
+def track(channel, settings):
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
   #Initialize tracking variables
