@@ -28,15 +28,10 @@ class initSettings:
     self.plotTrackingLowDisc  = True
     self.plotTrackingNumPts   = 200
 
-    self.skipAcquisition      = True
-    self.skipTracking         = False
-    self.skipNavigation       = True
-
     self.msToProcess          = 37000
     self.numberOfChannels     = 8
     self.skipNumberOfBytes    = 16368*3
     #dataType             = 'int8'
-    self.fileName             = '../gnss_signal_records/GPSdata-DiscreteComponents-fs38_192-if9_55.bin'
     self.IF                   = 9.548e6        #Hz
     self.samplingFreq         = 38.192e6       #Hz
     self.codeFreqBasis        = 1.023e6        #Hz

@@ -22,7 +22,7 @@
 #USA.
 #--------------------------------------------------------------------------
 
-import sys
+import argparse
 from initSettings import initSettings
 import getSamples
 from acquisition import acquisition
@@ -36,11 +36,18 @@ from tracking import track
 #Initialize constants, settings
 settings = initSettings()
 
+parser = argparse.ArgumentParser()
+parser.add_argument("file", help="the sample data file to process")
+parser.add_argument("-a", "--skip-acquisition", help="use previously saved acquisition results", action="store_true")
+parser.add_argument("-t", "--skip-tracking", help="use previously saved tracking results", action="store_true")
+parser.add_argument("-n", "--skip-navigation", help="use previously saved navigation results", action="store_true")
+args = parser.parse_args()
+settings.fileName = args.file
 
 #Do acquisition
 #Get 11ms of acquisition samples for fine frequency estimation
 samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
-if settings.skipAcquisition:
+if args.skip_acquisition:
   print "\nLoading old acquisition results ...",
   acqResults = pickle.load(open("acqResults.pickle","rb"))
   print "done"
@@ -69,7 +76,7 @@ else:
 showChannelStatus(channel,settings)
 
 #Track the acquired satellites
-if settings.skipTracking:
+if args.skip_tracking:
   print "\nLoading old tracking results ... ",
   (trackResults,channel) = pickle.load(open("trackResults.pickle","rb"))
   print "done"
@@ -81,7 +88,7 @@ else:
   print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
 
 #Do navigation
-if settings.skipNavigation:
+if args.skip_navigation:
   #print "\nLoading old navigation results ... ",
   #(navSolutions, eph) = pickle.load(open("navResults.pickle","rb"))
   print "done"
