@@ -40,16 +40,15 @@ settings = initSettings()
 #Do acquisition
 #Get 11ms of acquisition samples for fine frequency estimation
 samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
-acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
 if settings.skipAcquisition:
   print "\nLoading old acquisition results ...",
   acqResults = pickle.load(open("acqResults.pickle","rb"))
   print "done"
 else:
   print "\nAcquiring satellites ...",
+  acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
   acqResults = acquisition(acqSamples,settings)
   pickle.dump(acqResults,open("acqResults.pickle","wb"))
-#  print "done"
 
 #Do tracking
 #Find if any satellites were acquired
