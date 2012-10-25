@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #--------------------------------------------------------------------------
 #                           SoftGNSS v3.0
-# 
+#
 # Copyright (C) Darius Plausinaitis and Dennis M. Akos
 # Written by Darius Plausinaitis and Dennis M. Akos
 # Converted to Python by Colin Beighley
@@ -33,8 +33,8 @@ def showChannelStatus(channel,settings):
       print("|      %2d | %3d |  %2.5e  |   % 5d   |  %9s  |    %1s   |" % \
             (channelNr+1, \
             channel[channelNr].PRN + 1, \
-            channel[channelNr].acquiredFreq, \
-            round(channel[channelNr].acquiredFreq - settings.IF), \
+            channel[channelNr].carrFreq, \
+            round(channel[channelNr].carrFreq - settings.IF), \
             #+1 to match octave
             ("%4.4f" % (1023-(channel[channelNr].codePhase+1)/(settings.samplingFreq/1.023e6))), \
             channel[channelNr].status))

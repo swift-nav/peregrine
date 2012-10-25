@@ -22,16 +22,18 @@
 #USA.
 #--------------------------------------------------------------------------
 
+import sys
 import argparse
 from initSettings import initSettings
 import getSamples
 from acquisition import acquisition
+from navigation import navigation
 import pickle
-from include.preRun import preRun
-from include.preRun import track_chan_init_state
 from include.showChannelStatus import showChannelStatus
-from datetime import datetime
 from tracking import track
+import logging
+from operator import attrgetter
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 #Initialize constants, settings
 settings = initSettings()
@@ -44,59 +46,54 @@ parser.add_argument("-n", "--skip-navigation", help="use previously saved naviga
 args = parser.parse_args()
 settings.fileName = args.file
 
-#Do acquisition
-#Get 11ms of acquisition samples for fine frequency estimation
 samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
+
+# Do acquisition
+acq_results_file = args.file + ".acq_results"
 if args.skip_acquisition:
-  print "\nLoading old acquisition results ...",
-  acqResults = pickle.load(open("acqResults.pickle","rb"))
-  print "done"
+  logging.info("Skipping acquisition, loading saved acquisition results.")
+  try:
+    with open(acq_results_file, 'rb') as f:
+      acq_results = pickle.load(f)
+  except IOError:
+    logging.critical("Couldn't open acquisition results file '%s'.", acq_results_file)
+    sys.exit(1)
 else:
-  print "\nAcquiring satellites ...",
-  acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
-  acqResults = acquisition(acqSamples,settings)
-  pickle.dump(acqResults,open("acqResults.pickle","wb"))
+  # Get 11ms of acquisition samples for fine frequency estimation
+  acq_samples = getSamples.int8(args.file, 11*samplesPerCode, settings.skipNumberOfBytes)
+  acq_results = acquisition(acq_samples, settings)
+  try:
+    with open(acq_results_file, 'wb') as f:
+      pickle.dump(acq_results, f)
+  except IOError:
+    logging.error("Couldn't save acquisition results file '%s'.", acq_results_file)
 
-#Do tracking
-#Find if any satellites were acquired
-acqSuccessful = False
-#for i in settings.acqSatelliteList:
-for i in range(32-1,-1,-1):
-  if acqResults[i][0] > settings.acqThreshold:
-    acqSuccessful = True
-  else: #if satellite wasn't found, pop it off the list
-    acqResults.pop(i)
-#If any satellites were acquired, set up tracking channels
-if acqSuccessful:
-  channel = preRun(acqResults,settings)
-else:
-  print "No satellites acquired, not continuing to tracking"
-  pylab.show()
+if len(acq_results) == 0:
+  logging.critical("No satellites acquired!")
+  sys.exit(1)
 
-showChannelStatus(channel,settings)
+acq_results.sort(key=attrgetter('SNR'), reverse=True)
 
-#Track the acquired satellites
+showChannelStatus(acq_results, settings)
+
+# Track the acquired satellites
+track_results_file = args.file + ".track_results"
 if args.skip_tracking:
-  print "\nLoading old tracking results ... ",
-  (trackResults,channel) = pickle.load(open("trackResults.pickle","rb"))
-  print "done"
+  logging.info("Skipping tracking, loading saved tracking results.")
+  try:
+    with open(track_results_file, 'rb') as f:
+      (track_results, channel) = pickle.load(f)
+  except IOError:
+    logging.critical("Couldn't open tracking results file '%s'.", track_results_file)
+    sys.exit(1)
 else:
-  startTime = datetime.now()
-  print "\nTracking started at", startTime
-  (trackResults, channel) = track(channel, settings)
-  pickle.dump((trackResults, channel),open("trackResults.pickle","wb"))
-  print "Tracking Done. Elapsed time =", (datetime.now() - startTime)
+  (track_results, channel) = track(acq_results, settings)
+  try:
+    with open(track_results_file, 'wb') as f:
+      pickle.dump((track_results, channel), f)
+  except IOError:
+    logging.error("Couldn't save tracking results file '%s'.", track_results_file)
 
-#Do navigation
-if args.skip_navigation:
-  #print "\nLoading old navigation results ... ",
-  #(navSolutions, eph) = pickle.load(open("navResults.pickle","rb"))
-  print "done"
-else:
-  from navigation import navigation
-  startTime = datetime.now()
-  print "\nNavigation started at", startTime
-  navSolutions = navigation(trackResults, settings)
-  print navSolutions
-  #pickle.dump(navSolutions,open("navResults.pickle","wb"))
-  print "Navigation Done. Elapsed time =", (datetime.now() - startTime)
+# Do navigation
+if not args.skip_navigation:
+  navSolutions = navigation(track_results, settings)

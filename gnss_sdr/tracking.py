@@ -31,7 +31,11 @@ from include.calcLoopCoef import calcLoopCoef
 
 import swiftnav.track
 
+import logging
+logger = logging.getLogger(__name__)
+
 def track(channel, settings):
+  logger.info("Tracking starting")
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
   #Initialize tracking variables
@@ -50,6 +54,7 @@ def track(channel, settings):
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
+    logger.debug("Tracking channel %2d, PRN %2d" % (channelNr, channel[channelNr].PRN))
     trackResults[channelNr].PRN = channel[channelNr].PRN
     #Get a vector with the C/A code sampled 1x/chip
     caCode = np.array(generateCAcode(channel[channelNr].PRN))
@@ -59,8 +64,8 @@ def track(channel, settings):
     codeFreq = settings.codeFreqBasis
     #remCodePhase = 0.0 #residual code phase
     remCodePhase = 0.0 #residual code phase
-    carrFreq = channel[channelNr].acquiredFreq
-    carrFreqBasis = channel[channelNr].acquiredFreq
+    carrFreq = channel[channelNr].carrFreq
+    carrFreqBasis = channel[channelNr].carrFreq
     remCarrPhase = 0.0 #residual carrier phase
 
     #code tracking loop parameters
@@ -81,14 +86,11 @@ def track(channel, settings):
       if (np.remainder(loopCnt,50)==0):
         progbar.updated(float(loopCnt + channelNr*settings.msToProcess)\
                         / float(len(channel)*settings.msToProcess))
-#        print "Channel %d/%d, %d/%d ms" % (channelNr+1,len(channel),loopCnt, settings.msToProcess)
       codePhaseStep = codeFreq/settings.samplingFreq
       rawSignal = np.array(getSamples.int8(settings.fileName,blksize_,numSamplesToSkip))
 
       I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = swiftnav.track.track_correlate(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
-      #I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate_old(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize
-      #print remCodePhase, remCarrPhase
 
       #Find PLL error and update carrier NCO
       #Carrier loop discriminator (phase detector)
@@ -132,7 +134,7 @@ def track(channel, settings):
     #Possibility for lock-detection later
     trackResults[channelNr].status = 'T'
 
-  print ""
+  logger.info("Tracking finished")
 
   return (trackResults,channel)
 

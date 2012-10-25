@@ -25,11 +25,14 @@
 import numpy as np
 import pylab
 import math
-import sys
 from include.makeCaTable import makeCaTable
 from include.generateCAcode import generateCAcode
 
+import logging
+logger = logging.getLogger(__name__)
+
 def acquisition(longSignal,settings):
+  logger.info("Acquisition starting")
   # Number of samples per code period
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   # Create two 1msec vectors of data to correlate with and one with zero DC
@@ -49,9 +52,7 @@ def acquisition(longSignal,settings):
   # Carrier frequencies of the frequency bins
   frqBins = np.zeros((numberOfFrqBins))
   # Initialize acqResults
-  acqResults = [[0.0,0.0,0.0] for i in range(32)]
-  print "(",
-  sys.stdout.flush()
+  acqResults = []
   for PRN in settings.acqSatelliteList:
     caCodeFreqDom = np.conj(np.fft.fft(caCodesTable[PRN]))
     for frqBinIndex in range(numberOfFrqBins):
@@ -113,13 +114,11 @@ def acquisition(longSignal,settings):
     for i in codePhaseRange:
       if (secondPeakSize < results[frequencyBinIndex][i]):
         secondPeakSize = results[frequencyBinIndex][i]
-    #Store result
-    acqResults[PRN][0] = peakSize/secondPeakSize
+
+    SNR = peakSize/secondPeakSize
     #If the result is above the threshold, then we have acquired the satellite
-    if (acqResults[PRN][0] > settings.acqThreshold):
+    if (SNR > settings.acqThreshold):
       #Fine resolution frequency search
-      print (PRN+1),
-      sys.stdout.flush()
       #Generate 8msc long C/A codes sequence for given PRN
       caCode = generateCAcode(PRN)
       codeValueIndex = np.array([int(math.floor(ts*i*settings.codeFreqBasis)) for i in \
@@ -141,41 +140,31 @@ def acquisition(longSignal,settings):
           fftMaxIndex = i
       fftFreqBins = np.array([i*settings.samplingFreq/fftNumPts for i in range(uniqFftPts)])
       #Save properties of the detected satellite signal
-#      acqResults[PRN].carrFreq = fftFreqBins[fftMaxIndex]
-#      acqResults[PRN].codePhase = codePhase
-      acqResults[PRN][1] = fftFreqBins[fftMaxIndex]
-      acqResults[PRN][2] = codePhase
+      acqResults += [AcquisitionResult(PRN,
+                                       fftFreqBins[fftMaxIndex],
+                                       codePhase,
+                                       SNR)]
+      #acqResults[PRN].carrFreq = fftFreqBins[fftMaxIndex]
+      #acqResults[PRN].codePhase = codePhase
+      #acqResults[PRN][1] = fftFreqBins[fftMaxIndex]
+      #acqResults[PRN][2] = codePhase
+      logger.debug("PRN %2d acquired: SNR %5.2f @ %6.1f, % 8.2f Hz" % \
+          (PRN+1, SNR,
+           float(codePhase)/samplesPerCodeChip,
+           fftFreqBins[fftMaxIndex] - settings.IF))
     #If the result is NOT above the threshold, we haven't acquired the satellite
     else:
-      print ".",
-      sys.stdout.flush()
-    for i in range(32): #Add PRN number to each result
-      acqResults[i].append(i)
+      #logger.debug("PRN %d not found." % PRN)
+      pass
   #Acquisition is over
-  print ")"
+  logger.info("Acquisition finished")
+  logger.info("Acquired %d satellites, PRNs: %s.", len(acqResults), [ar.PRN for ar in acqResults])
   return acqResults
 
-if __name__ == "__main__":
-  from initSettings import initSettings
-  import getSamples
-  from showChannelStatus import showChannelStatus
-  from preRun import preRun
-  from plotAcquisition import plotAcquisition
-  settings = initSettings()
-  settings.fileName = '../gnss_signal_records/v2_3_samples.dat'
-  settings.IF = 4.092e6
-  settings.samplingFreq = 16.368e6
-  #11 ms of samples
-  samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
-  acqSamples = getSamples.int8(settings.fileName,11*samplesPerCode,settings.skipNumberOfBytes)
-  print "Acquiring satellites ...",
-  acqResults = acquisition(acqSamples,settings)
-  acqFigure = plotAcquisition(acqResults,settings)
-  #if satellite wasn't found, pop it off the list
-  for i in range(32-1,-1,-1):
-    if acqResults[i][0] > settings.acqThreshold:
-      acqSuccessful = True
-    else:
-      acqResults.pop(i)
-  showChannelStatus(preRun(acqResults,settings),settings)
-  pylab.show()
+class AcquisitionResult:
+  def __init__(self, PRN, carrFreq, codePhase, SNR, status='T'):
+    self.PRN          = PRN
+    self.SNR          = SNR
+    self.carrFreq     = carrFreq
+    self.codePhase    = codePhase
+    self.status       = status
