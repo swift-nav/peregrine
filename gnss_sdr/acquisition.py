@@ -31,18 +31,21 @@ from include.generateCAcode import generateCAcode
 import logging
 logger = logging.getLogger(__name__)
 
+#@profile
 def acquisition(longSignal,settings):
   logger.info("Acquisition starting")
   # Number of samples per code period
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
+  #samplesPerCode = 16384
   # Create two 1msec vectors of data to correlate with and one with zero DC
   signal1 = np.array(longSignal[0:samplesPerCode])
   signal2 = np.array(longSignal[samplesPerCode:2*samplesPerCode])
   signal0DC = np.array(longSignal - np.mean(longSignal))
   # Find sampling period
-  ts = 1/settings.samplingFreq
+  ts = 1.0/settings.samplingFreq
   # Find phases for the local carrier
-  phasePoints = np.array([2*math.pi*i*ts for i in range(0,samplesPerCode)])
+  #phasePoints = np.array([2*math.pi*i*ts for i in range(0,samplesPerCode)])
+  phasePoints = 2*math.pi*ts * np.arange(samplesPerCode)
   # Number of frequency bins for the given acquisition band (500 Hz steps)
   numberOfFrqBins = int(math.floor(settings.acqSearchBand*1e3/500 + 1))
   # Generate all C/A codes and sample them according to the sampling freq
@@ -54,7 +57,9 @@ def acquisition(longSignal,settings):
   # Initialize acqResults
   acqResults = []
   for PRN in settings.acqSatelliteList:
-    caCodeFreqDom = np.conj(np.fft.fft(caCodesTable[PRN]))
+    #ca = np.append(caCodesTable[PRN],caCodesTable[PRN][:16])
+    ca = caCodesTable[PRN]
+    caCodeFreqDom = np.conj(np.fft.fft(ca))
     for frqBinIndex in range(numberOfFrqBins):
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
       frqBins[frqBinIndex] = settings.IF \
@@ -71,61 +76,92 @@ def acquisition(longSignal,settings):
       #--- Convert the baseband signal to frequency domain --------------
       IQfreqDom1 = np.fft.fft(I1 + 1j*Q1);
       IQfreqDom2 = np.fft.fft(I2 + 1j*Q2);
+      #pylab.plot(np.abs(IQfreqDom1), 'b')
+      # Testing new method:
+      #IQfreqDom1_new = np.fft.fft(signal1)
+      #IQfreqDom2_new = np.fft.fft(signal2)
+      #pylab.plot(np.abs(IQfreqDom1_new), 'g')
+      #shift = int((len(IQfreqDom1_new) / settings.samplingFreq) * frqBins[frqBinIndex])
+      #IQfreqDom1 = np.append(IQfreqDom1_new[shift:], IQfreqDom1_new[:shift])
+      #IQfreqDom2 = np.append(IQfreqDom2_new[shift:], IQfreqDom2_new[:shift])
+      #pylab.plot(np.abs(IQfreqDom1_new_shift), 'r')
+      #err = np.abs(IQfreqDom1) - np.abs(IQfreqDom1_new_shift)
+      #print shift
+      #print len(IQfreqDom1), len(IQfreqDom1_new)
+      #print len(IQfreqDom1_new) - len(IQfreqDom1)
+      #print np.max(err), np.max(IQfreqDom1_new_shift), np.max(IQfreqDom1)
+      #pylab.show()
+      #break
       #--- Multiplication in frequency <--> correlation in time ---------
       convCodeIQ1 = IQfreqDom1*caCodeFreqDom
       convCodeIQ2 = IQfreqDom2*caCodeFreqDom
       #--- Perform IFFT and store correlation results -------------------
-      acqRes1 = abs(np.fft.ifft(convCodeIQ1))**2
-      acqRes2 = abs(np.fft.ifft(convCodeIQ2))**2
+      acqRes1 = np.abs(np.fft.ifft(convCodeIQ1))**2
+      acqRes2 = np.abs(np.fft.ifft(convCodeIQ2))**2
       #--- Check which msec had the greater power and save that, wil
       #blend 1st and 2nd msec but corrects for nav bit
-      if (max(acqRes1) > max(acqRes1)):
+      if (np.max(acqRes1) > np.max(acqRes1)):
         results[frqBinIndex] = acqRes1
       else:
         results[frqBinIndex] = acqRes2
     #--- Find the correlation peak and the carrier frequency ----------
-    peakSize = 0
-    for i in range(len(results)):
-      if (max(results[i]) > peakSize):
-        peakSize = max(results[i])
-        frequencyBinIndex = i
+    #peakSize = 0
+    #for i in range(len(results)):
+      #if (np.max(results[i]) > peakSize):
+        #peakSize = np.max(results[i])
+        #frequencyBinIndex = i
     #--- Find the code phase of the same correlation peak -------------
-    peakSize = 0
-    for i in range(len(results.T)):
-      if (max(results.T[i]) > peakSize):
-        peakSize = max(results.T[i])
-        codePhase = i
+    #peakSize = 0
+    #for i in range(len(results.T)):
+      #if (np.max(results.T[i]) > peakSize):
+        #peakSize = np.max(results.T[i])
+        #codePhase = i
+    peakSize = np.max(results)
+    frequencyBinIndex, codePhase = np.unravel_index(results.argmax(), results.shape)
     #--- Find 1 chip wide C/A code phase exclude range around the peak
     samplesPerCodeChip = int(round(settings.samplingFreq \
                                    / settings.codeFreqBasis))
     excludeRangeIndex1 = codePhase - samplesPerCodeChip
     excludeRangeIndex2 = codePhase + samplesPerCodeChip
+    #print codePhase, excludeRangeIndex1, excludeRangeIndex2, len(results)
     #--- Correct C/A code phase exclude range if the range includes
     #--- array boundaries
     if (excludeRangeIndex1 < 1):
-      codePhaseRange = range(excludeRangeIndex2,samplesPerCode+excludeRangeIndex1+1)
+      #codePhaseRange = range(excludeRangeIndex2,samplesPerCode+excludeRangeIndex1+1)
+      secondPeakSize = np.max(results[frequencyBinIndex][excludeRangeIndex2:samplesPerCode+excludeRangeIndex1+1])
     elif (excludeRangeIndex2 >= (samplesPerCode-1)):
-      codePhaseRange = range(excludeRangeIndex2-samplesPerCode,excludeRangeIndex1+1)
+      #codePhaseRange = range(excludeRangeIndex2-samplesPerCode,excludeRangeIndex1+1)
+      secondPeakSize = np.max(results[frequencyBinIndex][excludeRangeIndex2-samplesPerCode:excludeRangeIndex1+1])
     else:
-      codePhaseRange = np.concatenate((range(0,excludeRangeIndex1+1),\
-                                       range(excludeRangeIndex2,samplesPerCode)))
+      #codePhaseRange = np.concatenate((range(0,excludeRangeIndex1+1),\
+                                       #range(excludeRangeIndex2,samplesPerCode)))
+      secondPeakSize = max(
+          np.max(results[frequencyBinIndex][:excludeRangeIndex1+1]),
+          np.max(results[frequencyBinIndex][excludeRangeIndex2:])
+      )
     #Find the second highest correlation peak in the same freq bin
-    secondPeakSize = 0
-    for i in codePhaseRange:
-      if (secondPeakSize < results[frequencyBinIndex][i]):
-        secondPeakSize = results[frequencyBinIndex][i]
+    #secondPeakSize = 0
+    #for i in codePhaseRange:
+      #if (secondPeakSize < results[frequencyBinIndex][i]):
+        #secondPeakSize = results[frequencyBinIndex][i]
+    #secondPeakSize = np.max(results[frequencyBinIndex])
 
     SNR = peakSize/secondPeakSize
     #If the result is above the threshold, then we have acquired the satellite
     if (SNR > settings.acqThreshold):
       #Fine resolution frequency search
       #Generate 8msc long C/A codes sequence for given PRN
-      caCode = generateCAcode(PRN)
-      codeValueIndex = np.array([int(math.floor(ts*i*settings.codeFreqBasis)) for i in \
-                                   range(1,8*samplesPerCode+1)])
-      longCaCode = np.array([caCode[i] for i in np.remainder(codeValueIndex,1023)])
+      caCode = np.array(generateCAcode(PRN))
+      #codeValueIndex = np.array([int(math.floor(ts*i*settings.codeFreqBasis)) for i in \
+                                   #range(1,8*samplesPerCode+1)])
+
+      codeValueIndex = np.arange(1.0, 8.0*samplesPerCode+1.0) * ts * settings.codeFreqBasis
+      codeValueIndex = np.asarray(codeValueIndex, np.int)
+      #longCaCode = np.array([caCode[i] for i in np.remainder(codeValueIndex,1023)])
+      longCaCode = caCode[np.remainder(codeValueIndex,1023)]
       #Remove CA code modulation from the original signal
-      xCarrier = np.array([signal0DC[codePhase+i]*longCaCode[i] for i in range(0,8*samplesPerCode)])
+      #xCarrier = np.array([signal0DC[codePhase+i]*longCaCode[i] for i in range(0,8*samplesPerCode)])
+      xCarrier = signal0DC[codePhase:][:8*samplesPerCode]*longCaCode[:8*samplesPerCode]
       #Find next highest power of 2 and increase by 8x
       fftNumPts = 8*(2**int(math.ceil(math.log(len(xCarrier),2))))
       #Compute the magnitude of the FFT, find the maximum, and the associated carrrier frequency
@@ -133,12 +169,18 @@ def acquisition(longSignal,settings):
       #preeeeetty much reach the same conclusion for the best carrier frequency
       fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
       uniqFftPts = int(math.ceil((fftNumPts+1)/2))
-      fftMax = 0
-      for i in range(4,uniqFftPts-5):
-        if (fftMax < fftxc[i]):
-          fftMax = fftxc[i]
-          fftMaxIndex = i
-      fftFreqBins = np.array([i*settings.samplingFreq/fftNumPts for i in range(uniqFftPts)])
+      #fftMax = 0
+      #for i in range(4,uniqFftPts-5):
+        #if (fftMax < fftxc[i]):
+          #fftMax = fftxc[i]
+          #fftMaxIndex = i
+      #print fftMax, fftMaxIndex, len(fftxc)
+      foo = fftxc[4:uniqFftPts-5]
+      fftMax = np.max(foo)
+      fftMaxIndex = np.argmax(foo) + 4
+      #print fftMax, fftMaxIndex, len(foo)
+      #fftFreqBins = np.array([i*settings.samplingFreq/fftNumPts for i in range(uniqFftPts)])
+      fftFreqBins = np.arange(uniqFftPts) * settings.samplingFreq/fftNumPts
       #Save properties of the detected satellite signal
       acqResults += [AcquisitionResult(PRN,
                                        fftFreqBins[fftMaxIndex],
