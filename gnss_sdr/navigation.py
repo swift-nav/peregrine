@@ -23,6 +23,7 @@
 #--------------------------------------------------------------------------
 import numpy as np
 from initSettings import initSettings
+import datetime
 import swiftnav.nav_msg
 import swiftnav.track
 import swiftnav.pvt
@@ -84,6 +85,11 @@ def navigation(trackResults, settings):
       #print nm
 
     s = swiftnav.pvt.calc_PVT(nms)
-    navSolutions += [s]
+    # TODO: Fix this to properly deal with week number rollover.
+    wn = 1024 + navMsgs[0].gps_week_num()
+    t = datetime.datetime(1980, 1, 5) + \
+        datetime.timedelta(weeks=wn) + \
+        datetime.timedelta(seconds=s.tow)
+    navSolutions += [(s,t)]
 
   return navSolutions
