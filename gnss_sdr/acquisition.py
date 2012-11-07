@@ -85,43 +85,17 @@ def acquisition(longSignal,settings):
     #ca = np.append(caCodesTable[PRN],caCodesTable[PRN][:16])
     ca = caCodesTable[PRN]
     caCodeFreqDom = np.conj(np.fft.fft(ca))
+    IQfreqDom1_new = np.fft.fft(signal1)
+    IQfreqDom2_new = np.fft.fft(signal2)
     for frqBinIndex in range(numberOfFrqBins):
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
       frqBins[frqBinIndex] = settings.IF \
                              - settings.acqSearchBand/2*1000 \
                              + 0.5e3*frqBinIndex
-      #--- Generate local sine and cosine -------------------------------
-      sinCarr = np.sin(frqBins[frqBinIndex]*phasePoints)
-      cosCarr = np.cos(frqBins[frqBinIndex]*phasePoints)
-      #--- "Remove carrier" from the signal -----------------------------
-      xCarr1[:] = sinCarr*signal1 + 1j*cosCarr*signal1
-      xCarr2[:] = sinCarr*signal2 + 1j*cosCarr*signal2
-      #xCarr1 = sinCarr*signal1 + 1j*cosCarr*signal1
-      #xCarr2 = sinCarr*signal2 + 1j*cosCarr*signal2
       #--- Convert the baseband signal to frequency domain --------------
-      fft1.execute()
-      fft2.execute()
-      #IQfreqDom1 = np.fft.fft(xCarr1);
-      #IQfreqDom2 = np.fft.fft(xCarr2);
-      #pylab.plot(np.abs(IQfreqDom1), 'b')
-      # Testing new method:
-      #IQfreqDom1_new = np.fft.fft(signal1)
-      #IQfreqDom2_new = np.fft.fft(signal2)
-      #pylab.plot(np.abs(IQfreqDom1_new), 'g')
-      #shift = int((len(IQfreqDom1_new) / settings.samplingFreq) * frqBins[frqBinIndex])
-      #IQfreqDom1 = np.append(IQfreqDom1_new[shift:], IQfreqDom1_new[:shift])
-      #IQfreqDom2 = np.append(IQfreqDom2_new[shift:], IQfreqDom2_new[:shift])
-      #pylab.plot(np.abs(IQfreqDom1_new_shift), 'r')
-      #err = np.abs(IQfreqDom1) - np.abs(IQfreqDom1_)
-      #print shift
-      #print len(IQfreqDom1), len(IQfreqDom1_new)
-      #print len(IQfreqDom1_new) - len(IQfreqDom1)
-      #print np.max(err), np.max(IQfreqDom1_), np.max(IQfreqDom1)
-      #print err[:10]
-      #print IQfreqDom1[:10]
-      #print IQfreqDom1_[:10]
-      #pylab.show()
-      #break
+      shift = int((len(IQfreqDom1_new) / settings.samplingFreq) * frqBins[frqBinIndex])
+      IQfreqDom1 = np.append(IQfreqDom1_new[shift:], IQfreqDom1_new[:shift])
+      IQfreqDom2 = np.append(IQfreqDom2_new[shift:], IQfreqDom2_new[:shift])
       #--- Multiplication in frequency <--> correlation in time ---------
       convCodeIQ1[:] = IQfreqDom1*caCodeFreqDom
       convCodeIQ2[:] = IQfreqDom2*caCodeFreqDom
