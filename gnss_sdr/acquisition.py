@@ -34,8 +34,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 @profile
-def acquisition(longSignal,settings):
+def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   logger.info("Acquisition starting")
+
+  # Try to load saved FFTW wisdom
+  try:
+    with open(wisdom_file, 'rb') as f:
+      wisdom = pickle.load(f)
+      pyfftw.import_wisdom(wisdom)
+  except IOError:
+    logger.warning("Couldn't open FFTW wisdom file, this run might take longer than usual.")
+
   # Number of samples per code period
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   #samplesPerCode = 16384
@@ -58,76 +67,68 @@ def acquisition(longSignal,settings):
   frqBins = np.zeros((numberOfFrqBins))
   # Initialize acqResults
   acqResults = []
+
   # Make aligned arrays for FFTW
-  xCarr1 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
-  IQfreqDom1 = pyfftw.n_byte_align_empty(xCarr1.shape, 16, dtype=xCarr1.dtype)
-  xCarr2 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
-  IQfreqDom2 = pyfftw.n_byte_align_empty(xCarr2.shape, 16, dtype=xCarr2.dtype)
+  ca_code = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  ca_code_ft = pyfftw.n_byte_align_empty(ca_code.shape, 16, dtype=ca_code.dtype)
 
-  convCodeIQ1 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
-  convCodeIQ1_ifft = pyfftw.n_byte_align_empty(convCodeIQ1.shape, 16, dtype=convCodeIQ1.dtype)
-  convCodeIQ2 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
-  convCodeIQ2_ifft = pyfftw.n_byte_align_empty(convCodeIQ2.shape, 16, dtype=convCodeIQ2.dtype)
+  corr_ft1 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  corr1 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  corr_ft2 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  corr2 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
 
-  try:
-    with open("fftw_wisdom", 'rb') as f:
-      wisdom = pickle.load(f)
-      pyfftw.import_wisdom(wisdom)
-  except IOError:
-    logger.warning("Couldn't open FFTW wisdom file, this run might take longer than usual.")
-  fft1 = pyfftw.FFTW(xCarr1, IQfreqDom1)
-  fft2 = pyfftw.FFTW(xCarr2, IQfreqDom2)
-  ifft1 = pyfftw.FFTW(convCodeIQ1, convCodeIQ1_ifft, direction='FFTW_BACKWARD')
-  ifft2 = pyfftw.FFTW(convCodeIQ2, convCodeIQ2_ifft, direction='FFTW_BACKWARD')
-  with open("fftw_wisdom", 'wb') as f:
-    pickle.dump(pyfftw.export_wisdom(), f)
+  # Setup FFTW transforms
+  ca_code_fft = pyfftw.FFTW(ca_code, ca_code_ft)
+  corr_ifft1 = pyfftw.FFTW(corr_ft1, corr1, direction='FFTW_BACKWARD')
+  corr_ifft2 = pyfftw.FFTW(corr_ft2, corr2, direction='FFTW_BACKWARD')
+
+  # Find Fourier transforms of the two signals
+  signal1_ft = np.fft.fft(signal1)
+  signal2_ft = np.fft.fft(signal2)
+
   for PRN in settings.acqSatelliteList:
-    #ca = np.append(caCodesTable[PRN],caCodesTable[PRN][:16])
-    ca = caCodesTable[PRN]
-    caCodeFreqDom = np.conj(np.fft.fft(ca))
-    IQfreqDom1_new = np.fft.fft(signal1)
-    IQfreqDom2_new = np.fft.fft(signal2)
+
+    # Find the conjugate Fourier transform of the CA code which will be used to
+    # perform the correlation
+    ca_code[:] = caCodesTable[PRN]
+    ca_code_fft.execute()
+    ca_code_ft_conj = np.conj(ca_code_ft)
+
     for frqBinIndex in range(numberOfFrqBins):
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
       frqBins[frqBinIndex] = settings.IF \
                              - settings.acqSearchBand/2*1000 \
                              + 0.5e3*frqBinIndex
-      #--- Convert the baseband signal to frequency domain --------------
-      shift = int((len(IQfreqDom1_new) / settings.samplingFreq) * frqBins[frqBinIndex])
-      IQfreqDom1 = np.append(IQfreqDom1_new[shift:], IQfreqDom1_new[:shift])
-      IQfreqDom2 = np.append(IQfreqDom2_new[shift:], IQfreqDom2_new[:shift])
-      #--- Multiplication in frequency <--> correlation in time ---------
-      convCodeIQ1[:] = IQfreqDom1*caCodeFreqDom
-      convCodeIQ2[:] = IQfreqDom2*caCodeFreqDom
-      #convCodeIQ1 = IQfreqDom1*caCodeFreqDom
-      #convCodeIQ2 = IQfreqDom2*caCodeFreqDom
-      #--- Perform IFFT and store correlation results -------------------
-      ifft1.execute()
-      ifft2.execute()
-      #convCodeIQ1_ifft = np.fft.ifft(convCodeIQ1) 
-      #convCodeIQ2_ifft = np.fft.ifft(convCodeIQ2) 
-      acqRes1 = np.abs(convCodeIQ1_ifft)**2
-      acqRes2 = np.abs(convCodeIQ2_ifft)**2
-      #--- Check which msec had the greater power and save that, wil
-      #blend 1st and 2nd msec but corrects for nav bit
-      if (np.max(acqRes1) > np.max(acqRes1)):
-        results[frqBinIndex] = acqRes1
+
+      # Shift the signal in the frequency domain to remove the carrier
+      # i.e. mix down to baseband
+      shift = int((len(signal1_ft) / settings.samplingFreq) * frqBins[frqBinIndex])
+      signal1_ft_bb = np.append(signal1_ft[shift:], signal1_ft[:shift])
+      signal2_ft_bb = np.append(signal2_ft[shift:], signal2_ft[:shift])
+
+      # Multiplication in frequency <-> correlation in time
+      corr_ft1[:] = signal1_ft_bb * ca_code_ft_conj
+      corr_ft2[:] = signal2_ft_bb * ca_code_ft_conj
+
+      # Perform inverse Fourier transform to obtain correlation results
+      corr_ifft1.execute()
+      corr_ifft2.execute()
+      # Find the correlation amplitude
+      acq_result1 = np.abs(corr1)
+      acq_result2 = np.abs(corr2)
+
+      # Use the signal with the largest correlation peak as the result as one of
+      # the signals may contain a nav bit edge. Square the result to find the
+      # correlation power.
+      if (np.max(acq_result1) > np.max(acq_result1)):
+        results[frqBinIndex] = np.square(acq_result1)
       else:
-        results[frqBinIndex] = acqRes2
-    #--- Find the correlation peak and the carrier frequency ----------
-    #peakSize = 0
-    #for i in range(len(results)):
-      #if (np.max(results[i]) > peakSize):
-        #peakSize = np.max(results[i])
-        #frequencyBinIndex = i
-    #--- Find the code phase of the same correlation peak -------------
-    #peakSize = 0
-    #for i in range(len(results.T)):
-      #if (np.max(results.T[i]) > peakSize):
-        #peakSize = np.max(results.T[i])
-        #codePhase = i
+        results[frqBinIndex] = np.square(acq_result2)
+
+    # Find the correlation peak power, frequency and code phase
     peakSize = np.max(results)
     frequencyBinIndex, codePhase = np.unravel_index(results.argmax(), results.shape)
+
     #--- Find 1 chip wide C/A code phase exclude range around the peak
     samplesPerCodeChip = int(round(settings.samplingFreq \
                                    / settings.codeFreqBasis))
@@ -157,6 +158,7 @@ def acquisition(longSignal,settings):
     #secondPeakSize = np.max(results[frequencyBinIndex])
 
     SNR = peakSize/secondPeakSize
+
     #If the result is above the threshold, then we have acquired the satellite
     if (SNR > settings.acqThreshold):
       #Fine resolution frequency search
@@ -209,8 +211,14 @@ def acquisition(longSignal,settings):
       #logger.debug("PRN %d not found." % PRN)
       pass
   #Acquisition is over
+
+  # Save FFTW wisdom for later
+  with open(wisdom_file, 'wb') as f:
+    pickle.dump(pyfftw.export_wisdom(), f)
+
   logger.info("Acquisition finished")
   logger.info("Acquired %d satellites, PRNs: %s.", len(acqResults), [ar.PRN for ar in acqResults])
+
   return acqResults
 
 class AcquisitionResult:
