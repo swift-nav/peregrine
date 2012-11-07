@@ -25,13 +25,15 @@
 import numpy as np
 import pylab
 import math
+import pyfftw
+import pickle
 from include.makeCaTable import makeCaTable
 from include.generateCAcode import generateCAcode
 
 import logging
 logger = logging.getLogger(__name__)
 
-#@profile
+@profile
 def acquisition(longSignal,settings):
   logger.info("Acquisition starting")
   # Number of samples per code period
@@ -56,6 +58,29 @@ def acquisition(longSignal,settings):
   frqBins = np.zeros((numberOfFrqBins))
   # Initialize acqResults
   acqResults = []
+  # Make aligned arrays for FFTW
+  xCarr1 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  IQfreqDom1 = pyfftw.n_byte_align_empty(xCarr1.shape, 16, dtype=xCarr1.dtype)
+  xCarr2 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  IQfreqDom2 = pyfftw.n_byte_align_empty(xCarr2.shape, 16, dtype=xCarr2.dtype)
+
+  convCodeIQ1 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  convCodeIQ1_ifft = pyfftw.n_byte_align_empty(convCodeIQ1.shape, 16, dtype=convCodeIQ1.dtype)
+  convCodeIQ2 = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
+  convCodeIQ2_ifft = pyfftw.n_byte_align_empty(convCodeIQ2.shape, 16, dtype=convCodeIQ2.dtype)
+
+  try:
+    with open("fftw_wisdom", 'rb') as f:
+      wisdom = pickle.load(f)
+      pyfftw.import_wisdom(wisdom)
+  except IOError:
+    logger.warning("Couldn't open FFTW wisdom file, this run might take longer than usual.")
+  fft1 = pyfftw.FFTW(xCarr1, IQfreqDom1)
+  fft2 = pyfftw.FFTW(xCarr2, IQfreqDom2)
+  ifft1 = pyfftw.FFTW(convCodeIQ1, convCodeIQ1_ifft, direction='FFTW_BACKWARD')
+  ifft2 = pyfftw.FFTW(convCodeIQ2, convCodeIQ2_ifft, direction='FFTW_BACKWARD')
+  with open("fftw_wisdom", 'wb') as f:
+    pickle.dump(pyfftw.export_wisdom(), f)
   for PRN in settings.acqSatelliteList:
     #ca = np.append(caCodesTable[PRN],caCodesTable[PRN][:16])
     ca = caCodesTable[PRN]
@@ -69,13 +94,15 @@ def acquisition(longSignal,settings):
       sinCarr = np.sin(frqBins[frqBinIndex]*phasePoints)
       cosCarr = np.cos(frqBins[frqBinIndex]*phasePoints)
       #--- "Remove carrier" from the signal -----------------------------
-      I1 = sinCarr*signal1
-      Q1 = cosCarr*signal1
-      I2 = sinCarr*signal2
-      Q2 = cosCarr*signal2
+      xCarr1[:] = sinCarr*signal1 + 1j*cosCarr*signal1
+      xCarr2[:] = sinCarr*signal2 + 1j*cosCarr*signal2
+      #xCarr1 = sinCarr*signal1 + 1j*cosCarr*signal1
+      #xCarr2 = sinCarr*signal2 + 1j*cosCarr*signal2
       #--- Convert the baseband signal to frequency domain --------------
-      IQfreqDom1 = np.fft.fft(I1 + 1j*Q1);
-      IQfreqDom2 = np.fft.fft(I2 + 1j*Q2);
+      fft1.execute()
+      fft2.execute()
+      #IQfreqDom1 = np.fft.fft(xCarr1);
+      #IQfreqDom2 = np.fft.fft(xCarr2);
       #pylab.plot(np.abs(IQfreqDom1), 'b')
       # Testing new method:
       #IQfreqDom1_new = np.fft.fft(signal1)
@@ -85,19 +112,28 @@ def acquisition(longSignal,settings):
       #IQfreqDom1 = np.append(IQfreqDom1_new[shift:], IQfreqDom1_new[:shift])
       #IQfreqDom2 = np.append(IQfreqDom2_new[shift:], IQfreqDom2_new[:shift])
       #pylab.plot(np.abs(IQfreqDom1_new_shift), 'r')
-      #err = np.abs(IQfreqDom1) - np.abs(IQfreqDom1_new_shift)
+      #err = np.abs(IQfreqDom1) - np.abs(IQfreqDom1_)
       #print shift
       #print len(IQfreqDom1), len(IQfreqDom1_new)
       #print len(IQfreqDom1_new) - len(IQfreqDom1)
-      #print np.max(err), np.max(IQfreqDom1_new_shift), np.max(IQfreqDom1)
+      #print np.max(err), np.max(IQfreqDom1_), np.max(IQfreqDom1)
+      #print err[:10]
+      #print IQfreqDom1[:10]
+      #print IQfreqDom1_[:10]
       #pylab.show()
       #break
       #--- Multiplication in frequency <--> correlation in time ---------
-      convCodeIQ1 = IQfreqDom1*caCodeFreqDom
-      convCodeIQ2 = IQfreqDom2*caCodeFreqDom
+      convCodeIQ1[:] = IQfreqDom1*caCodeFreqDom
+      convCodeIQ2[:] = IQfreqDom2*caCodeFreqDom
+      #convCodeIQ1 = IQfreqDom1*caCodeFreqDom
+      #convCodeIQ2 = IQfreqDom2*caCodeFreqDom
       #--- Perform IFFT and store correlation results -------------------
-      acqRes1 = np.abs(np.fft.ifft(convCodeIQ1))**2
-      acqRes2 = np.abs(np.fft.ifft(convCodeIQ2))**2
+      ifft1.execute()
+      ifft2.execute()
+      #convCodeIQ1_ifft = np.fft.ifft(convCodeIQ1) 
+      #convCodeIQ2_ifft = np.fft.ifft(convCodeIQ2) 
+      acqRes1 = np.abs(convCodeIQ1_ifft)**2
+      acqRes2 = np.abs(convCodeIQ2_ifft)**2
       #--- Check which msec had the greater power and save that, wil
       #blend 1st and 2nd msec but corrects for nav bit
       if (np.max(acqRes1) > np.max(acqRes1)):
