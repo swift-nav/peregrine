@@ -29,7 +29,7 @@ import pyfftw
 import pickle
 import scipy.signal
 from include.makeCaTable import makeCaTable
-from include.generateCAcode import generateCAcode
+from include.generateCAcode import caCodes
 
 import logging
 logger = logging.getLogger(__name__)
@@ -144,10 +144,9 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
     if (SNR > settings.acqThreshold):
       # Fine resolution frequency search
       # Generate 8ms long CA code sequence for given PRN
-      caCode = np.array(generateCAcode(PRN))
       codeValueIndex = np.arange(1.0, n_fine+1.0) * ts * settings.codeFreqBasis
-      codeValueIndex = np.asarray(codeValueIndex, np.int)
-      longCaCode = caCode[np.remainder(codeValueIndex,1023)]
+      codeValueIndex = np.remainder(np.asarray(codeValueIndex, np.int), 1023)
+      longCaCode = caCodes[PRN][codeValueIndex]
 
       # Remove CA code modulation from the original signal
       signal0DC = longSignal[codePhase:][:n_fine]
