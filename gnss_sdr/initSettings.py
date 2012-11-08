@@ -32,8 +32,8 @@ class initSettings:
     self.numberOfChannels     = 8
     self.skipNumberOfBytes    = 16368
     #dataType             = 'int8'
-    self.IF                   = 9.548e6        #Hz
-    self.samplingFreq         = 38.192e6       #Hz
+    self.IF                   = 4.092e6        #Hz
+    self.samplingFreq         = 16.368e6       #Hz
     self.codeFreqBasis        = 1.023e6        #Hz
     self.codeLength           = 1023
   #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
