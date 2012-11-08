@@ -217,7 +217,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
     pickle.dump(pyfftw.export_wisdom(), f)
 
   logger.info("Acquisition finished")
-  logger.info("Acquired %d satellites, PRNs: %s.", len(acqResults), [ar.PRN for ar in acqResults])
+  logger.info("Acquired %d satellites, PRNs: %s.", len(acqResults), [ar.PRN+1 for ar in acqResults])
 
   return acqResults
 
