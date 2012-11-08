@@ -27,6 +27,7 @@ import pylab
 import math
 import pyfftw
 import pickle
+import scipy.signal
 from include.makeCaTable import makeCaTable
 from include.generateCAcode import generateCAcode
 
@@ -47,11 +48,11 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
 
   # Number of samples per code period
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
+  samplesPerCodeChip = int(round(settings.samplingFreq / settings.codeFreqBasis))
   #samplesPerCode = 16384
-  # Create two 1msec vectors of data to correlate with and one with zero DC
+  # Create two 1ms sets of data to correlate with
   signal1 = np.array(longSignal[0:samplesPerCode])
   signal2 = np.array(longSignal[samplesPerCode:2*samplesPerCode])
-  signal0DC = np.array(longSignal - np.mean(longSignal))
   # Find sampling period
   ts = 1.0/settings.samplingFreq
   # Find phases for the local carrier
@@ -159,26 +160,27 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
 
     SNR = peakSize/secondPeakSize
 
-    #If the result is above the threshold, then we have acquired the satellite
+    # If the result is above the threshold, then we have acquired the satellite
     if (SNR > settings.acqThreshold):
-      #Fine resolution frequency search
-      #Generate 8msc long C/A codes sequence for given PRN
+      # Fine resolution frequency search
+      # Generate 8ms long CA code sequence for given PRN
       caCode = np.array(generateCAcode(PRN))
-      #codeValueIndex = np.array([int(math.floor(ts*i*settings.codeFreqBasis)) for i in \
-                                   #range(1,8*samplesPerCode+1)])
-
       codeValueIndex = np.arange(1.0, 8.0*samplesPerCode+1.0) * ts * settings.codeFreqBasis
       codeValueIndex = np.asarray(codeValueIndex, np.int)
-      #longCaCode = np.array([caCode[i] for i in np.remainder(codeValueIndex,1023)])
       longCaCode = caCode[np.remainder(codeValueIndex,1023)]
-      #Remove CA code modulation from the original signal
-      #xCarrier = np.array([signal0DC[codePhase+i]*longCaCode[i] for i in range(0,8*samplesPerCode)])
-      xCarrier = signal0DC[codePhase:][:8*samplesPerCode]*longCaCode[:8*samplesPerCode]
-      #Find next highest power of 2 and increase by 8x
-      fftNumPts = 8*(2**int(math.ceil(math.log(len(xCarrier),2))))
-      #Compute the magnitude of the FFT, find the maximum, and the associated carrrier frequency
-      #for some reason the output of this fft is different than Octave's, but they seem to
-      #preeeeetty much reach the same conclusion for the best carrier frequency
+
+      # Remove CA code modulation from the original signal
+      signal0DC = longSignal[codePhase:][:8*samplesPerCode]
+      signal0DC -= np.mean(signal0DC)
+      xCarrier = signal0DC * longCaCode
+
+      # Apply window fuction to reduce spectral leakage
+      xCarrier *= scipy.signal.get_window('hann', len(xCarrier))
+
+      # Find next highest power of 2 and increase by 8x
+      fftNumPts = 1*(2**int(math.ceil(math.log(len(xCarrier),2))))
+
+      # Compute the magnitude of the FFT, find the maximum, and the associated carrier frequency
       fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
       uniqFftPts = int(math.ceil((fftNumPts+1)/2))
 
