@@ -126,39 +126,10 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       else:
         results[frqBinIndex] = np.square(acq_result2)
 
-    # Find the correlation peak power, frequency and code phase
-    peakSize = np.max(results)
+    # Find the frequency and code phase of the correlation peak
     frequencyBinIndex, codePhase = np.unravel_index(results.argmax(), results.shape)
-
-    #--- Find 1 chip wide C/A code phase exclude range around the peak
-    samplesPerCodeChip = int(round(settings.samplingFreq \
-                                   / settings.codeFreqBasis))
-    excludeRangeIndex1 = codePhase - samplesPerCodeChip
-    excludeRangeIndex2 = codePhase + samplesPerCodeChip
-    #print codePhase, excludeRangeIndex1, excludeRangeIndex2, len(results)
-    #--- Correct C/A code phase exclude range if the range includes
-    #--- array boundaries
-    if (excludeRangeIndex1 < 1):
-      #codePhaseRange = range(excludeRangeIndex2,samplesPerCode+excludeRangeIndex1+1)
-      secondPeakSize = np.max(results[frequencyBinIndex][excludeRangeIndex2:samplesPerCode+excludeRangeIndex1+1])
-    elif (excludeRangeIndex2 >= (samplesPerCode-1)):
-      #codePhaseRange = range(excludeRangeIndex2-samplesPerCode,excludeRangeIndex1+1)
-      secondPeakSize = np.max(results[frequencyBinIndex][excludeRangeIndex2-samplesPerCode:excludeRangeIndex1+1])
-    else:
-      #codePhaseRange = np.concatenate((range(0,excludeRangeIndex1+1),\
-                                       #range(excludeRangeIndex2,samplesPerCode)))
-      secondPeakSize = max(
-          np.max(results[frequencyBinIndex][:excludeRangeIndex1+1]),
-          np.max(results[frequencyBinIndex][excludeRangeIndex2:])
-      )
-    #Find the second highest correlation peak in the same freq bin
-    #secondPeakSize = 0
-    #for i in codePhaseRange:
-      #if (secondPeakSize < results[frequencyBinIndex][i]):
-        #secondPeakSize = results[frequencyBinIndex][i]
-    #secondPeakSize = np.max(results[frequencyBinIndex])
-
-    SNR = peakSize/secondPeakSize
+    # Calculate SNR for the peak
+    SNR = np.max(results) / np.mean(results)
 
     # If the result is above the threshold, then we have acquired the satellite
     if (SNR > settings.acqThreshold):
