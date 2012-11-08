@@ -21,7 +21,7 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 #USA.
 #--------------------------------------------------------------------------
-import pylab as p
+import numpy as np
 
 def generateCAcode(PRN):
   #--- Make the code shift array. The shift depends on the PRN number -----
@@ -80,3 +80,8 @@ def generateCAcode(PRN):
   CAcode = [-g1[i]*g2[i] for i in range(0,1023)]
 
   return CAcode
+
+caCodes = np.empty((32, 1023))
+for PRN in range(32):
+  caCodes[PRN][:] = generateCAcode(PRN)
+
