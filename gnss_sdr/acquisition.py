@@ -34,7 +34,6 @@ from include.generateCAcode import caCodes
 import logging
 logger = logging.getLogger(__name__)
 
-@profile
 def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   logger.info("Acquisition starting")
 
