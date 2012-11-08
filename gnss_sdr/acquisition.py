@@ -69,6 +69,15 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   # Initialize acqResults
   acqResults = []
 
+  n_fine = 8*samplesPerCode
+  window = scipy.signal.get_window('hann', n_fine)
+  # Find next highest power of 2
+  fine_fftNumPts = 2**int(math.ceil(math.log(n_fine, 2)))
+  xCarrier = pyfftw.n_byte_align_empty((fine_fftNumPts), 16, dtype=np.complex128)
+  xCarrier[:] = 0
+  xCarrier_ft = pyfftw.n_byte_align_empty(xCarrier.shape, 16, dtype=xCarrier.dtype)
+  fine_fft = pyfftw.FFTW(xCarrier, xCarrier_ft)
+
   # Make aligned arrays for FFTW
   ca_code = pyfftw.n_byte_align_empty((samplesPerCode), 16, dtype=np.complex128)
   ca_code_ft = pyfftw.n_byte_align_empty(ca_code.shape, 16, dtype=ca_code.dtype)
@@ -136,24 +145,23 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       # Fine resolution frequency search
       # Generate 8ms long CA code sequence for given PRN
       caCode = np.array(generateCAcode(PRN))
-      codeValueIndex = np.arange(1.0, 8.0*samplesPerCode+1.0) * ts * settings.codeFreqBasis
+      codeValueIndex = np.arange(1.0, n_fine+1.0) * ts * settings.codeFreqBasis
       codeValueIndex = np.asarray(codeValueIndex, np.int)
       longCaCode = caCode[np.remainder(codeValueIndex,1023)]
 
       # Remove CA code modulation from the original signal
-      signal0DC = longSignal[codePhase:][:8*samplesPerCode]
+      signal0DC = longSignal[codePhase:][:n_fine]
       signal0DC -= np.mean(signal0DC)
-      xCarrier = signal0DC * longCaCode
+      xCarrier[:n_fine] = signal0DC * longCaCode
 
       # Apply window fuction to reduce spectral leakage
-      xCarrier *= scipy.signal.get_window('hann', len(xCarrier))
-
-      # Find next highest power of 2 and increase by 8x
-      fftNumPts = 1*(2**int(math.ceil(math.log(len(xCarrier),2))))
+      xCarrier[:n_fine] *= window
 
       # Compute the magnitude of the FFT, find the maximum, and the associated carrier frequency
-      fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
-      uniqFftPts = int(math.ceil((fftNumPts+1)/2))
+      #fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
+      fine_fft.execute()
+      fftxc = np.abs(xCarrier_ft)
+      uniqFftPts = int(math.ceil((fine_fftNumPts+1)/2))
 
       fftMaxIndex = np.argmax(fftxc[:uniqFftPts])
 
@@ -171,7 +179,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       ln_k_2 = np.log(fftxc[fftMaxIndex+1])
       fftMaxIndex += 0.5 * (ln_k_2 - ln_k_0) / (2*ln_k_1 - ln_k_0 - ln_k_1)
 
-      carrFreq = fftMaxIndex * settings.samplingFreq / fftNumPts
+      carrFreq = fftMaxIndex * settings.samplingFreq / fine_fftNumPts
 
       # Save properties of the detected satellite signal
       acqResults += [AcquisitionResult(PRN, carrFreq, codePhase, SNR)]
