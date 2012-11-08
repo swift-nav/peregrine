@@ -181,36 +181,32 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       #preeeeetty much reach the same conclusion for the best carrier frequency
       fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
       uniqFftPts = int(math.ceil((fftNumPts+1)/2))
-      #fftMax = 0
-      #for i in range(4,uniqFftPts-5):
-        #if (fftMax < fftxc[i]):
-          #fftMax = fftxc[i]
-          #fftMaxIndex = i
-      #print fftMax, fftMaxIndex, len(fftxc)
-      foo = fftxc[4:uniqFftPts-5]
-      fftMax = np.max(foo)
-      fftMaxIndex = np.argmax(foo) + 4
-      #print fftMax, fftMaxIndex, len(foo)
-      #fftFreqBins = np.array([i*settings.samplingFreq/fftNumPts for i in range(uniqFftPts)])
-      fftFreqBins = np.arange(uniqFftPts) * settings.samplingFreq/fftNumPts
-      #Save properties of the detected satellite signal
-      acqResults += [AcquisitionResult(PRN,
-                                       fftFreqBins[fftMaxIndex],
-                                       codePhase,
-                                       SNR)]
-      #acqResults[PRN].carrFreq = fftFreqBins[fftMaxIndex]
-      #acqResults[PRN].codePhase = codePhase
-      #acqResults[PRN][1] = fftFreqBins[fftMaxIndex]
-      #acqResults[PRN][2] = codePhase
+
+      fftMaxIndex = np.argmax(fftxc[:uniqFftPts])
+
+      # Use interpolation to refine frequency estimate
+      # See: Improving FFT frequency measurement resolution by parabolic and Gaussian spectrum interpolation
+      #      Gasior, M. et al. - AIP Conf.Proc. 732 (2004) 276-285 CERN-AB-2004-023-BDI
+
+      # Parabolic interpolation
+      #fftMaxIndex = 0.5 * (fftxc[fftMaxIndex+1] - fftxc[fftMaxIndex-1]) / \
+      #    (2*fftxc[fftMaxIndex] - fftxc[fftMaxIndex+1] - fftxc[fftMaxIndex-1])
+
+      # Gaussian interpolation
+      ln_k_0 = np.log(fftxc[fftMaxIndex-1])
+      ln_k_1 = np.log(fftxc[fftMaxIndex])
+      ln_k_2 = np.log(fftxc[fftMaxIndex+1])
+      fftMaxIndex += 0.5 * (ln_k_2 - ln_k_0) / (2*ln_k_1 - ln_k_0 - ln_k_1)
+
+      carrFreq = fftMaxIndex * settings.samplingFreq / fftNumPts
+
+      # Save properties of the detected satellite signal
+      acqResults += [AcquisitionResult(PRN, carrFreq, codePhase, SNR)]
+
       logger.debug("PRN %2d acquired: SNR %5.2f @ %6.1f, % 8.2f Hz" % \
-          (PRN+1, SNR,
-           float(codePhase)/samplesPerCodeChip,
-           fftFreqBins[fftMaxIndex] - settings.IF))
-    #If the result is NOT above the threshold, we haven't acquired the satellite
-    else:
-      #logger.debug("PRN %d not found." % PRN)
-      pass
-  #Acquisition is over
+          (PRN+1, SNR, float(codePhase)/samplesPerCodeChip, carrFreq - settings.IF))
+
+  # Acquisition is finished
 
   # Save FFTW wisdom for later
   with open(wisdom_file, 'wb') as f:
