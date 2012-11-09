@@ -60,6 +60,6 @@ def int8(fileName,numReadSamples,numSkipSamples):
   count = len(data)
 
   if (count < numReadSamples):
-    raise Exception("Couldn't read %d of samples from sample file" % (numReadSamples))
+    raise Exception("Couldn't read %d samples from file %s" % (numReadSamples, fileName))
 
   return data
