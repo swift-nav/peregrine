@@ -81,7 +81,7 @@ def generateCAcode(PRN):
 
   return CAcode
 
-caCodes = np.empty((32, 1023))
+caCodes = np.empty((32, 1023), dtype=np.int8)
 for PRN in range(32):
   caCodes[PRN][:] = generateCAcode(PRN)
 

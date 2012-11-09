@@ -22,7 +22,7 @@
 #USA.
 #--------------------------------------------------------------------------
 import numpy as np
-from include.generateCAcode import generateCAcode
+from include.generateCAcode import caCodes
 import getSamples
 from include.waitbar import Waitbar
 import math
@@ -57,7 +57,7 @@ def track(channel, settings):
     logger.debug("Tracking channel %2d, PRN %2d" % (channelNr, channel[channelNr].PRN))
     trackResults[channelNr].PRN = channel[channelNr].PRN
     #Get a vector with the C/A code sampled 1x/chip
-    caCode = np.array(generateCAcode(channel[channelNr].PRN))
+    caCode = caCodes[channel[channelNr].PRN]
     #Add wrapping to either end to be able to do early/late
     caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
     #Initialize phases and frequencies
