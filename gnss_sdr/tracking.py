@@ -85,7 +85,7 @@ def track(channel, settings):
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
       #Update progress every 50 loops
-      if (np.remainder(loopCnt,50)==0):
+      if loopCnt % 64 == 0:
         progbar.updated(float(loopCnt + channelNr*settings.msToProcess)\
                         / float(len(channel)*settings.msToProcess))
       codePhaseStep = codeFreq/settings.samplingFreq
