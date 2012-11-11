@@ -12,7 +12,6 @@ from include.generateCAcode import caCodes
 import get_samples
 import progressbar
 import math
-from save import save
 from include.calcLoopCoef import calcLoopCoef
 
 import swiftnav.track
