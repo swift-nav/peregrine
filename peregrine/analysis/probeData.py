@@ -30,12 +30,12 @@ import pylab
 import math
 import numpy
 import matplotlib
-import getSamples
+import get_samples
 
 def probeData(settings):
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
 
-  samples = getSamples.int8(settings.fileName,10*samplesPerCode,settings.skipNumberOfBytes)
+  samples = get_samples.int8(settings.fileName,10*samplesPerCode,settings.skipNumberOfBytes)
 
   #Initialize figure
   fig = pylab.figure()

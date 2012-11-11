@@ -23,7 +23,7 @@
 #--------------------------------------------------------------------------
 import numpy as np
 from include.generateCAcode import caCodes
-import getSamples
+import get_samples
 from include.waitbar import Waitbar
 import math
 from save import save
@@ -52,7 +52,7 @@ def track(channel, settings):
 
   progbar = Waitbar(True)
 
-  signal = getSamples.int8(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
+  signal = get_samples.int8(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):

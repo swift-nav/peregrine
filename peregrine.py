@@ -15,7 +15,7 @@ import pickle
 import logging
 from operator import attrgetter
 
-import peregrine.getSamples as getSamples
+import peregrine.get_samples as get_samples
 from peregrine.acquisition import acquisition
 from peregrine.navigation import navigation
 from peregrine.include.showChannelStatus import showChannelStatus
@@ -63,8 +63,8 @@ if args.skip_acquisition:
     sys.exit(1)
 else:
   # Get 11ms of acquisition samples for fine frequency estimation
-  acq_samples = getSamples.int8(args.file, 11*samplesPerCode,
-                                settings.skipNumberOfBytes)
+  acq_samples = get_samples.int8(args.file, 11*samplesPerCode,
+                                 settings.skipNumberOfBytes)
   acq_results = acquisition(acq_samples, settings)
   try:
     with open(acq_results_file, 'wb') as f:
