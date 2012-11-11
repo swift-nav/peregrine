@@ -10,7 +10,7 @@
 import numpy as np
 from include.generateCAcode import caCodes
 import get_samples
-from include.waitbar import Waitbar
+import progressbar
 import math
 from save import save
 from include.calcLoopCoef import calcLoopCoef
@@ -19,6 +19,23 @@ import swiftnav.track
 
 import logging
 logger = logging.getLogger(__name__)
+
+class _ChannelsWidget(progressbar.Widget):
+  """Widget which displays the channel number."""
+
+  TIME_SENSITIVE = True
+
+  def __init__(self, n_channels):
+    self.n_channels = n_channels
+
+  def update(self, pbar):
+      """Updates the widget to show the current channel being processed."""
+      if pbar.finished:
+        return "Ch %d/%d" % (self.n_channels, self.n_channels)
+      else:
+        curr_channel = 1 + int(self.n_channels *
+                               float(pbar.currval) / pbar.maxval)
+        return "Ch %d/%d" % (curr_channel, self.n_channels)
 
 def track(channel, settings):
   logger.info("Tracking starting")
@@ -36,9 +53,17 @@ def track(channel, settings):
   PDIcarr = 0.001
   (tau1carr,tau2carr) = calcLoopCoef(settings.pllNoiseBandwidth,settings.pllDampingRatio,0.25)
 
-  progbar = Waitbar(True)
+  widgets = ['  Tracking (',
+             _ChannelsWidget(len(channel)), '): ',
+             progressbar.Percentage(), ' ',
+             progressbar.ETA(), ' ',
+             progressbar.Bar()]
+  pbar = progressbar.ProgressBar(widgets=widgets,
+                                 maxval=len(channel)*settings.msToProcess)
 
   signal = get_samples.int8(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
+
+  pbar.start()
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
@@ -70,10 +95,8 @@ def track(channel, settings):
 
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
-      #Update progress every 50 loops
-      if loopCnt % 64 == 0:
-        progbar.updated(float(loopCnt + channelNr*settings.msToProcess)\
-                        / float(len(channel)*settings.msToProcess))
+      pbar.update(loopCnt + channelNr*settings.msToProcess)
+
       codePhaseStep = codeFreq/settings.samplingFreq
       rawSignal = signal[:numSamplesToSkip][:blksize_]
 
@@ -122,6 +145,7 @@ def track(channel, settings):
     #Possibility for lock-detection later
     trackResults[channelNr].status = 'T'
 
+  pbar.finish()
   logger.info("Tracking finished")
 
   return (trackResults,channel)
