@@ -25,12 +25,12 @@
 import sys
 import argparse
 from initSettings import initSettings
-import getSamples
-from acquisition import acquisition
-from navigation import navigation
+import peregrine.getSamples as getSamples
+from peregrine.acquisition import acquisition
+from peregrine.navigation import navigation
 import pickle
-from include.showChannelStatus import showChannelStatus
-from tracking import track
+from peregrine.include.showChannelStatus import showChannelStatus
+from peregrine.tracking import track
 import logging
 from operator import attrgetter
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
