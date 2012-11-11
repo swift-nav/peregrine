@@ -13,6 +13,7 @@ import math
 import pyfftw
 import pickle
 import scipy.signal
+import progressbar
 from include.makeCaTable import makeCaTable
 from include.generateCAcode import caCodes
 
@@ -80,6 +81,14 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   signal1_ft = np.fft.fft(signal1)
   signal2_ft = np.fft.fft(signal2)
 
+  widgets = ['  Acquisition ',
+             progressbar.Percentage(), ' ',
+             progressbar.ETA(), ' ',
+             progressbar.Bar()]
+  pbar = progressbar.ProgressBar(widgets=widgets,
+           maxval=len(settings.acqSatelliteList)*numberOfFrqBins)
+  pbar.start()
+
   for PRN in settings.acqSatelliteList:
 
     # Find the conjugate Fourier transform of the CA code which will be used to
@@ -89,6 +98,8 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
     ca_code_ft_conj = np.conj(ca_code_ft)
 
     for frqBinIndex in range(numberOfFrqBins):
+      pbar.update(settings.acqSatelliteList.index(PRN)*numberOfFrqBins +
+                  frqBinIndex)
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
       frqBins[frqBinIndex] = settings.IF \
                              - settings.acqSearchBand/2*1000 \
@@ -171,6 +182,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
           (PRN+1, SNR, float(codePhase)/samplesPerCodeChip, carrFreq - settings.IF))
 
   # Acquisition is finished
+  pbar.finish()
 
   # Save FFTW wisdom for later
   with open(wisdom_file, 'wb') as f:
