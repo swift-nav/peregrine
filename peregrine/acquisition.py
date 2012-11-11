@@ -167,7 +167,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       # Save properties of the detected satellite signal
       acqResults += [AcquisitionResult(PRN, carrFreq, codePhase, SNR)]
 
-      logger.debug("PRN %2d acquired: SNR %5.2f @ %6.1f, % 8.2f Hz" % \
+      logger.debug("PRN %2d acquired: SNR %6.2f @ %6.1f, % 8.2f Hz" % \
           (PRN+1, SNR, float(codePhase)/samplesPerCodeChip, carrFreq - settings.IF))
 
   # Acquisition is finished
