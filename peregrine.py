@@ -24,9 +24,11 @@ from peregrine.tracking import track
 from initSettings import initSettings
 
 # Configure logging
+# Note: An ANSI escape sequence is used to clear the line in case a progressbar
+# is running but this won't work in Windows.
 logging.basicConfig(
   level=logging.DEBUG,
-  format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  format="\033[2K\r%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 
 # Initialize constants, settings
