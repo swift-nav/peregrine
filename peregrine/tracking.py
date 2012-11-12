@@ -43,6 +43,9 @@ def calc_loop_coef(lbw, zeta, k):
 
 def track(channel, settings):
   logger.info("Tracking starting")
+
+  logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.PRN for chan in channel]))
+
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
   #Initialize tracking variables
@@ -73,7 +76,6 @@ def track(channel, settings):
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
-    logger.debug("Tracking channel %2d, PRN %2d" % (channelNr, channel[channelNr].PRN))
     trackResults[channelNr].PRN = channel[channelNr].PRN
     #Get a vector with the C/A code sampled 1x/chip
     caCode = caCodes[channel[channelNr].PRN]
