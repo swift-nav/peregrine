@@ -27,13 +27,13 @@ class _ChannelsWidget(progressbar.Widget):
     self.n_channels = n_channels
 
   def update(self, pbar):
-      """Updates the widget to show the current channel being processed."""
-      if pbar.finished:
-        return "Ch %d/%d" % (self.n_channels, self.n_channels)
-      else:
-        curr_channel = 1 + int(self.n_channels *
-                               float(pbar.currval) / pbar.maxval)
-        return "Ch %d/%d" % (curr_channel, self.n_channels)
+    """Updates the widget to show the current channel being processed."""
+    if pbar.finished:
+      return "Ch %d/%d" % (self.n_channels, self.n_channels)
+    else:
+      curr_channel = 1 + int(self.n_channels *
+                             float(pbar.currval) / pbar.maxval)
+      return "Ch %d/%d" % (curr_channel, self.n_channels)
 
 def calc_loop_coef(lbw, zeta, k):
   omega_n = lbw*8*zeta / (4*zeta**2 + 1)
