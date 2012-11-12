@@ -19,21 +19,24 @@ import logging
 logger = logging.getLogger(__name__)
 
 class _AcqProgressBar(progressbar.ProgressBar):
+  """Extends ProgressBar to store the PRN being processed."""
   __slots__ = ('prn')
+  def __init__(self, **kwargs):
+    self.prn = None
+    progressbar.ProgressBar.__init__(self, **kwargs)
   def update(self, value, prn=None):
-    if prn:
+    if prn is not None:
       self.prn = prn
     progressbar.ProgressBar.update(self, value)
 
 class _PRNWidget(progressbar.Widget):
+  """Widget to display the PRN being processed."""
   TIME_SENSITIVE = True
   def update(self, pbar):
-    try:
-      if pbar.prn is not None:
-        return "PRN %d" % pbar.prn
-    except AttributeError:
-      pass
-    return "PRN -"
+    if pbar.prn:
+      return "PRN %d" % pbar.prn
+    else:
+      return "PRN -"
 
 def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   logger.info("Acquisition starting")
