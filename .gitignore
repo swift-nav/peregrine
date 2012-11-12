@@ -1,3 +1,5 @@
+*.acq_results
+*.track_results
 *.pyc
-*.pickle
-
+.DS_Store
+fftw_wisdom
