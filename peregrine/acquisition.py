@@ -8,10 +8,10 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
-import math
 import pyfftw
 import pickle
 import progressbar
+
 from include.makeCaTable import makeCaTable
 from include.generateCAcode import caCodes
 
@@ -49,17 +49,15 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   # Number of samples per code period
   samplesPerCode = int(round(settings.samplingFreq / (settings.codeFreqBasis / settings.codeLength)))
   samplesPerCodeChip = int(round(settings.samplingFreq / settings.codeFreqBasis))
-  #samplesPerCode = 16384
   # Create two 1ms sets of data to correlate with
   signal1 = np.array(longSignal[0:samplesPerCode])
   signal2 = np.array(longSignal[samplesPerCode:2*samplesPerCode])
   # Find sampling period
   ts = 1.0/settings.samplingFreq
   # Find phases for the local carrier
-  #phasePoints = np.array([2*math.pi*i*ts for i in range(0,samplesPerCode)])
-  phasePoints = 2*math.pi*ts * np.arange(samplesPerCode)
+  phasePoints = 2*np.pi*ts * np.arange(samplesPerCode)
   # Number of frequency bins for the given acquisition band (500 Hz steps)
-  numberOfFrqBins = int(math.floor(settings.acqSearchBand*1e3/500 + 1))
+  numberOfFrqBins = int(np.floor(settings.acqSearchBand*1e3/500 + 1))
   # Generate all C/A codes and sample them according to the sampling freq
   caCodesTable = np.array(makeCaTable(settings))
   # Initialize arrays
@@ -72,7 +70,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   n_fine = 8*samplesPerCode
   window = np.hanning(n_fine)
   # Find next highest power of 2
-  fine_fftNumPts = 2**int(math.ceil(math.log(n_fine, 2)))
+  fine_fftNumPts = 2**int(np.ceil(np.log2(n_fine)))
   xCarrier = pyfftw.n_byte_align_empty((fine_fftNumPts), 16, dtype=np.complex128)
   xCarrier[:] = 0
   xCarrier_ft = pyfftw.n_byte_align_empty(xCarrier.shape, 16, dtype=xCarrier.dtype)
@@ -171,7 +169,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       #fftxc = np.abs(np.fft.fft(xCarrier,n=fftNumPts))
       fine_fft.execute()
       fftxc = np.abs(xCarrier_ft)
-      uniqFftPts = int(math.ceil((fine_fftNumPts+1)/2))
+      uniqFftPts = int(np.ceil((fine_fftNumPts+1)/2))
 
       fftMaxIndex = np.argmax(fftxc[:uniqFftPts])
 
