@@ -18,7 +18,6 @@ from operator import attrgetter
 import peregrine.get_samples as get_samples
 from peregrine.acquisition import acquisition
 from peregrine.navigation import navigation
-from peregrine.include.showChannelStatus import showChannelStatus
 from peregrine.tracking import track
 
 from initSettings import initSettings
@@ -80,8 +79,6 @@ if len(acq_results) == 0:
   sys.exit(1)
 
 acq_results.sort(key=attrgetter('SNR'), reverse=True)
-
-showChannelStatus(acq_results, settings)
 
 # Track the acquired satellites
 track_results_file = args.file + ".track_results"
