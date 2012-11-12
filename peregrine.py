@@ -70,6 +70,7 @@ else:
   try:
     with open(acq_results_file, 'wb') as f:
       pickle.dump(acq_results, f)
+    logging.debug("Saving acquisition results as '%s'" % acq_results_file)
   except IOError:
     logging.error("Couldn't save acquisition results file '%s'.",
                   acq_results_file)
@@ -96,6 +97,7 @@ else:
   try:
     with open(track_results_file, 'wb') as f:
       pickle.dump((track_results, channel), f)
+    logging.debug("Saving tracking results as '%s'" % track_results_file)
   except IOError:
     logging.error("Couldn't save tracking results file '%s'.",
                   track_results_file)
