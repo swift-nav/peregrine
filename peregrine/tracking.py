@@ -12,7 +12,6 @@ from include.generateCAcode import caCodes
 import get_samples
 import progressbar
 import math
-from include.calcLoopCoef import calcLoopCoef
 
 import swiftnav.track
 
@@ -36,6 +35,12 @@ class _ChannelsWidget(progressbar.Widget):
                                float(pbar.currval) / pbar.maxval)
         return "Ch %d/%d" % (curr_channel, self.n_channels)
 
+def calc_loop_coef(lbw, zeta, k):
+  omega_n = lbw*8*zeta / (4*zeta**2 + 1)
+  tau1 = k / (omega_n**2)
+  tau2 = 2.0* zeta / omega_n
+  return (tau1, tau2)
+
 def track(channel, settings):
   logger.info("Tracking starting")
   #Create list of tracking channels results (correlations, freqs, etc)
@@ -47,10 +52,12 @@ def track(channel, settings):
   #Summation interval
   PDIcode = 0.001
   #Filter coefficient values
-  (tau1code, tau2code) = calcLoopCoef(settings.dllNoiseBandwidth,settings.dllDampingRatio,1.0)
+  (tau1code, tau2code) = calc_loop_coef(settings.dllNoiseBandwidth,
+                                        settings.dllDampingRatio, 1.0)
   ##PLL Variables##
   PDIcarr = 0.001
-  (tau1carr,tau2carr) = calcLoopCoef(settings.pllNoiseBandwidth,settings.pllDampingRatio,0.25)
+  (tau1carr, tau2carr) = calc_loop_coef(settings.pllNoiseBandwidth,
+                                        settings.pllDampingRatio, 0.25)
 
   widgets = ['  Tracking (',
              _ChannelsWidget(len(channel)), '): ',
