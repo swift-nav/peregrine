@@ -20,6 +20,23 @@ from include.generateCAcode import caCodes
 import logging
 logger = logging.getLogger(__name__)
 
+class _AcqProgressBar(progressbar.ProgressBar):
+  __slots__ = ('prn')
+  def update(self, value, prn=None):
+    if prn:
+      self.prn = prn
+    progressbar.ProgressBar.update(self, value)
+
+class _PRNWidget(progressbar.Widget):
+  TIME_SENSITIVE = True
+  def update(self, pbar):
+    try:
+      if pbar.prn is not None:
+        return "PRN %d" % pbar.prn
+    except AttributeError:
+      pass
+    return "PRN -"
+
 def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   logger.info("Acquisition starting")
 
@@ -81,11 +98,12 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   signal1_ft = np.fft.fft(signal1)
   signal2_ft = np.fft.fft(signal2)
 
-  widgets = ['  Acquisition ',
+  widgets = ['  Acquisition (',
+             _PRNWidget(), '): ',
              progressbar.Percentage(), ' ',
              progressbar.ETA(), ' ',
              progressbar.Bar()]
-  pbar = progressbar.ProgressBar(widgets=widgets,
+  pbar = _AcqProgressBar(widgets=widgets,
            maxval=len(settings.acqSatelliteList)*numberOfFrqBins)
   pbar.start()
 
@@ -99,7 +117,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
 
     for frqBinIndex in range(numberOfFrqBins):
       pbar.update(settings.acqSatelliteList.index(PRN)*numberOfFrqBins +
-                  frqBinIndex)
+                  frqBinIndex, PRN)
       #--- Generate carrier wave frequency grid (0.5kHz step) -----------
       frqBins[frqBinIndex] = settings.IF \
                              - settings.acqSearchBand/2*1000 \

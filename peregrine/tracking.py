@@ -18,22 +18,21 @@ import swiftnav.track
 import logging
 logger = logging.getLogger(__name__)
 
-class _ChannelsWidget(progressbar.Widget):
-  """Widget which displays the channel number."""
-
-  TIME_SENSITIVE = True
-
-  def __init__(self, n_channels):
+class _TrackProgressBar(progressbar.ProgressBar):
+  __slots__ = ('channel', 'n_channels')
+  def __init__(self, n_channels, **kwargs):
     self.n_channels = n_channels
+    self.channel = 1
+    progressbar.ProgressBar.__init__(self, **kwargs)
+  def update(self, value, channel=None):
+    if channel is not None:
+      self.channel = channel
+    progressbar.ProgressBar.update(self, value)
 
+class _ChannelsWidget(progressbar.Widget):
+  TIME_SENSITIVE = True
   def update(self, pbar):
-    """Updates the widget to show the current channel being processed."""
-    if pbar.finished:
-      return "Ch %d/%d" % (self.n_channels, self.n_channels)
-    else:
-      curr_channel = 1 + int(self.n_channels *
-                             float(pbar.currval) / pbar.maxval)
-      return "Ch %d/%d" % (curr_channel, self.n_channels)
+    return "Ch %d/%d" % (pbar.channel, pbar.n_channels)
 
 def calc_loop_coef(lbw, zeta, k):
   omega_n = lbw*8*zeta / (4*zeta**2 + 1)
@@ -63,12 +62,13 @@ def track(channel, settings):
                                         settings.pllDampingRatio, 0.25)
 
   widgets = ['  Tracking (',
-             _ChannelsWidget(len(channel)), '): ',
+             _ChannelsWidget(), '): ',
              progressbar.Percentage(), ' ',
              progressbar.ETA(), ' ',
              progressbar.Bar()]
-  pbar = progressbar.ProgressBar(widgets=widgets,
-                                 maxval=len(channel)*settings.msToProcess)
+  pbar = _TrackProgressBar(widgets=widgets,
+                           n_channels=len(channel),
+                           maxval=len(channel)*settings.msToProcess)
 
   signal = get_samples.int8(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
 
@@ -103,7 +103,7 @@ def track(channel, settings):
 
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
-      pbar.update(loopCnt + channelNr*settings.msToProcess)
+      pbar.update(loopCnt + channelNr*settings.msToProcess, channelNr+1)
 
       codePhaseStep = codeFreq/settings.samplingFreq
       rawSignal = signal[:numSamplesToSkip][:blksize_]
