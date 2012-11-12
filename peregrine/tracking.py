@@ -43,7 +43,7 @@ def calc_loop_coef(lbw, zeta, k):
 def track(channel, settings):
   logger.info("Tracking starting")
 
-  logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.PRN for chan in channel]))
+  logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn for chan in channel]))
 
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
@@ -76,17 +76,17 @@ def track(channel, settings):
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
-    trackResults[channelNr].PRN = channel[channelNr].PRN
+    trackResults[channelNr].PRN = channel[channelNr].prn
     #Get a vector with the C/A code sampled 1x/chip
-    caCode = caCodes[channel[channelNr].PRN]
+    caCode = caCodes[channel[channelNr].prn]
     #Add wrapping to either end to be able to do early/late
     caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
     #Initialize phases and frequencies
     codeFreq = settings.codeFreqBasis
     #remCodePhase = 0.0 #residual code phase
     remCodePhase = 0.0 #residual code phase
-    carrFreq = channel[channelNr].carrFreq
-    carrFreqBasis = channel[channelNr].carrFreq
+    carrFreq = channel[channelNr].carr_freq
+    carrFreqBasis = channel[channelNr].carr_freq
     remCarrPhase = 0.0 #residual carrier phase
 
     #code tracking loop parameters
@@ -99,7 +99,8 @@ def track(channel, settings):
 
     blksize_ = int(settings.samplingFreq * 1e-3 + 10)
     #number of samples to seek ahead in file
-    numSamplesToSkip = settings.skipNumberOfBytes + channel[channelNr].codePhase
+    samplesPerCodeChip = int(round(settings.samplingFreq / settings.codeFreqBasis))
+    numSamplesToSkip = settings.skipNumberOfBytes + channel[channelNr].code_phase*samplesPerCodeChip
 
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
@@ -156,7 +157,7 @@ def track(channel, settings):
   pbar.finish()
   logger.info("Tracking finished")
 
-  return (trackResults,channel)
+  return (trackResults, channel)
 
 class trackResults_class:
   def __init__(self,settings):

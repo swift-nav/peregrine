@@ -193,10 +193,10 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
       carrFreq = fftMaxIndex * settings.samplingFreq / fine_fftNumPts
 
       # Save properties of the detected satellite signal
-      acqResults += [AcquisitionResult(PRN, carrFreq, codePhase, SNR)]
+      acq_result = AcquisitionResult(PRN, carrFreq, carrFreq - settings.IF, float(codePhase)/samplesPerCodeChip, SNR)
+      acqResults += [acq_result]
 
-      logger.debug("PRN %2d acquired: SNR %6.2f @ %6.1f, % 8.2f Hz" % \
-          (PRN+1, SNR, float(codePhase)/samplesPerCodeChip, carrFreq - settings.IF))
+      logger.debug("Acquired %s" % acq_result)
 
   # Acquisition is finished
   pbar.finish()
@@ -206,14 +206,39 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
     pickle.dump(pyfftw.export_wisdom(), f)
 
   logger.info("Acquisition finished")
-  logger.info("Acquired %d satellites, PRNs: %s.", len(acqResults), [ar.PRN+1 for ar in acqResults])
+  logger.info("Acquired %d satellites, PRNs: %s.", len(acqResults),
+              [ar.prn+1 for ar in acqResults])
 
   return acqResults
 
 class AcquisitionResult:
-  def __init__(self, PRN, carrFreq, codePhase, SNR, status='T'):
-    self.PRN          = PRN
-    self.SNR          = SNR
-    self.carrFreq     = carrFreq
-    self.codePhase    = codePhase
-    self.status       = status
+  """Stores the acquisition parameters of a single satellite."""
+  __slots__ = ('prn', 'carr_freq', 'doppler', 'code_phase', 'snr')
+
+  def __init__(self, prn, carr_freq, doppler, code_phase, snr):
+    """
+    Initialise a new AcquisitionResult.
+
+    Args:
+      prn: PRN of the satellite.
+      carr_freq: Carrier frequency in Hz.
+      doppler: Doppler frequency in Hz.
+               (carr_freq - receiver intermediate frequency)
+      code_phase: Code phase in chips.
+      snr: Signal-to-Noise Ratio.
+
+    """
+    self.prn = prn
+    self.snr = snr
+    self.carr_freq = carr_freq
+    self.doppler = doppler
+    self.code_phase = code_phase
+
+  def __str__(self):
+    return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz" % (self.prn+1,
+                                                        self.snr,
+                                                        self.code_phase,
+                                                        self.doppler)
+
+  def __repr__(self):
+    return "<AcquisitionResult %s>" % self.__str__()

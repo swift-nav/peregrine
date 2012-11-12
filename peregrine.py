@@ -79,7 +79,7 @@ if len(acq_results) == 0:
   logging.critical("No satellites acquired!")
   sys.exit(1)
 
-acq_results.sort(key=attrgetter('SNR'), reverse=True)
+acq_results.sort(key=attrgetter('snr'), reverse=True)
 
 # Track the acquired satellites
 track_results_file = args.file + ".track_results"
