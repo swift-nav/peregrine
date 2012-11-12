@@ -8,11 +8,9 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
-import pylab
 import math
 import pyfftw
 import pickle
-import scipy.signal
 import progressbar
 from include.makeCaTable import makeCaTable
 from include.generateCAcode import caCodes
@@ -72,7 +70,7 @@ def acquisition(longSignal, settings, wisdom_file="fftw_wisdom"):
   acqResults = []
 
   n_fine = 8*samplesPerCode
-  window = scipy.signal.get_window('hann', n_fine)
+  window = np.hanning(n_fine)
   # Find next highest power of 2
   fine_fftNumPts = 2**int(math.ceil(math.log(n_fine, 2)))
   xCarrier = pyfftw.n_byte_align_empty((fine_fftNumPts), 16, dtype=np.complex128)
