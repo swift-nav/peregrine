@@ -23,9 +23,6 @@ class initSettings:
     self.codeFreqBasis        = 1.023e6        #Hz
     self.codeLength           = 1023
   #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
-    self.acqSatelliteList     = range(0,32,1)
-    self.acqSearchBand        = 14     #KHz
-    self.acqThreshold         = 20.0
     self.dllDampingRatio      = 0.7
     self.dllNoiseBandwidth    = 2      #Hz
     self.dllCorrelatorSpacing = 0.5    #chips
