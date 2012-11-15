@@ -3,3 +3,5 @@
 *.pyc
 .DS_Store
 fftw_wisdom
+docs/_build
+docs/api
