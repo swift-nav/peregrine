@@ -16,7 +16,6 @@ satellite acquisition.
 import numpy as np
 import pyfftw
 import pickle
-import progressbar
 
 from include.generateCAcode import caCodes
 
@@ -24,32 +23,43 @@ import logging
 logger = logging.getLogger(__name__)
 
 DEFAULT_WISDOM_FILE = "fftw_wisdom"
+"""The default filename used for FFTW wisdom files."""
+
 DEFAULT_THRESHOLD = 20.0
+"""The default correlation power to consider an acquisition successful."""
+
+# Import progressbar if it is available.
+_progressbar_available = True
+try:
+  import progressbar
+except ImportError:
+  _progressbar_available = False
+
+# Only define our progressbar extensions if progressbar is available.
+if _progressbar_available:
+  class _AcqProgressBar(progressbar.ProgressBar):
+    """Extends ProgressBar to store the PRN being processed."""
+    __slots__ = ('prn')
+
+    def __init__(self, *args, **kwargs):
+      self.prn = None
+      progressbar.ProgressBar.__init__(self, *args, **kwargs)
+
+    def update(self, value, prn=None):
+      if prn is not None:
+        self.prn = prn
+      progressbar.ProgressBar.update(self, value)
 
 
-class _AcqProgressBar(progressbar.ProgressBar):
-  """Extends ProgressBar to store the PRN being processed."""
-  __slots__ = ('prn')
+  class _PRNWidget(progressbar.Widget):
+    """Widget to display the PRN being processed."""
+    TIME_SENSITIVE = True
 
-  def __init__(self, *args, **kwargs):
-    self.prn = None
-    progressbar.ProgressBar.__init__(self, *args, **kwargs)
-
-  def update(self, value, prn=None):
-    if prn is not None:
-      self.prn = prn
-    progressbar.ProgressBar.update(self, value)
-
-
-class _PRNWidget(progressbar.Widget):
-  """Widget to display the PRN being processed."""
-  TIME_SENSITIVE = True
-
-  def update(self, pbar):
-    if pbar.prn:
-      return "PRN %d" % pbar.prn
-    else:
-      return "PRN -"
+    def update(self, pbar):
+      if pbar.prn:
+        return "PRN %d" % pbar.prn
+      else:
+        return "PRN -"
 
 
 class Acquisition:
@@ -455,6 +465,11 @@ class Acquisition:
     logger.info("Acquisition starting")
 
     freqs = np.arange(start_doppler, stop_doppler, doppler_step) + self.IF
+
+    # If progressbar is not available, disable show_progress.
+    if show_progress and not _progressbar_available:
+      show_progress = False
+      logger.warning("show_progress = True but progressbar module not found.")
 
     # Setup our progress bar if we need it
     if show_progress:
