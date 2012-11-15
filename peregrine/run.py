@@ -15,7 +15,7 @@ import pickle
 import logging
 from operator import attrgetter
 
-import peregrine.get_samples as get_samples
+from peregrine.samples import load_samples
 from peregrine.acquisition import Acquisition
 from peregrine.navigation import navigation
 from peregrine.tracking import track
@@ -65,9 +65,10 @@ def main():
       sys.exit(1)
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
-    acq_samples = get_samples.int8(args.file, 11*samplesPerCode,
-                                   settings.skipNumberOfBytes)
-    acq = Acquisition(acq_samples, settings.samplingFreq, settings.IF, samplesPerCode)
+    acq_samples = load_samples(args.file, 11*samplesPerCode,
+                               settings.skipNumberOfBytes)
+    acq = Acquisition(acq_samples, settings.samplingFreq, settings.IF,
+                      samplesPerCode)
     acq_results = acq.acquisition()
     try:
       with open(acq_results_file, 'wb') as f:

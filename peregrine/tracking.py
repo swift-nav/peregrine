@@ -9,7 +9,7 @@
 
 import numpy as np
 from include.generateCAcode import caCodes
-import get_samples
+from samples import load_samples
 import progressbar
 import math
 
@@ -70,7 +70,7 @@ def track(channel, settings):
                            n_channels=len(channel),
                            maxval=len(channel)*settings.msToProcess)
 
-  signal = get_samples.int8(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
+  signal = load_samples(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
 
   pbar.start()
 
