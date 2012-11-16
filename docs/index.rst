@@ -18,6 +18,7 @@ User Documentation
    :maxdepth: 1
 
    installation
+   samples
    acquisition
 
 Developer Documentation
