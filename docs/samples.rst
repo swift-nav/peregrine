@@ -1,20 +1,23 @@
-==========================================
-Sample data handling (`peregrine.samples`)
-==========================================
+====================
+Sample data handling
+====================
 
 .. currentmodule:: peregrine
 
-The `peregrine.samples` module provides functions for handling sample data
-files. Currently only binary sample data stored as an 8-bit signed integer
-array is supported.
 
 Samples data files
 ==================
 
+The :mod:`peregrine.samples` module provides functions for handling sample data
+files. Currently only binary sample data stored as an 8-bit signed integer
+array is supported.
+
+
 Saving samples
 --------------
 
-Samples can be saved to a file using the :func:`samples.save_samples` function. Its usage is best illustrated by an example:
+Samples can be saved to a file using the :func:`samples.save_samples` function.
+Its usage is best illustrated by an example:
 
 .. ipython::
 
@@ -32,10 +35,12 @@ Samples can be saved to a file using the :func:`samples.save_samples` function. 
 
   In [25]: peregrine.samples.save_samples("samples_file", samples)
 
+
 Loading samples
 ---------------
 
-Samples can be loaded from a file using the :func:`samples.load_samples` function.
+Samples can be loaded from a file using the :func:`samples.load_samples`
+function.
 
 By default the whole file is read in:
 

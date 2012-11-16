@@ -8,8 +8,8 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 """
-The `acquisition` module contains classes and functions related to
-satellite acquisition.
+The :mod:`peregrine.acquisition` module contains classes and functions related
+to satellite acquisition.
 
 """
 
