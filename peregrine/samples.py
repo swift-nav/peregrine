@@ -37,7 +37,7 @@ def load_samples(filename, num_samples, num_skip=0, file_format='int8'):
   if file_format != 'int8':
     raise ValueError("Unknown file type '%s'" % file_format)
 
-  with open(filename, 'r') as f:
+  with open(filename, 'rb') as f:
     f.seek(num_skip)
     samples = np.fromfile(f, dtype=np.int8, count=num_samples)
 
