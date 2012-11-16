@@ -42,3 +42,31 @@ def load_samples(filename, num_samples, num_skip=0, file_format='int8'):
     samples = np.fromfile(f, dtype=np.int8, count=num_samples)
 
   return samples
+
+def save_samples(filename, samples, file_format='int8'):
+  """
+  Save sample data to a file.
+
+  Parameters
+  ----------
+  filename : string
+    Filename of sample data file.
+  samples : :class:`numpy.ndarray`, shape(`num_samples`,)
+    Array containing the samples to save.
+  file_format : {'int8'}, optional
+    Format of the sample data file. Takes one of the following values:
+      * `'int8'` : Binary file consisting of a packed array of 8-bit signed
+        integers.
+
+  Raises
+  ------
+  ValueError
+    If `file_format` is unrecognised.
+
+  """
+  if file_format != 'int8':
+    raise ValueError("Unknown file type '%s'" % file_format)
+
+  with open(filename, 'wb') as f:
+    samples.astype(np.int8).tofile(f)
+
