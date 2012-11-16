@@ -1,7 +1,14 @@
+*.pyc
+
 *.acq_results
 *.track_results
-*.pyc
-.DS_Store
 fftw_wisdom
+
+.DS_Store
+Peregrine.egg*
+distribute-*
+
 docs/_build
 docs/api
+docs/samples_file
+docs/_static/samples_analysis_summary.png
