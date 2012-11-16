@@ -80,6 +80,9 @@ peregrine.samples Module
 
 .. automodule:: peregrine.samples
 
+  .. autosummary:: save_samples
+  .. autosummary:: load_samples
+
   .. rubric:: Functions
 
   .. autofunction:: save_samples
