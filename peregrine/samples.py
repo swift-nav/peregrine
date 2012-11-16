@@ -33,6 +33,15 @@ def load_samples(filename, num_samples, num_skip=0, file_format='int8'):
   out : :class:`numpy.ndarray`, shape(`num_samples`,)
     The sample data as a numpy array.
 
+  Raises
+  ------
+  EOFError
+    Unless `num_samples` is ``-1``, `load_samples` will always return exactly
+    `num_samples` samples. If the end of the file is encountered before
+    `num_samples` samples have been read, an `EOFError` will be raised.
+  ValueError
+    If `file_format` is unrecognised.
+
   """
   if file_format != 'int8':
     raise ValueError("Unknown file type '%s'" % file_format)
@@ -40,6 +49,10 @@ def load_samples(filename, num_samples, num_skip=0, file_format='int8'):
   with open(filename, 'rb') as f:
     f.seek(num_skip)
     samples = np.fromfile(f, dtype=np.int8, count=num_samples)
+
+  if len(samples) < num_samples:
+    raise EOFError("Failed to read %d samples from file '%s'" %
+                   (num_samples, filename))
 
   return samples
 
