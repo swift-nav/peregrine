@@ -92,11 +92,14 @@ session, for example:
 
 .. ipython::
 
+  @suppress
+  In [24]: %cd ..
+
   In [1]: import peregrine.samples
 
   In [2]: import peregrine.analysis.samples
 
-  In [3]: samps = peregrine.samples.load_samples("test_samples.dat")
+  In [3]: samps = peregrine.samples.load_samples("tests/test_samples.dat")
 
   @savefig samples_analysis_summary.png width=75% align=center
   In [13]: peregrine.analysis.samples.summary(samps, 16.368e6)
