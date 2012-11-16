@@ -19,7 +19,11 @@ extensions = [
   'sphinx.ext.coverage',
   'sphinx.ext.pngmath',
   'sphinx.ext.viewcode',
-  'numpydoc'
+  'matplotlib.sphinxext.only_directives',
+  'matplotlib.sphinxext.plot_directive',
+  'extensions.ipython_directive',
+  'matplotlib.sphinxext.ipython_console_highlighting',
+  'numpydoc',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -50,7 +54,7 @@ release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', '_templates']
+exclude_patterns = ['_build', '_templates', 'extensions']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
