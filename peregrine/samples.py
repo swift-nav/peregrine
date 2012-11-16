@@ -11,7 +11,7 @@
 
 import numpy as np
 
-def load_samples(filename, num_samples, num_skip=0, file_format='int8'):
+def load_samples(filename, num_samples=-1, num_skip=0, file_format='int8'):
   """
   Load sample data from a file.
 
@@ -19,8 +19,8 @@ def load_samples(filename, num_samples, num_skip=0, file_format='int8'):
   ----------
   filename : string
     Filename of sample data file.
-  num_samples : int
-    Number of samples to read.
+  num_samples : int, optional
+    Number of samples to read, ``-1`` means the whole file.
   num_skip : int, optional
     Number of samples to discard from the beginning of the file.
   file_format : {'int8'}, optional
