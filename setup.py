@@ -113,8 +113,10 @@ setup_args = dict(
   packages = ['peregrine'],
 
   entry_points = {
-    'console_scripts':
-      ['peregrine = peregrine.run:main']
+    'console_scripts': [
+      'peregrine = peregrine.run:main',
+      'peregrine-analyse-samples = peregrine.analysis.samples:main',
+    ]
   },
 
   install_requires = [

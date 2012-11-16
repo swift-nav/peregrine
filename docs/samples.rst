@@ -77,8 +77,45 @@ A number of samples at the beginning of the file can be discarded using the
   Out[33]: array([-2, -1,  0,  1,  2], dtype=int8)
 
 
+Sample data analysis
+====================
+
+The :mod:`peregrine.analysis.samples` module provides various functions for
+analysing and plotting sample data.
+
+
+IPython
+-------
+
+These can be used from within an `IPython <http://ipython.org/>`_ interactive
+session, for example:
+
+.. ipython::
+
+  In [1]: import peregrine.samples
+
+  In [2]: import peregrine.analysis.samples
+
+  In [3]: samps = peregrine.samples.load_samples("test_samples.dat")
+
+  @savefig samples_analysis_summary.png width=75% align=center
+  In [13]: peregrine.analysis.samples.summary(samps, 16.368e6)
+
+
+Command-line utility
+--------------------
+
+The functions in the :mod:`peregrine.analysis.samples` module are also exposed
+though the command-line utility ``peregrine-analyse-samples``.
+
+Usage information can be found by running::
+
+  $ peregrine-analyse-samples --help
+
+
 Reference / API
 ===============
+
 
 peregrine.samples Module
 ------------------------
@@ -93,4 +130,22 @@ peregrine.samples Module
   .. autofunction:: save_samples
 
   .. autofunction:: load_samples
+
+
+peregrine.analysis.samples Module
+---------------------------------
+
+.. automodule:: peregrine.analysis.samples
+
+  .. autosummary:: summary
+  .. autosummary:: hist
+  .. autosummary:: psd
+
+  .. rubric:: Functions
+
+  .. autofunction:: summary
+
+  .. autofunction:: hist
+
+  .. autofunction:: psd
 
