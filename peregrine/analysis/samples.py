@@ -16,8 +16,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
-import peregrine.initSettings
-
 # Globally change the matplotlib font settings,
 # someone is going to complain about this eventually...
 matplotlib.rc('mathtext', fontset='stixsans')
