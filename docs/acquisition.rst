@@ -29,3 +29,11 @@ peregrine.acquisition Module
     Acquisition
     AcquisitionResult
 
+  .. rubric:: Functions
+
+  .. autosummary::
+    :toctree: api
+
+    load_acq_results
+    save_acq_results
+

@@ -572,3 +572,37 @@ class AcquisitionResult:
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()
 
+
+def save_acq_results(filename, acq_results):
+  """
+  Save a set of acquisition results to a file.
+
+  Parameters
+  ----------
+  filename : string
+    Filename to save acquisition results to.
+  acq_results : [:class:`AcquisitionResult`]
+    List of :class:`AcquisitionResult` objects to save.
+
+  """
+  with open(filename, 'wb') as f:
+    pickle.dump(acq_results, f)
+
+def load_acq_results(filename):
+  """
+  Load a set of acquisition results from a file.
+
+  Parameters
+  ----------
+  filename : string
+    Filename to load acquisition results from.
+
+  Returns
+  -------
+  acq_results : [:class:`AcquisitionResult`]
+    List of :class:`AcquisitionResult` objects loaded from the file.
+
+  """
+  with open(filename, 'rb') as f:
+    return pickle.load(f)
+

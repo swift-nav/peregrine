@@ -16,7 +16,7 @@ import logging
 from operator import attrgetter
 
 from peregrine.samples import load_samples
-from peregrine.acquisition import Acquisition
+from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
 from peregrine.navigation import navigation
 from peregrine.tracking import track
 
@@ -57,8 +57,7 @@ def main():
   if args.skip_acquisition:
     logging.info("Skipping acquisition, loading saved acquisition results.")
     try:
-      with open(acq_results_file, 'rb') as f:
-        acq_results = pickle.load(f)
+      acq_results = load_acq_results(acq_results_file)
     except IOError:
       logging.critical("Couldn't open acquisition results file '%s'.",
                        acq_results_file)
@@ -71,8 +70,7 @@ def main():
                       samplesPerCode)
     acq_results = acq.acquisition()
     try:
-      with open(acq_results_file, 'wb') as f:
-        pickle.dump(acq_results, f)
+      save_acq_results(acq_results_file, acq_results)
       logging.debug("Saving acquisition results as '%s'" % acq_results_file)
     except IOError:
       logging.error("Couldn't save acquisition results file '%s'.",
