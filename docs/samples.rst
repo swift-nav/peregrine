@@ -125,14 +125,13 @@ peregrine.samples Module
 
 .. automodule:: peregrine.samples
 
-  .. autosummary:: save_samples
-  .. autosummary:: load_samples
-
   .. rubric:: Functions
 
-  .. autofunction:: save_samples
+  .. autosummary::
+    :toctree: api
 
-  .. autofunction:: load_samples
+    save_samples
+    load_samples
 
 
 peregrine.analysis.samples Module
@@ -140,15 +139,12 @@ peregrine.analysis.samples Module
 
 .. automodule:: peregrine.analysis.samples
 
-  .. autosummary:: summary
-  .. autosummary:: hist
-  .. autosummary:: psd
-
   .. rubric:: Functions
 
-  .. autofunction:: summary
+  .. autosummary::
+    :toctree: api
 
-  .. autofunction:: hist
-
-  .. autofunction:: psd
+    summary
+    hist
+    psd
 
