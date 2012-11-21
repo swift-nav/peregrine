@@ -69,6 +69,8 @@ def main():
     acq = Acquisition(acq_samples, settings.samplingFreq, settings.IF,
                       samplesPerCode)
     acq_results = acq.acquisition()
+    # Filter out non-acquired satellites.
+    acq_results = [ar for ar in acq_results if ar.status == 'A']
     try:
       save_acq_results(acq_results_file, acq_results)
       logging.debug("Saving acquisition results as '%s'" % acq_results_file)

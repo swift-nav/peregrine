@@ -458,8 +458,7 @@ class Acquisition:
     Returns
     -------
     out : [AcquisitionResult]
-      A list of :class:`AcquisitionResult` objects, one per successfully
-      acquired satellite.
+      A list of :class:`AcquisitionResult` objects, one per PRN in `prns`.
 
     """
     logger.info("Acquisition starting")
@@ -496,18 +495,25 @@ class Acquisition:
                                     progress_callback=progress_callback)
       code_phase, carr_freq, snr = self.find_peak(freqs, coarse_results)
 
-      # If the result is above the threshold,
-      # then we have acquired the satellite
+      # If the result is above the threshold, then we have acquired the
+      # satellite, do a second stage fine carrier search and change the
+      # acquisition status.
+      status = '-'
       if (snr > threshold):
-        carr_freq_fine = self.fine_carrier(caCodes[prn], code_phase)
+        carr_freq = self.fine_carrier(caCodes[prn], code_phase)
+        status = 'A'
 
-        # Save properties of the detected satellite signal
-        acq_result = AcquisitionResult(prn,
-                                       carr_freq_fine,
-                                       carr_freq_fine - self.IF,
-                                       code_phase,
-                                       snr)
-        acq_results.append(acq_result)
+      # Save properties of the detected satellite signal
+      acq_result = AcquisitionResult(prn,
+                                     carr_freq,
+                                     carr_freq - self.IF,
+                                     code_phase,
+                                     snr,
+                                     status)
+      acq_results.append(acq_result)
+
+      # If the acquisition was successful, log it
+      if (snr > threshold):
         logger.debug("Acquired %s" % acq_result)
 
     # Acquisition is finished
@@ -517,8 +523,9 @@ class Acquisition:
       pbar.finish()
 
     logger.info("Acquisition finished")
-    logger.info("Acquired %d satellites, PRNs: %s.", len(acq_results),
-                [ar.prn + 1 for ar in acq_results])
+    acquired_prns = [ar.prn + 1 for ar in acq_results if ar.status == 'A']
+    logger.info("Acquired %d satellites, PRNs: %s.",
+                len(acquired_prns), acquired_prns)
 
     return acq_results
 
@@ -551,17 +558,24 @@ class AcquisitionResult:
     Code phase in chips.
   snr : float
     Signal-to-Noise Ratio.
+  status : {'A', '-'}
+    The acquisition status of the satellite:
+      * `'A'` : The satellite has been successfully acquired.
+      * `'-'` : The acquisition was not successful, the SNR was below the
+                acquisition threshold. A second stage fine carrier frequency
+                search was not performed.
 
   """
 
-  __slots__ = ('prn', 'carr_freq', 'doppler', 'code_phase', 'snr')
+  __slots__ = ('prn', 'carr_freq', 'doppler', 'code_phase', 'snr', 'status')
 
-  def __init__(self, prn, carr_freq, doppler, code_phase, snr):
+  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status):
     self.prn = prn
     self.snr = snr
     self.carr_freq = carr_freq
     self.doppler = doppler
     self.code_phase = code_phase
+    self.status = status
 
   def __str__(self):
     return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz" % (self.prn + 1,
