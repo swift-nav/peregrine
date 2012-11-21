@@ -1,6 +1,6 @@
-=============================================
-Acquisition (`peregrine.acquisition`)
-=============================================
+==========================================
+Acquisition (:mod:`peregrine.acquisition`)
+==========================================
 
 .. currentmodule:: peregrine
 
@@ -16,8 +16,8 @@ dolor eget vulputate. Proin egestas lacinia blandit.
 Reference / API
 ===============
 
-peregrine.acquisition Module
-----------------------------
+:mod:`peregrine.acquisition` Module
+-----------------------------------
 
 .. automodule:: peregrine.acquisition
 
