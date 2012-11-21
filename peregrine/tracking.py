@@ -43,7 +43,7 @@ def calc_loop_coef(lbw, zeta, k):
 def track(channel, settings):
   logger.info("Tracking starting")
 
-  logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn for chan in channel]))
+  logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
   #Create list of tracking channels results (correlations, freqs, etc)
   trackResults = [trackResults_class(settings) for i in range(len(channel))]
