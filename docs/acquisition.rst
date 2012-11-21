@@ -2,16 +2,123 @@
 Acquisition (:mod:`peregrine.acquisition`)
 ==========================================
 
-.. currentmodule:: peregrine
+.. currentmodule:: peregrine.acquisition
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla augue nisi,
-volutpat quis viverra ac, interdum sit amet neque. Sed sit amet dapibus ligula.
-Nam tempus, mauris ullamcorper vehicula elementum, nulla risus rutrum est, in
-aliquam risus sem in ligula. Fusce ac diam imperdiet nunc semper ultrices id
-sit amet mauris. Ut auctor, purus id blandit ultrices, sem est blandit ante, id
-vehicula tortor diam in massa. Vivamus volutpat rutrum elementum. Etiam
-porttitor consectetur nunc, a aliquet velit blandit eget. Donec mollis semper
-dolor eget vulputate. Proin egestas lacinia blandit.
+The :mod:`peregrine.acquisition` module provides functions and classes related to GNSS satellite acquisition. It is accompanied by the :mod:`peregrine.analysis.acquisition` module which provides functions for tabulating, plotting and analysing acquisition results.
+
+Basic Acquisition
+=================
+
+The core of the :mod:`peregrine.acquisition` module is the :class:`Acquisition`
+class. This class is instanitated with a set of samples and a few parameters
+such as the sampling rate. It then pre-computes a number of intermediate
+quantities that will later be used in acquisition. The :class:`Acquisition`
+class then exposes a number of methods that are used to perform an acquisition.
+
+In the following example we load some sample data from a file and initialise an
+:class:`Acquisition` object. In this example our sample data has a sampling
+frequency of 16.368 MHz, has an intermediate frequency of 4.092 MHz and there
+are 16,368 samples per code (we are working with the GPS C/A code which has a
+length of 1,023 chips at a chipping rate of 1.023 MHz).
+
+.. ipython::
+
+  @suppress
+  In [24]: %cd ..
+
+  In [1]: import peregrine.acquisition
+
+  In [1]: import peregrine.samples
+
+  In [2]: import peregrine.analysis.acquisition
+
+  In [2]: samps = peregrine.samples.load_samples("tests/test_samples.dat")
+
+  In [2]: acq = peregrine.acquisition.Acquisition(samps, 16.368e6, 4.092e6, 16368)
+
+We will now perform a basic two stage acquisition using the default parameters using the :meth:`Acquisition.acquisition` method.
+
+.. ipython::
+
+  @suppress
+  In [2]: import logging, sys
+
+  @suppress
+  In [3]: logging.basicConfig(
+     ...:   level=logging.DEBUG,
+     ...:   stream=sys.stdout,
+     ...:   format="[%(levelname)s] %(name)s: %(message)s"
+     ...: )
+
+  In [2]: res = acq.acquisition(show_progress=False); res
+
+The :meth:`Acquisition.acquisition` method returns a list of
+:class:`AcquisitionResult` objects, one for each of the PRNs attempted.
+
+If the acquisition Signal to Noise Ratio (SNR) was greater than a given
+threshold then the satellite is considered acquired and a finer grained search
+is performed in carrier frequency space to refine the estimate of the
+satellite's Doppler shift frequency. The status of the
+:class:`AcquisitionResult` object is updated to indicate that the satellite was
+successfully acquired.
+
+The frequencies and PRNs that are included in the acquisition search can be
+customised with optional parameters to the :meth:`Acquisition.acquisition`
+method. See the method documentation for details.
+
+Now using the :func:`peregrine.analysis.acquisition.acq_table` and
+:func:`peregrine.analysis.acquisition.snr_bars` functions we can visualise the
+results of the acquisition.
+
+.. ipython::
+
+  In [13]: peregrine.analysis.acquisition.acq_table(res)
+
+  @savefig acq_analysis_snr_bars.png width=75% align=center
+  In [13]: peregrine.analysis.acquisition.snr_bars(res);
+
+Acquisition results files
+=========================
+
+Acquisition results can be saved and loaded from a file using the :func:`load_acq_results` and :func:`save_acq_results` functions.
+
+.. ipython::
+
+  In [22]: peregrine.acquisition.save_acq_results("tests/test.acq_results", res)
+
+  In [22]: res2 = peregrine.acquisition.load_acq_results("tests/test.acq_results")
+
+  In [13]: peregrine.analysis.acquisition.acq_table(res2)
+
+Advanced Acquisition
+====================
+
+Some users may want finer grained control over the acquisition process, in which case the :class:`Acquisition` class provides lower level methods that are used internally by :meth:`Acquisition.acquisition`.
+
+The :meth:`Acquisition.acquire` method performs an acquisition with a single code over a range of carrier frequencies and code phases and returns an array of the correlation powers at each point.
+
+.. ipython::
+
+  In [22]: import numpy as np
+
+  In [22]: from peregrine.include.generateCAcode import caCodes
+
+  In [22]: freqs = np.arange(-7000, 7000, 500)
+
+  In [22]: cps = acq.acquire(caCodes[14], freqs + acq.IF); cps # PRN 02
+
+The :mod:`peregrine.analysis.acquisition` module also has functions for visualising the results of :meth:`Acquisition.acquire`.
+
+.. ipython::
+
+  @savefig acq_analysis_acq_plot_3d.png width=75% align=center
+  In [22]: peregrine.analysis.acquisition.acq_plot_3d(cps, freqs, 16368)
+
+.. ipython::
+
+  @savefig acq_analysis_peak_plot.png width=75% align=center
+  In [22]: peregrine.analysis.acquisition.peak_plot(cps, freqs, 16368)
+
 
 Reference / API
 ===============
