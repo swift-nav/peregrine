@@ -19,7 +19,7 @@ from peregrine.acquisition import AcquisitionResult, DEFAULT_THRESHOLD
 
 __all__ = ['acq_table', 'snr_bars', 'peak_plot', 'acq_plot_3d']
 
-def acq_table(acq_results):
+def acq_table(acq_results, show_all=False):
   """
   Print a table of acquisition results.
 
@@ -27,14 +27,20 @@ def acq_table(acq_results):
   ----------
   acq_results : [:class:`peregrine.acquisition.AcquisitionResult`]
     List of :class:`peregrine.acquisition.AcquisitionResult` objects.
+  show_all : bool, optional
+    If `True` then even satellites which have not been acquired will be shown
+    in the table.
 
   """
   for ar in acq_results:
     if ar.status == 'A':
-      print '*',
-    else:
+      if show_all:
+        print '*',
+      print ar
+    elif show_all:
       print ' ',
-    print ar
+      print ar
+
 
 def snr_bars(acq_results,
              threshold=DEFAULT_THRESHOLD, ax=None, show_missing=True):
