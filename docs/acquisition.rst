@@ -37,3 +37,18 @@ Reference / API
     load_acq_results
     save_acq_results
 
+
+:mod:`peregrine.analysis.acquisition` Module
+--------------------------------------------
+
+.. automodule:: peregrine.analysis.acquisition
+
+  .. rubric:: Functions
+
+  .. autosummary::
+    :toctree: api
+
+    snr_bars
+    peak_plot
+    acq_plot_3d
+
