@@ -9,15 +9,48 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+"""Functions for analysing and plotting acquisition results."""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from operator import attrgetter
 
 from peregrine.acquisition import AcquisitionResult, DEFAULT_THRESHOLD
 
-def snr_bars(acq_results, threshold=DEFAULT_THRESHOLD, ax=None, show_missing=True):
+__all__ = ['snr_bars', 'peak_plot', 'acq_plot_3d']
+
+def snr_bars(acq_results,
+             threshold=DEFAULT_THRESHOLD, ax=None, show_missing=True):
   """
   Display the acquisition Signal to Noise Ratios as a bar chart.
+
+  This function is useful for visualising the output of
+  :meth:`peregrine.acquisition.Acquisition.acquisition` or saved acquisition
+  results files loaded with :func:`peregrine.acquisition.load_acq_results`.
+
+  Parameters
+  ----------
+  acq_results : [:class:`peregrine.acquisition.AcquisitionResult`]
+    List of :class:`peregrine.acquisition.AcquisitionResult` objects to plot
+    bars for. If the `status` field of the
+    :class:`peregrine.acquisition.AcquisitionResult` object is ``'A'``, i.e.
+    the satellite has been acquired, then the bar will be highlighted.
+  theshold : {float, `None`}, optional
+    If not `None` then an acquisition theshold of this value will be indicated
+    on the plot. Defaults to the value of
+    :attr:`peregrine.acquisition.DEFAULT_THRESHOLD`.
+  ax : :class:`matplotlib.axes.Axes`, optional
+    If `ax` is not `None` then the bar chart will be plotted on the supplied
+    :class:`matplotlib.axes.Axes` object rather than as a new figure.
+  show_missing : bool, optional
+    If `True` then the bar chart will show empty spaces for all PRNs not
+    included in `acq_results`, otherwise only the PRNs in `acq_results` will be
+    plotted.
+
+  Returns
+  -------
+  out : :class:`matplotlib.axes.Axes`
+    The `Axes` object that the bar chart was drawn to.
 
   """
   if ax is None:
@@ -40,22 +73,25 @@ def snr_bars(acq_results, threshold=DEFAULT_THRESHOLD, ax=None, show_missing=Tru
       colour = '0.8'
     ax.bar(n-0.5, result.snr, color=colour, width=1)
 
-  ax.plot([-0.5, len(acq_results)-0.5], [threshold, threshold],
-          linestyle='dashed', color='black')
   ax.set_xticks(range(len(acq_results)))
   ax.set_xticklabels(['%02d' % (r.prn+1) for r in acq_results])
 
   ax.set_title('Acquisition results')
-  ax.text(0.01, 0.97, 'threshold = %.1f' % threshold,
-     horizontalalignment='left',
-     verticalalignment='top',
-     transform = ax.transAxes)
   ax.set_ylabel('Acquisition metric')
 
-  yticks = ax.get_yticks()
-  dist = np.abs(yticks - threshold).min()
-  if dist >= 0.25*(yticks[1] - yticks[0]):
-    ax.set_yticks(np.append(yticks, threshold))
+  if threshold is not None:
+    ax.plot([-0.5, len(acq_results)-0.5], [threshold, threshold],
+            linestyle='dashed', color='black')
+
+    ax.text(0.01, 0.97, 'threshold = %.1f' % threshold,
+       horizontalalignment='left',
+       verticalalignment='top',
+       transform = ax.transAxes)
+
+    yticks = ax.get_yticks()
+    dist = np.abs(yticks - threshold).min()
+    if dist >= 0.25*(yticks[1] - yticks[0]):
+      ax.set_yticks(np.append(yticks, threshold))
 
   ax.set_xbound(-0.5, len(acq_results)-0.5)
   ax.set_xlabel('PRN')
