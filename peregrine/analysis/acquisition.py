@@ -17,7 +17,24 @@ from operator import attrgetter
 
 from peregrine.acquisition import AcquisitionResult, DEFAULT_THRESHOLD
 
-__all__ = ['snr_bars', 'peak_plot', 'acq_plot_3d']
+__all__ = ['acq_table', 'snr_bars', 'peak_plot', 'acq_plot_3d']
+
+def acq_table(acq_results):
+  """
+  Print a table of acquisition results.
+
+  Parameters
+  ----------
+  acq_results : [:class:`peregrine.acquisition.AcquisitionResult`]
+    List of :class:`peregrine.acquisition.AcquisitionResult` objects.
+
+  """
+  for ar in acq_results:
+    if ar.status == 'A':
+      print '*',
+    else:
+      print ' ',
+    print ar
 
 def snr_bars(acq_results,
              threshold=DEFAULT_THRESHOLD, ax=None, show_missing=True):

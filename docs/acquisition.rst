@@ -48,6 +48,7 @@ Reference / API
   .. autosummary::
     :toctree: api
 
+    acq_table
     snr_bars
     peak_plot
     acq_plot_3d
