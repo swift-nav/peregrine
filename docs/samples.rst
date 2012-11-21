@@ -1,6 +1,6 @@
-====================
-Sample data handling
-====================
+===============================================
+Sample data handling (:mod:`peregrine.samples`)
+===============================================
 
 .. currentmodule:: peregrine
 
@@ -50,8 +50,8 @@ By default the whole file is read in:
   Out[28]: array([-7, -6, -5, -4, -3, -2, -1,  0,  1,  2,  3,  4,  5,  6,  7], dtype=int8)
 
 Or an explicit number of samples can be specified. When an explicit number is
-specified, `load_samples` will always return that number of samples or if that
-number of samples cannot be read then an exception will be raised:
+specified, :func:`load_samples` will always return that number of samples or if
+that number of samples cannot be read then an exception will be raised:
 
 .. ipython::
 
@@ -83,13 +83,6 @@ Sample data analysis
 The :mod:`peregrine.analysis.samples` module provides various functions for
 analysing and plotting sample data.
 
-
-IPython
--------
-
-These can be used from within an `IPython <http://ipython.org/>`_ interactive
-session, for example:
-
 .. ipython::
 
   @suppress
@@ -120,8 +113,8 @@ Reference / API
 ===============
 
 
-peregrine.samples Module
-------------------------
+:mod:`peregrine.samples` Module
+-------------------------------
 
 .. automodule:: peregrine.samples
 
@@ -134,8 +127,8 @@ peregrine.samples Module
     load_samples
 
 
-peregrine.analysis.samples Module
----------------------------------
+:mod:`peregrine.analysis.samples` Module
+----------------------------------------
 
 .. automodule:: peregrine.analysis.samples
 
