@@ -11,6 +11,8 @@
 
 import numpy as np
 
+__all__ = ['load_samples', 'save_samples']
+
 def load_samples(filename, num_samples=-1, num_skip=0, file_format='int8'):
   """
   Load sample data from a file.

@@ -16,6 +16,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
+__all__ = ['hist', 'psd', 'summary']
+
 # Globally change the matplotlib font settings,
 # someone is going to complain about this eventually...
 matplotlib.rc('mathtext', fontset='stixsans')
