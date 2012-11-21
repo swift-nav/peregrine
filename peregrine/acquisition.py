@@ -57,9 +57,9 @@ if _progressbar_available:
 
     def update(self, pbar):
       if pbar.prn:
-        return "PRN %d" % pbar.prn
+        return "PRN %02d" % pbar.prn
       else:
-        return "PRN -"
+        return "PRN --"
 
 
 class Acquisition:
