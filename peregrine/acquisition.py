@@ -578,10 +578,8 @@ class AcquisitionResult:
     self.status = status
 
   def __str__(self):
-    return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz" % (self.prn + 1,
-                                                        self.snr,
-                                                        self.code_phase,
-                                                        self.doppler)
+    return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
+        (self.prn + 1, self.snr, self.code_phase, self.doppler, self.status)
 
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()
