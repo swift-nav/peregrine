@@ -116,6 +116,29 @@ def snr_bars(acq_results,
   return ax
 
 def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
+  """
+  Visualise the peak in a table of acquisition correlation powers.
+
+  Display, in various ways, the peak in a 2D array of acquisition correlation
+  powers against code phase and Doppler shift.
+
+  This is useful for visualising the output of
+  :meth:`peregrine.acquisition.Acquisition.acquire`.
+
+  Parameters
+  ----------
+  ar : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
+    2D array containing correlation powers at different frequencies and code
+    phases. Code phase axis is in samples from zero to `samples_per_code`.
+  freqs : iterable
+    List of frequencies mapping the results frequncy index to a value in Hz.
+  samples_per_code : float
+    The number of samples corresponding to one code length.
+  code_length : int, optional
+    The number of chips in the chipping code. Defaults to the GPS C/A code
+    value of 1023.
+
+  """
   samples_per_chip = samples_per_code / code_length
 
   fig = plt.figure()
@@ -165,6 +188,26 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
   fig.tight_layout()
 
 def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
+  """
+  Display a 3D plot of correlation power against code phase and Doppler shift.
+
+  This is useful for visualising the output of
+  :meth:`peregrine.acquisition.Acquisition.acquire`.
+
+  Parameters
+  ----------
+  ar : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
+    2D array containing correlation powers at different frequencies and code
+    phases. Code phase axis is in samples from zero to `samples_per_code`.
+  freqs : iterable
+    List of frequencies mapping the results frequncy index to a value in Hz.
+  samples_per_code : float
+    The number of samples corresponding to one code length.
+  code_length : int, optional
+    The number of chips in the chipping code. Defaults to the GPS C/A code
+    value of 1023.
+
+  """
   from mpl_toolkits.mplot3d import Axes3D
 
   samples_per_chip = samples_per_code / code_length
@@ -184,3 +227,4 @@ def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
   ax.set_zlabel("Correlation magnitude")
 
   fig.tight_layout()
+
