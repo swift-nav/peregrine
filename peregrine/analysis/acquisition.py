@@ -78,7 +78,7 @@ def snr_bars(acq_results,
   """
   if ax is None:
     fig = plt.figure()
-    fig.set_size_inches(10, 4)
+    fig.set_size_inches(10, 4, forward=True)
     ax = fig.add_subplot(111)
 
   if show_missing:
@@ -148,7 +148,7 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
   samples_per_chip = samples_per_code / code_length
 
   fig = plt.figure()
-  fig.set_size_inches(10, 10)
+  fig.set_size_inches(10, 10, forward=True)
   ax1 = fig.add_subplot(221)
   ax2 = fig.add_subplot(222)
   ax3 = fig.add_subplot(223)
@@ -233,4 +233,21 @@ def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
   ax.set_zlabel("Correlation magnitude")
 
   fig.tight_layout()
+
+def main():
+  import argparse
+  import peregrine.acquisition
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument("file", help="the acquisition results file to analyse")
+  args = parser.parse_args()
+
+  acq_results = peregrine.acquisition.load_acq_results(args.file)
+  acq_table(acq_results)
+  snr_bars(acq_results)
+
+  plt.show()
+
+if __name__ == "__main__":
+  main()
 

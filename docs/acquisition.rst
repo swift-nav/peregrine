@@ -6,6 +6,7 @@ Acquisition (:mod:`peregrine.acquisition`)
 
 The :mod:`peregrine.acquisition` module provides functions and classes related to GNSS satellite acquisition. It is accompanied by the :mod:`peregrine.analysis.acquisition` module which provides functions for tabulating, plotting and analysing acquisition results.
 
+
 Basic Acquisition
 =================
 
@@ -77,6 +78,7 @@ results of the acquisition.
   @savefig acq_analysis_snr_bars.png width=75% align=center
   In [13]: peregrine.analysis.acquisition.snr_bars(res);
 
+
 Acquisition results files
 =========================
 
@@ -90,6 +92,25 @@ Acquisition results can be saved and loaded from a file using the
   In [22]: res2 = peregrine.acquisition.load_acq_results("tests/test.acq_results")
 
   In [13]: peregrine.analysis.acquisition.acq_table(res2)
+
+
+Command-line utility
+====================
+
+A command-line utility is provided to display the contents of an acquisition
+results file using the functions from the :mod:`peregrine.analysis.acquisition`
+module. This command prints an acquisition table using
+:func:`peregrine.analysis.acquisition.acq_table` and plots the acquisition SNRs
+using :func:`peregrine.analysis.acquisition.snr_bars`.
+
+The command is used as follows::
+
+  $ peregrine-display-acq path/to/file.acq_results
+
+More usage information can be found by running::
+
+  $ peregrine-display-acq --help
+
 
 Advanced Acquisition
 ====================
