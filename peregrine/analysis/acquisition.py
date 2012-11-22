@@ -121,7 +121,7 @@ def snr_bars(acq_results,
 
   return ax
 
-def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
+def peak_plot(powers, freqs, samples_per_code, code_length=1023.0):
   """
   Visualise the peak in a table of acquisition correlation powers.
 
@@ -133,7 +133,7 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
 
   Parameters
   ----------
-  ar : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
+  powers : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
     2D array containing correlation powers at different frequencies and code
     phases. Code phase axis is in samples from zero to `samples_per_code`.
   freqs : iterable
@@ -154,12 +154,12 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
   ax3 = fig.add_subplot(223)
   ax4 = fig.add_subplot(224)
 
-  peak = np.unravel_index(ar.argmax(), ar.shape)
-  ar_detail = ar[peak[0]-5:peak[0]+5, peak[1]-50:peak[1]+50]
+  peak = np.unravel_index(powers.argmax(), powers.shape)
+  powers_detail = powers[peak[0]-5:peak[0]+5, peak[1]-50:peak[1]+50]
 
   code_phases = np.arange(samples_per_code) / samples_per_chip
 
-  ax1.plot(code_phases, ar[peak[0],:], color='black')
+  ax1.plot(code_phases, powers[peak[0],:], color='black')
   ax1.set_title("Code phase cross-section")
   ax1.set_xlabel("Code phase (chips)")
   ax1.set_ylabel("Correlation magnitude")
@@ -167,7 +167,7 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
   ax1.set_xticks([0, code_phases[peak[1]], code_length])
   ax1.set_xticklabels(['0', code_phases[peak[1]], '%.0f' % code_length])
 
-  ax2.plot(freqs, ar[:,peak[1]], color='black')
+  ax2.plot(freqs, powers[:,peak[1]], color='black')
   ax2.set_title("Carrier frequency cross-section")
   ax2.set_xlabel("Doppler shift (Hz)")
   ax2.set_ylabel("Correlation magnitude")
@@ -175,13 +175,13 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
   ax2.set_xticks([freqs[0], freqs[peak[0]], freqs[-1]])
 
   ax3.plot(code_phases[peak[1]-50:peak[1]+50],
-           ar[peak[0],peak[1]-50:peak[1]+50], color='black')
+           powers[peak[0],peak[1]-50:peak[1]+50], color='black')
   ax3.set_title("Code phase cross-section detail")
   ax3.set_xlabel("Code phase (chips)")
   ax3.set_ylabel("Correlation magnitude")
   ax3.set_xbound(code_phases[peak[1]-50], code_phases[peak[1]+50])
 
-  ax4.imshow(ar_detail, aspect='auto', cmap=plt.cm.RdYlBu_r,
+  ax4.imshow(powers_detail, aspect='auto', cmap=plt.cm.RdYlBu_r,
              extent=(code_phases[peak[1]-50],
                      code_phases[peak[1]+50],
                      freqs[peak[0]-5],
@@ -193,7 +193,7 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
 
   fig.tight_layout()
 
-def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
+def acq_plot_3d(powers, freqs, samples_per_code, code_length=1023.0):
   """
   Display a 3D plot of correlation power against code phase and Doppler shift.
 
@@ -202,7 +202,7 @@ def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
 
   Parameters
   ----------
-  ar : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
+  powers : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
     2D array containing correlation powers at different frequencies and code
     phases. Code phase axis is in samples from zero to `samples_per_code`.
   freqs : iterable
@@ -224,7 +224,7 @@ def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
   code_phases = np.arange(samples_per_code) / samples_per_chip
   X, Y = np.meshgrid(code_phases, freqs)
 
-  ax.plot_surface(X[:], Y[:], ar[:], cmap=plt.cm.RdYlBu_r, linewidth=0)
+  ax.plot_surface(X[:], Y[:], powers[:], cmap=plt.cm.RdYlBu_r, linewidth=0)
   ax.set_title("Acquisition")
   ax.set_xlabel("Code phase (chips)")
   ax.set_xbound(0, code_length)
