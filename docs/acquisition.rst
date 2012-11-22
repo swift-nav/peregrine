@@ -42,14 +42,7 @@ We will now perform a basic two stage acquisition using the default parameters u
 .. ipython::
 
   @suppress
-  In [2]: import logging, sys
-
-  @suppress
-  In [3]: logging.basicConfig(
-     ...:   level=logging.DEBUG,
-     ...:   stream=sys.stdout,
-     ...:   format="[%(levelname)s] %(name)s: %(message)s"
-     ...: )
+  In [2]: import peregrine.log; peregrine.log.docs_logging_config()
 
   In [2]: res = acq.acquisition(show_progress=False); res
 

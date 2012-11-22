@@ -19,6 +19,7 @@ User Documentation
 
    installation
    interactive
+   logging
    samples
    acquisition
 

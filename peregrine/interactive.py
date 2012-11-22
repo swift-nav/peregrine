@@ -17,37 +17,19 @@ It is designed to be star imported as follows::
 
   from peregrine.interactive import *
 
-:mod:`peregrine.interactive` Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-:mod:`peregrine.interactive` defines the following functions:
-
-.. currentmodule:: peregrine.interactive
-
-.. autosummary:: configure_logging
-
-Included Functions
-^^^^^^^^^^^^^^^^^^
-
 The following classes, functions and attributes from other modules are
 available in the interactive namespace:
 
 """
-
-def configure_logging():
-  """ Configure python :mod:`logging` for use in an interactive session."""
-  import logging
-  logging.basicConfig(
-    level=logging.DEBUG,
-    format="\033[2K\r%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-  )
-configure_logging()
 
 from peregrine.acquisition import *
 from peregrine.samples import *
 from peregrine.include.generateCAcode import caCodes
 from peregrine.analysis.acquisition import *
 from peregrine.analysis.samples import *
+
+import peregrine.log
+peregrine.log.default_logging_config()
 
 # Some may find this to be in very bad taste but we are going to alter our own
 # docstring to automatically provide a summary of the functions and classes
@@ -65,7 +47,8 @@ for k, v in l.iteritems():
       peregrine_items[v.__module__] += [k]
 # Remove items defined here in interactive, we will document them explicitly in
 # the docstring.
-del peregrine_items['peregrine.interactive']
+if 'peregrine.interactive' in peregrine_items:
+  del peregrine_items['peregrine.interactive']
 # Now add autosummaries to our docstring grouping items from the same module
 # together.
 for mod in sorted(peregrine_items.iterkeys()):

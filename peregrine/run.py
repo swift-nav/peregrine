@@ -19,17 +19,12 @@ from peregrine.samples import load_samples
 from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
 from peregrine.navigation import navigation
 from peregrine.tracking import track
+from peregrine.log import default_logging_config
 
 from initSettings import initSettings
 
 def main():
-  # Configure logging
-  # Note: An ANSI escape sequence is used to clear the line in case a
-  # progressbar is running but this won't work in Windows.
-  logging.basicConfig(
-    level=logging.DEBUG,
-    format="\033[2K\r%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-  )
+  default_logging_config()
 
   # Initialize constants, settings
   settings = initSettings()
