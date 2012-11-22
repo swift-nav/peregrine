@@ -2,6 +2,8 @@ import sys, os
 
 # Append the project root to the path so our packages can be found.
 sys.path.insert(0, os.path.abspath('..'))
+# Append the Sphinx extensions directory to the path.
+sys.path.insert(0, os.path.abspath('extensions'))
 
 from setup import setup_args
 
@@ -21,7 +23,7 @@ extensions = [
   'sphinx.ext.viewcode',
   'matplotlib.sphinxext.only_directives',
   'matplotlib.sphinxext.plot_directive',
-  'extensions.ipython_directive',
+  'ipython_directive',
   'matplotlib.sphinxext.ipython_console_highlighting',
   'numpydoc',
 ]
