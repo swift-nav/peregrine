@@ -88,6 +88,8 @@ additional packages:
 
     - `Sphinx <http://sphinx.pocoo.org>`_ (and its dependencies) 1.0 or later
     - `numpydoc <http://pypi.python.org/pypi/numpydoc>`_ 0.4 or later
+    - `matplotlib <http://matplotlib.org/>`_ 1.1 or later
+    - `ipython <http://ipython.org/>`_ 0.13.1 or later
 
 To build the Peregrine documentation, execute the following commands::
 
