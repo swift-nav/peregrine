@@ -294,7 +294,7 @@ class Acquisition:
     Parameters
     ----------
     freqs : iterable
-      List of frequencies mapping the results frequncy index to a value in Hz.
+      List of frequencies mapping the results frequency index to a value in Hz.
     results : :class:`numpy.ndarray`, shape(len(`freqs`), `samples_per_code`)
       2D array containing correlation powers at different frequencies and code
       phases. Code phase axis is in samples from zero to `samples_per_code`.

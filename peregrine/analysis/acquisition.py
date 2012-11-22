@@ -137,7 +137,7 @@ def peak_plot(ar, freqs, samples_per_code, code_length=1023.0):
     2D array containing correlation powers at different frequencies and code
     phases. Code phase axis is in samples from zero to `samples_per_code`.
   freqs : iterable
-    List of frequencies mapping the results frequncy index to a value in Hz.
+    List of frequencies mapping the results frequency index to a value in Hz.
   samples_per_code : float
     The number of samples corresponding to one code length.
   code_length : int, optional
@@ -206,7 +206,7 @@ def acq_plot_3d(ar, freqs, samples_per_code, code_length=1023.0):
     2D array containing correlation powers at different frequencies and code
     phases. Code phase axis is in samples from zero to `samples_per_code`.
   freqs : iterable
-    List of frequencies mapping the results frequncy index to a value in Hz.
+    List of frequencies mapping the results frequency index to a value in Hz.
   samples_per_code : float
     The number of samples corresponding to one code length.
   code_length : int, optional
