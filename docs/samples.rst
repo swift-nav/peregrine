@@ -102,11 +102,11 @@ Command-line utility
 --------------------
 
 The functions in the :mod:`peregrine.analysis.samples` module are also exposed
-though the command-line utility ``peregrine-analyse-samples``.
+though the command-line utility ``peregrine-analyze-samples``.
 
 Usage information can be found by running::
 
-  $ peregrine-analyse-samples --help
+  $ peregrine-analyze-samples --help
 
 
 Reference / API

@@ -115,8 +115,8 @@ setup_args = dict(
   entry_points = {
     'console_scripts': [
       'peregrine = peregrine.run:main',
-      'peregrine-analyse-samples = peregrine.analysis.samples:main',
-      'peregrine-display-acq = peregrine.analysis.acquisition:main',
+      'peregrine-analyze-samples = peregrine.analysis.samples:main',
+      'peregrine-show-acq = peregrine.analysis.acquisition:main',
     ]
   },
 

@@ -105,11 +105,11 @@ using :func:`peregrine.analysis.acquisition.snr_bars`.
 
 The command is used as follows::
 
-  $ peregrine-display-acq path/to/file.acq_results
+  $ peregrine-show-acq path/to/file.acq_results
 
 More usage information can be found by running::
 
-  $ peregrine-display-acq --help
+  $ peregrine-show-acq --help
 
 
 Advanced Acquisition
