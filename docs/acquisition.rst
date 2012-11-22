@@ -80,7 +80,8 @@ results of the acquisition.
 Acquisition results files
 =========================
 
-Acquisition results can be saved and loaded from a file using the :func:`load_acq_results` and :func:`save_acq_results` functions.
+Acquisition results can be saved and loaded from a file using the
+:func:`load_acq_results` and :func:`save_acq_results` functions.
 
 .. ipython::
 
@@ -93,9 +94,13 @@ Acquisition results can be saved and loaded from a file using the :func:`load_ac
 Advanced Acquisition
 ====================
 
-Some users may want finer grained control over the acquisition process, in which case the :class:`Acquisition` class provides lower level methods that are used internally by :meth:`Acquisition.acquisition`.
+Some users may want finer grained control over the acquisition process, in
+which case the :class:`Acquisition` class provides lower level methods that are
+used internally by :meth:`Acquisition.acquisition`.
 
-The :meth:`Acquisition.acquire` method performs an acquisition with a single code over a range of carrier frequencies and code phases and returns an array of the correlation powers at each point.
+The :meth:`Acquisition.acquire` method performs an acquisition with a single
+code over a range of carrier frequencies and code phases and returns an array
+of the correlation powers at each point.
 
 .. ipython::
 
@@ -103,21 +108,49 @@ The :meth:`Acquisition.acquire` method performs an acquisition with a single cod
 
   In [22]: from peregrine.include.generateCAcode import caCodes
 
-  In [22]: freqs = np.arange(-7000, 7000, 500)
+  In [22]: freqs = np.arange(-7000, 7000, 500) # Doppler shifts
 
-  In [22]: cps = acq.acquire(caCodes[14], freqs + acq.IF); cps # PRN 02
+  In [22]: powers = acq.acquire(caCodes[14], freqs + acq.IF); powers # PRN 15
 
-The :mod:`peregrine.analysis.acquisition` module also has functions for visualising the results of :meth:`Acquisition.acquire`.
+The :mod:`peregrine.analysis.acquisition` module also has functions for
+visualising the results of :meth:`Acquisition.acquire`.
 
 .. ipython::
 
   @savefig acq_analysis_acq_plot_3d.png width=75% align=center
-  In [22]: peregrine.analysis.acquisition.acq_plot_3d(cps, freqs, 16368)
+  In [22]: peregrine.analysis.acquisition.acq_plot_3d(powers, freqs, 16368)
 
 .. ipython::
 
   @savefig acq_analysis_peak_plot.png width=75% align=center
-  In [22]: peregrine.analysis.acquisition.peak_plot(cps, freqs, 16368)
+  In [22]: peregrine.analysis.acquisition.peak_plot(powers, freqs, 16368)
+
+The peak location and Signal to Noise ratio can be estimated using the
+:meth:`Acquisition.find_peak` method.
+
+.. ipython::
+
+  In [22]: code_phase, doppler, snr = acq.find_peak(freqs, powers)
+
+  In [22]: (code_phase, doppler, snr)
+
+The :meth:`Acquisition.acquire` method uses a code phase parallel search over a
+list of frequencies and therefore is able to determine the code phase precisely
+(to within one sample). Because only a short segment of data is used the
+frequency resolution achievable is low and it is not an efficient way to search
+over many carrier frequencies.
+
+The :meth:`Acquisition.fine_carrier` method is provided to refine the carrier
+frequency estimate of an acquisition performed using
+:meth:`Acquisition.acquire` using a fast FFT based method. It performs the
+search at a given code phase so the code phase must first be found using
+:meth:`Acquisition.acquire`.
+
+.. ipython::
+
+  In [22]: carr_freq_fine = acq.fine_carrier(caCodes[14], code_phase)
+
+  In [22]: carr_freq_fine - acq.IF # Doppler shift in Hz
 
 
 Reference / API
