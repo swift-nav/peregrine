@@ -24,16 +24,13 @@ length of 1,023 chips at a chipping rate of 1.023 MHz).
 
 .. ipython::
 
-  @suppress
-  In [24]: %cd ..
-
   In [1]: import peregrine.acquisition
 
   In [1]: import peregrine.samples
 
   In [2]: import peregrine.analysis.acquisition
 
-  In [2]: samps = peregrine.samples.load_samples("tests/test_samples.dat")
+  In [2]: samps = peregrine.samples.load_samples("../tests/test_samples.dat")
 
   In [2]: acq = peregrine.acquisition.Acquisition(samps, 16.368e6, 4.092e6, 16368)
 
@@ -80,9 +77,9 @@ Acquisition results can be saved and loaded from a file using the
 
 .. ipython::
 
-  In [22]: peregrine.acquisition.save_acq_results("tests/test.acq_results", res)
+  In [22]: peregrine.acquisition.save_acq_results("../tests/test.acq_results", res)
 
-  In [22]: res2 = peregrine.acquisition.load_acq_results("tests/test.acq_results")
+  In [22]: res2 = peregrine.acquisition.load_acq_results("../tests/test.acq_results")
 
   In [13]: peregrine.analysis.acquisition.acq_table(res2)
 
