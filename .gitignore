@@ -12,3 +12,6 @@ docs/_build
 docs/api
 docs/samples_file
 docs/_static/samples_analysis_summary.png
+docs/_static/acq_analysis_acq_plot_3d.png
+docs/_static/acq_analysis_peak_plot.png
+docs/_static/acq_analysis_snr_bars.png
