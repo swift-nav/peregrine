@@ -81,7 +81,7 @@ Building documentation
 
 .. note::
     The latest version of Peregrine's documentation should be available online
-    at http://www.swift-nav.com/docs/peregrine.
+    at http://docs.swift-nav.com/peregrine.
 
 Building the documentation requires the Peregrine source code and some
 additional packages:
