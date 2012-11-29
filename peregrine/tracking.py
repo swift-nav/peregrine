@@ -40,7 +40,7 @@ def calc_loop_coef(lbw, zeta, k):
   tau2 = 2.0* zeta / omega_n
   return (tau1, tau2)
 
-def track(channel, settings):
+def track(signal, channel, settings):
   logger.info("Tracking starting")
 
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
@@ -70,7 +70,6 @@ def track(channel, settings):
                            n_channels=len(channel),
                            maxval=len(channel)*settings.msToProcess)
 
-  signal = load_samples(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
 
   pbar.start()
 

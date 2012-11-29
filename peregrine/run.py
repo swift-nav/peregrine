@@ -91,7 +91,8 @@ def main():
                        track_results_file)
       sys.exit(1)
   else:
-    (track_results, channel) = track(acq_results, settings)
+    signal = load_samples(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
+    (track_results, channel) = track(signal, acq_results, settings)
     try:
       with open(track_results_file, 'wb') as f:
         pickle.dump((track_results, channel), f)
