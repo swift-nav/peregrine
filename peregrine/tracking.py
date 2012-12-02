@@ -18,21 +18,13 @@ import swiftnav.track
 import logging
 logger = logging.getLogger(__name__)
 
-class _TrackProgressBar(progressbar.ProgressBar):
-  __slots__ = ('channel', 'n_channels')
-  def __init__(self, n_channels, **kwargs):
-    self.n_channels = n_channels
-    self.channel = 1
-    progressbar.ProgressBar.__init__(self, **kwargs)
-  def update(self, value, channel=None):
-    if channel is not None:
-      self.channel = channel
-    progressbar.ProgressBar.update(self, value)
+# Import progressbar if it is available.
+_progressbar_available = True
+try:
+  import progressbar
+except ImportError:
+  _progressbar_available = False
 
-class _ChannelsWidget(progressbar.Widget):
-  TIME_SENSITIVE = True
-  def update(self, pbar):
-    return "Ch %d/%d" % (pbar.channel, pbar.n_channels)
 
 def calc_loop_coef(lbw, zeta, k):
   omega_n = lbw*8*zeta / (4*zeta**2 + 1)
@@ -40,7 +32,8 @@ def calc_loop_coef(lbw, zeta, k):
   tau2 = 2.0* zeta / omega_n
   return (tau1, tau2)
 
-def track(signal, channel, settings):
+
+def track(signal, channel, settings, show_progress=True):
   logger.info("Tracking starting")
 
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
@@ -61,17 +54,26 @@ def track(signal, channel, settings):
   (tau1carr, tau2carr) = calc_loop_coef(settings.pllNoiseBandwidth,
                                         settings.pllDampingRatio, 0.25)
 
-  widgets = ['  Tracking (',
-             _ChannelsWidget(), '): ',
-             progressbar.Percentage(), ' ',
-             progressbar.ETA(), ' ',
-             progressbar.Bar()]
-  pbar = _TrackProgressBar(widgets=widgets,
-                           n_channels=len(channel),
-                           maxval=len(channel)*settings.msToProcess)
+  # If progressbar is not available, disable show_progress.
+  if show_progress and not _progressbar_available:
+    show_progress = False
+    logger.warning("show_progress = True but progressbar module not found.")
 
-
-  pbar.start()
+  # Setup our progress bar if we need it
+  if show_progress:
+    widgets = ['  Tracking ',
+               progressbar.Attribute(['chan', 'nchan'],
+                                     '(CH: %d/%d)',
+                                     '(CH: -/-)'), ' ',
+               progressbar.Percentage(), ' ',
+               progressbar.ETA(), ' ',
+               progressbar.Bar()]
+    pbar = progressbar.ProgressBar(widgets=widgets,
+                                   maxval=len(channel)*settings.msToProcess,
+                                   attr={'nchan': len(channel)})
+    pbar.start()
+  else:
+    pbar = None
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
@@ -103,10 +105,11 @@ def track(signal, channel, settings):
 
     #Process the specified number of ms
     for loopCnt in range(settings.msToProcess):
-      pbar.update(loopCnt + channelNr*settings.msToProcess, channelNr+1)
+      if pbar:
+        pbar.update(loopCnt + channelNr*settings.msToProcess, attr={'chan': channelNr+1})
 
       codePhaseStep = codeFreq/settings.samplingFreq
-      rawSignal = signal[numSamplesToSkip:][:blksize_]
+      rawSignal = signal[numSamplesToSkip:]#[:blksize_]
 
       I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = swiftnav.track.track_correlate(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize

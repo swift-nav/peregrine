@@ -24,6 +24,13 @@ Peregrine also depends on other projects for optional features.
 - `progressbar <http://code.google.com/p/python-progressbar/>`_ to display a
   progress indication in the terminal whilst running.
 
+.. note::
+  Peregrine makes use of some extensions to the progressbar library that are
+  not yet merged uptream. For now you can install our `development version
+  <https://github.com/fnoble/python-progressbar/>`_ as follows::
+
+    $ pip install git+https://github.com/fnoble/python-progressbar.git
+
 - `matplotlib <http://matplotlib.org/>`_ to support generation of plots.
 
 Installing Peregrine

@@ -35,32 +35,6 @@ try:
 except ImportError:
   _progressbar_available = False
 
-# Only define our progressbar extensions if progressbar is available.
-if _progressbar_available:
-  class _AcqProgressBar(progressbar.ProgressBar):
-    """Extends ProgressBar to store the PRN being processed."""
-    __slots__ = ('prn')
-
-    def __init__(self, *args, **kwargs):
-      self.prn = None
-      progressbar.ProgressBar.__init__(self, *args, **kwargs)
-
-    def update(self, value, prn=None):
-      if prn is not None:
-        self.prn = prn
-      progressbar.ProgressBar.update(self, value)
-
-
-  class _PRNWidget(progressbar.Widget):
-    """Widget to display the PRN being processed."""
-    TIME_SENSITIVE = True
-
-    def update(self, pbar):
-      if pbar.prn:
-        return "PRN %02d" % pbar.prn
-      else:
-        return "PRN --"
-
 
 class Acquisition:
   """
@@ -472,13 +446,13 @@ class Acquisition:
 
     # Setup our progress bar if we need it
     if show_progress:
-      widgets = ['  Acquisition (',
-                 _PRNWidget(), '): ',
+      widgets = ['  Acquisition ',
+                 progressbar.Attribute('prn', '(PRN: %02d)', '(PRN --)'), ' ',
                  progressbar.Percentage(), ' ',
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
-      pbar = _AcqProgressBar(widgets=widgets,
-                             maxval=len(prns)*len(freqs))
+      pbar = progressbar.ProgressBar(widgets=widgets,
+                                     maxval=len(prns)*len(freqs))
       pbar.start()
     else:
       pbar = None
@@ -487,7 +461,7 @@ class Acquisition:
     for n, prn in enumerate(prns):
       if pbar:
         def progress_callback(freq_num, num_freqs):
-          pbar.update(n*len(freqs) + freq_num, prn + 1)
+          pbar.update(n*len(freqs) + freq_num, attr={'prn': prn + 1})
       else:
         progress_callback = None
 
