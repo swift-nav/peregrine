@@ -35,11 +35,10 @@ def calc_loop_coef(lbw, zeta, k):
 
 def track(signal, channel, settings, show_progress=True):
   logger.info("Tracking starting")
-
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
   #Create list of tracking channels results (correlations, freqs, etc)
-  trackResults = [trackResults_class(settings) for i in range(len(channel))]
+  track_results = [TrackResults(settings) for i in range(len(channel))]
   #Initialize tracking variables
   codePeriods = settings.msToProcess
   ##DLL Variables##
@@ -77,7 +76,7 @@ def track(signal, channel, settings, show_progress=True):
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
-    trackResults[channelNr].PRN = channel[channelNr].prn
+    track_results[channelNr].PRN = channel[channelNr].prn
     #Get a vector with the C/A code sampled 1x/chip
     caCode = caCodes[channel[channelNr].prn]
     #Add wrapping to either end to be able to do early/late
@@ -124,7 +123,7 @@ def track(signal, channel, settings, show_progress=True):
       oldCarrError = carrError
       #Modify carrier freq based on NCO
       carrFreq = carrFreqBasis + carrNco
-      trackResults[channelNr].carrFreq[loopCnt] = carrFreq
+      track_results[channelNr].carrFreq[loopCnt] = carrFreq
 
       #Find DLL error and update code NCO
       codeError = (math.sqrt(I_E*I_E + Q_E*Q_E) - math.sqrt(I_L*I_L + Q_L*Q_L)) / \
@@ -135,35 +134,36 @@ def track(signal, channel, settings, show_progress=True):
       oldCodeError = codeError
       #Code freq based on NCO
       codeFreq = settings.codeFreqBasis - codeNco
-      trackResults[channelNr].codePhase[loopCnt] = remCodePhase
-      trackResults[channelNr].codeFreq[loopCnt] = codeFreq
+      track_results[channelNr].codePhase[loopCnt] = remCodePhase
+      track_results[channelNr].codeFreq[loopCnt] = codeFreq
 
       #Record stuff for postprocessing
-      trackResults[channelNr].absoluteSample[loopCnt] = numSamplesToSkip
+      track_results[channelNr].absoluteSample[loopCnt] = numSamplesToSkip
 
-      trackResults[channelNr].dllDiscr[loopCnt] = codeError
-      trackResults[channelNr].dllDiscrFilt[loopCnt] = codeNco
-      trackResults[channelNr].pllDiscr[loopCnt] = carrError
-      trackResults[channelNr].pllDiscrFilt[loopCnt] = carrNco
+      track_results[channelNr].dllDiscr[loopCnt] = codeError
+      track_results[channelNr].dllDiscrFilt[loopCnt] = codeNco
+      track_results[channelNr].pllDiscr[loopCnt] = carrError
+      track_results[channelNr].pllDiscrFilt[loopCnt] = carrNco
 
-      trackResults[channelNr].I_E[loopCnt] = I_E
-      trackResults[channelNr].I_P[loopCnt] = I_P
-      trackResults[channelNr].I_L[loopCnt] = I_L
-      trackResults[channelNr].Q_E[loopCnt] = Q_E
-      trackResults[channelNr].Q_P[loopCnt] = Q_P
-      trackResults[channelNr].Q_L[loopCnt] = Q_L
+      track_results[channelNr].I_E[loopCnt] = I_E
+      track_results[channelNr].I_P[loopCnt] = I_P
+      track_results[channelNr].I_L[loopCnt] = I_L
+      track_results[channelNr].Q_E[loopCnt] = Q_E
+      track_results[channelNr].Q_P[loopCnt] = Q_P
+      track_results[channelNr].Q_L[loopCnt] = Q_L
 
     #Possibility for lock-detection later
-    trackResults[channelNr].status = 'T'
+    track_results[channelNr].status = 'T'
 
   if pbar:
     pbar.finish()
 
   logger.info("Tracking finished")
 
-  return (trackResults, channel)
+  return (track_results, channel)
 
-class trackResults_class:
+
+class TrackResults:
   def __init__(self,settings):
     self.status = '-'
     self.PRN = 40 #invalid Goldcode number
