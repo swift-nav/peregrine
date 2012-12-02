@@ -87,17 +87,18 @@ def main():
     logging.info("Skipping tracking, loading saved tracking results.")
     try:
       with open(track_results_file, 'rb') as f:
-        (track_results, channel) = pickle.load(f)
+        track_results = pickle.load(f)
     except IOError:
       logging.critical("Couldn't open tracking results file '%s'.",
                        track_results_file)
       sys.exit(1)
   else:
-    signal = load_samples(settings.fileName,int(settings.samplingFreq*1e-3*37100), 0)
-    (track_results, channel) = track(signal, acq_results, settings)
+    signal = load_samples(args.file,
+                          int(settings.samplingFreq*1e-3*37100))
+    track_results = track(signal, acq_results, settings)
     try:
       with open(track_results_file, 'wb') as f:
-        pickle.dump((track_results, channel), f)
+        pickle.dump(track_results, f)
       logging.debug("Saving tracking results as '%s'" % track_results_file)
     except IOError:
       logging.error("Couldn't save tracking results file '%s'.",

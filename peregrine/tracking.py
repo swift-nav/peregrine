@@ -160,7 +160,7 @@ def track(signal, channel, settings, show_progress=True):
 
   logger.info("Tracking finished")
 
-  return (track_results, channel)
+  return track_results
 
 
 class TrackResults:
