@@ -156,7 +156,9 @@ def track(signal, channel, settings, show_progress=True):
     #Possibility for lock-detection later
     trackResults[channelNr].status = 'T'
 
-  pbar.finish()
+  if pbar:
+    pbar.finish()
+
   logger.info("Tracking finished")
 
   return (trackResults, channel)
