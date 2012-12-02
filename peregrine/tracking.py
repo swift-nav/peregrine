@@ -166,7 +166,7 @@ def track(signal, channel, settings, show_progress=True):
 class TrackResults:
   def __init__(self,settings):
     self.status = '-'
-    self.PRN = 40 #invalid Goldcode number
+    self.PRN = None
     self.absoluteSample = np.zeros(settings.msToProcess)
     self.codePhase = np.zeros(settings.msToProcess)
     self.codeFreq = np.inf*np.ones(settings.msToProcess)
