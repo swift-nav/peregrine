@@ -335,13 +335,14 @@ class Acquisition:
     """
     # Upsample the code to our sampling frequency and number of samples.
     code_indicies = np.arange(1.0, self.n_fine + 1.0) / self.samples_per_chip
-    code_indicies = np.remainder(np.asarray(code_indicies, np.int), self.code_length)
+    code_indicies = np.remainder(np.asarray(code_indicies, np.int),
+                                 self.code_length)
     long_code = code[code_indicies]
 
     # Index into our samples to a point where the code phase is zero and grab
     # n_fine samples, removing any DC offset.
     code_phase_samples = code_phase * self.samples_per_chip
-    fine_samples = self.samples[code_phase_samples:][:self.n_fine]
+    fine_samples = self.samples[code_phase_samples:][:self.n_fine].copy()
     fine_samples -= np.mean(fine_samples)
     # Perform a code 'wipe-off' by multiplying by a replica code
     # (i.e. upsampled and at the same code phase)
