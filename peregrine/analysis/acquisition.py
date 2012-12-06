@@ -85,7 +85,7 @@ def snr_bars(acq_results,
     prns = [r.prn for r in acq_results]
     missing = [prn for prn in range(31) if not prn in prns]
     acq_results = acq_results[:] + \
-                  [AcquisitionResult(prn, 0, 0, 0, 0) for prn in missing]
+                  [AcquisitionResult(prn, 0, 0, 0, 0, '-') for prn in missing]
 
   acq_results.sort(key=attrgetter('prn'))
 
