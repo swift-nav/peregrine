@@ -38,9 +38,8 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.trac
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
   #Create list of tracking channels results (correlations, freqs, etc)
-  track_results = [TrackResults(settings) for i in range(len(channel))]
+  track_results = [TrackResults(settings.msToProcess) for i in range(len(channel))]
   #Initialize tracking variables
-  codePeriods = settings.msToProcess
   ##DLL Variables##
   #Define early-late offset
   #Summation interval
@@ -164,20 +163,20 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.trac
 
 
 class TrackResults:
-  def __init__(self,settings):
+  def __init__(self, n_points):
     self.status = '-'
     self.PRN = None
-    self.absoluteSample = np.zeros(settings.msToProcess)
-    self.codePhase = np.zeros(settings.msToProcess)
-    self.codeFreq = np.inf*np.ones(settings.msToProcess)
-    self.carrFreq = np.inf*np.ones(settings.msToProcess)
-    self.I_E = np.zeros(settings.msToProcess)
-    self.I_P = np.zeros(settings.msToProcess)
-    self.I_L = np.zeros(settings.msToProcess)
-    self.Q_E = np.zeros(settings.msToProcess)
-    self.Q_P = np.zeros(settings.msToProcess)
-    self.Q_L = np.zeros(settings.msToProcess)
-    self.dllDiscr     = np.inf*np.ones(settings.msToProcess);
-    self.dllDiscrFilt = np.inf*np.ones(settings.msToProcess);
-    self.pllDiscr     = np.inf*np.ones(settings.msToProcess);
-    self.pllDiscrFilt = np.inf*np.ones(settings.msToProcess);
+    self.absoluteSample = np.empty(n_points)
+    self.codePhase = np.empty(n_points)
+    self.codeFreq = np.empty(n_points)
+    self.carrFreq = np.empty(n_points)
+    self.I_E = np.empty(n_points)
+    self.I_P = np.empty(n_points)
+    self.I_L = np.empty(n_points)
+    self.Q_E = np.empty(n_points)
+    self.Q_P = np.empty(n_points)
+    self.Q_L = np.empty(n_points)
+    self.dllDiscr     = np.empty(n_points);
+    self.dllDiscrFilt = np.empty(n_points);
+    self.pllDiscr     = np.empty(n_points);
+    self.pllDiscrFilt = np.empty(n_points);
