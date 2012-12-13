@@ -123,6 +123,7 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.trac
       #Modify carrier freq based on NCO
       carrFreq = carrFreqBasis + carrNco
       track_results[channelNr].carrFreq[loopCnt] = carrFreq
+      track_results[channelNr].carrPhase[loopCnt] = remCarrPhase
 
       #Find DLL error and update code NCO
       codeError = (math.sqrt(I_E*I_E + Q_E*Q_E) - math.sqrt(I_L*I_L + Q_L*Q_L)) / \
@@ -169,6 +170,7 @@ class TrackResults:
     self.absoluteSample = np.empty(n_points)
     self.codePhase = np.empty(n_points)
     self.codeFreq = np.empty(n_points)
+    self.carrPhase = np.empty(n_points)
     self.carrFreq = np.empty(n_points)
     self.I_E = np.empty(n_points)
     self.I_P = np.empty(n_points)
