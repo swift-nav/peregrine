@@ -33,7 +33,7 @@ def calc_loop_coef(lbw, zeta, k):
   return (tau1, tau2)
 
 
-def track(signal, channel, settings, show_progress=True):
+def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.track_correlate):
   logger.info("Tracking starting")
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
@@ -110,7 +110,7 @@ def track(signal, channel, settings, show_progress=True):
       codePhaseStep = codeFreq/settings.samplingFreq
       rawSignal = signal[numSamplesToSkip:]#[:blksize_]
 
-      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = swiftnav.track.track_correlate(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
+      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize
 
       #Find PLL error and update carrier NCO
