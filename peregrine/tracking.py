@@ -27,30 +27,36 @@ except ImportError:
 
 
 def calc_loop_coef(lbw, zeta, k):
-  omega_n = lbw*8*zeta / (4*zeta**2 + 1)
+  omega_n = lbw*8.0*zeta / (4.0*zeta**2 + 1.0)
   tau1 = k / (omega_n**2)
-  tau2 = 2.0* zeta / omega_n
+  tau2 = 2.0 * zeta / omega_n
   return (tau1, tau2)
+
+
+class LoopFilter:
+  def __init__(self, freq, lbw, zeta, k, loop_freq):
+    self.freq = freq
+
+    tau1, tau2 = calc_loop_coef(lbw, zeta, k)
+    self.igain = 1.0 / (tau1 * loop_freq)
+    self.pgain = tau2 / tau1
+
+    self.prev_error = 0
+
+  def update(self, error):
+    self.freq += self.pgain * (error - self.prev_error) + \
+                 self.igain * error
+    self.prev_error = error
+
+    return self.freq
 
 
 def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.track_correlate):
   logger.info("Tracking starting")
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
-  #Create list of tracking channels results (correlations, freqs, etc)
-  track_results = [TrackResults(settings.msToProcess) for i in range(len(channel))]
-  #Initialize tracking variables
-  ##DLL Variables##
-  #Define early-late offset
-  #Summation interval
-  PDIcode = 0.001
-  #Filter coefficient values
-  (tau1code, tau2code) = calc_loop_coef(settings.dllNoiseBandwidth,
-                                        settings.dllDampingRatio, 1.0)
-  ##PLL Variables##
-  PDIcarr = 0.001
-  (tau1carr, tau2carr) = calc_loop_coef(settings.pllNoiseBandwidth,
-                                        settings.pllDampingRatio, 0.25)
+  # Create list of tracking channels results (correlations, freqs, etc)
+  track_results = []
 
   # If progressbar is not available, disable show_progress.
   if show_progress and not _progressbar_available:
@@ -75,26 +81,21 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.trac
 
   #Do tracking for each channel
   for channelNr in range(len(channel)):
-    track_results[channelNr].PRN = channel[channelNr].prn
-    #Get a vector with the C/A code sampled 1x/chip
-    caCode = caCodes[channel[channelNr].prn]
-    #Add wrapping to either end to be able to do early/late
-    caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
-    #Initialize phases and frequencies
+    track_result = TrackResults(settings.msToProcess)
+    track_result.PRN = channel[channelNr].prn
+
     codeFreq = settings.codeFreqBasis
-    #remCodePhase = 0.0 #residual code phase
-    remCodePhase = 0.0 #residual code phase
+    codeLoop = LoopFilter(codeFreq, 2, 0.7, 1, 1e3)
+    remCodePhase = 0.0
     carrFreq = channel[channelNr].carr_freq
-    carrFreqBasis = channel[channelNr].carr_freq
-    remCarrPhase = 0.0 #residual carrier phase
+    carrLoop = LoopFilter(carrFreq, 25, 0.7, 0.25, 1e3)
+    remCarrPhase = 0.0
 
-    #code tracking loop parameters
-    oldCodeNco = 0.0
-    oldCodeError = 0.0
+    # Get a vector with the C/A code sampled 1x/chip
+    caCode = caCodes[channel[channelNr].prn]
 
-    #carrier/Costas loop parameters
-    oldCarrNco = 0.0
-    oldCarrError = 0.0
+    # Add wrapping to either end to be able to do early/late
+    caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
 
     blksize_ = int(settings.samplingFreq * 1e-3 + 10)
     #number of samples to seek ahead in file
@@ -112,48 +113,35 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.trac
       I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize
 
-      #Find PLL error and update carrier NCO
-      #Carrier loop discriminator (phase detector)
       carrError = math.atan(Q_P/(I_P+1e-10)) / (2.0 * math.pi)
-      #Carrier loop filter and NCO
-      carrNco = oldCarrNco + (tau2carr/tau1carr) * \
-                 (carrError-oldCarrError) + carrError*(PDIcarr/tau1carr)
-      oldCarrNco = carrNco
-      oldCarrError = carrError
-      #Modify carrier freq based on NCO
-      carrFreq = carrFreqBasis + carrNco
-      track_results[channelNr].carrFreq[loopCnt] = carrFreq
-      track_results[channelNr].carrPhase[loopCnt] = remCarrPhase
+      carrFreq = carrLoop.update(carrError)
+
+      track_result.carrFreq[loopCnt] = carrFreq
+      track_result.carrPhase[loopCnt] = remCarrPhase
+      track_result.pllDiscr[loopCnt] = carrError
 
       #Find DLL error and update code NCO
-      codeError = (math.sqrt(I_E*I_E + Q_E*Q_E) - math.sqrt(I_L*I_L + Q_L*Q_L)) / \
+      codeError = -(math.sqrt(I_E*I_E + Q_E*Q_E) - math.sqrt(I_L*I_L + Q_L*Q_L)) / \
                    (math.sqrt(I_E*I_E + Q_E*Q_E) + math.sqrt(I_L*I_L + Q_L*Q_L) + 1e-10)
-      codeNco = oldCodeNco + (tau2code/tau1code)*(codeError-oldCodeError) \
-                   + codeError*(PDIcode/tau1code)
-      oldCodeNco = codeNco
-      oldCodeError = codeError
-      #Code freq based on NCO
-      codeFreq = settings.codeFreqBasis - codeNco
-      track_results[channelNr].codePhase[loopCnt] = remCodePhase
-      track_results[channelNr].codeFreq[loopCnt] = codeFreq
+      codeFreq = codeLoop.update(codeError)
+
+      track_result.codePhase[loopCnt] = remCodePhase
+      track_result.codeFreq[loopCnt] = codeFreq
+      track_result.dllDiscr[loopCnt] = codeError
 
       #Record stuff for postprocessing
-      track_results[channelNr].absoluteSample[loopCnt] = numSamplesToSkip
+      track_result.absoluteSample[loopCnt] = numSamplesToSkip
 
-      track_results[channelNr].dllDiscr[loopCnt] = codeError
-      track_results[channelNr].dllDiscrFilt[loopCnt] = codeNco
-      track_results[channelNr].pllDiscr[loopCnt] = carrError
-      track_results[channelNr].pllDiscrFilt[loopCnt] = carrNco
-
-      track_results[channelNr].I_E[loopCnt] = I_E
-      track_results[channelNr].I_P[loopCnt] = I_P
-      track_results[channelNr].I_L[loopCnt] = I_L
-      track_results[channelNr].Q_E[loopCnt] = Q_E
-      track_results[channelNr].Q_P[loopCnt] = Q_P
-      track_results[channelNr].Q_L[loopCnt] = Q_L
+      track_result.I_E[loopCnt] = I_E
+      track_result.I_P[loopCnt] = I_P
+      track_result.I_L[loopCnt] = I_L
+      track_result.Q_E[loopCnt] = Q_E
+      track_result.Q_P[loopCnt] = Q_P
+      track_result.Q_L[loopCnt] = Q_L
 
     #Possibility for lock-detection later
-    track_results[channelNr].status = 'T'
+    track_result.status = 'T'
+    track_results += [track_result]
 
   if pbar:
     pbar.finish()
@@ -179,6 +167,5 @@ class TrackResults:
     self.Q_P = np.empty(n_points)
     self.Q_L = np.empty(n_points)
     self.dllDiscr     = np.empty(n_points);
-    self.dllDiscrFilt = np.empty(n_points);
     self.pllDiscr     = np.empty(n_points);
-    self.pllDiscrFilt = np.empty(n_points);
+
