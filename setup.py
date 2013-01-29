@@ -16,7 +16,7 @@ Peregrine has the following requirements:
 
 - `pyFFTW <http://pypi.python.org/pypi/pyFFTW>`_ 0.8.2 or later
 
-- `libswiftnav <https://github.com/swift-nav/Swift-Nav-Code>`_ and its Python
+- `libswiftnav <https://github.com/swift-nav/libswiftnav>`_ and its Python
   bindings
 
 Peregrine also depends on other projects for optional features.
@@ -74,14 +74,6 @@ Which is similar to `install` but instead of copying Peregrine to the install
 location, a link is made from the source location to the install location so
 you can continue to work on the soruce without having to run `install` every
 time you wish to test your changes.
-
-Installing optional dependencies
---------------------------------
-
-The optional dependencies can be installed with `pip` or `easy_install` as
-follows::
-
-  $ pip install progressbar matplotlib
 
 Building documentation
 ----------------------
