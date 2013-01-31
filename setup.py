@@ -104,11 +104,13 @@ be read by pointing a web browser to ``docs/_build/html/index.html``.
 
 """
 
+from version import get_git_version
+
 setup_args = dict(
   name = 'Peregrine',
-  version = '0.1dev',
+  version = get_git_version(),
   description = 'Peregrine software GNSS receiver',
-  license = "GPLv3",
+  license = 'GPLv3',
   url = 'http://www.swift-nav.com',
 
   author = 'Swift Navigation Inc.',
