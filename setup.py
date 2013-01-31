@@ -16,8 +16,9 @@ Peregrine has the following requirements:
 
 - `pyFFTW <http://pypi.python.org/pypi/pyFFTW>`_ 0.8.2 or later
 
-- `libswiftnav <https://github.com/swift-nav/libswiftnav>`_ and its Python
-  bindings
+- `libswiftnav <https://github.com/swift-nav/libswiftnav>`_
+
+- `libswiftnav-python <https://github.com/swift-nav/libswiftnav-python>`_
 
 Peregrine also depends on other projects for optional features.
 
@@ -26,7 +27,7 @@ Peregrine also depends on other projects for optional features.
 
 .. note::
   Peregrine makes use of some extensions to the progressbar library that are
-  not yet merged uptream. For now you can install our `development version
+  not yet merged upstream. For now you can install our `development version
   <https://github.com/fnoble/python-progressbar/>`_ as follows::
 
     $ pip install git+https://github.com/fnoble/python-progressbar.git
@@ -39,7 +40,10 @@ Installing Peregrine
 Obtaining the source
 --------------------
 
-The latest development version of Peregrine can be cloned from github
+The peregrine source and release tarballs are available from GitHub,
+https://github.com/swift-nav/peregrine.
+
+The latest development version of peregrine can be cloned from GitHub
 using this command::
 
    git clone git://github.com/swift-nav/peregrine.git
@@ -72,7 +76,7 @@ can instead run::
 
 Which is similar to `install` but instead of copying Peregrine to the install
 location, a link is made from the source location to the install location so
-you can continue to work on the soruce without having to run `install` every
+you can continue to work on the source without having to run `install` every
 time you wish to test your changes.
 
 Building documentation
