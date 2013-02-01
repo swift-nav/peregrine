@@ -77,9 +77,9 @@ Acquisition results can be saved and loaded from a file using the
 
 .. ipython::
 
-  In [22]: peregrine.acquisition.save_acq_results("../tests/test.acq_results", res)
+  In [22]: peregrine.acquisition.save_acq_results("foo.acq_results", res)
 
-  In [22]: res2 = peregrine.acquisition.load_acq_results("../tests/test.acq_results")
+  In [22]: res2 = peregrine.acquisition.load_acq_results("foo.acq_results")
 
   In [13]: peregrine.analysis.acquisition.acq_table(res2)
 
