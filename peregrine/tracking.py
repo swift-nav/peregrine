@@ -14,6 +14,7 @@ import progressbar
 import math
 
 import swiftnav.track
+import swiftnav.correlate
 
 import logging
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ class LoopFilter:
     return self.freq
 
 
-def track(signal, channel, settings, show_progress=True, trk=swiftnav.track.track_correlate):
+def track(signal, channel, settings, show_progress=True, trk=swiftnav.correlate.track_correlate):
   logger.info("Tracking starting")
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
