@@ -22,7 +22,12 @@ __all__ = ['hist', 'psd', 'summary']
 # someone is going to complain about this eventually...
 matplotlib.rc('mathtext', fontset='stixsans')
 
-def hist(samples, ax=None, value_range=None, bin_width=1.0):
+import logging
+logger = logging.getLogger(__name__)
+
+ANALYSIS_MAX_LEN = 2e6
+
+def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX_LEN):
   """
   Plot a histogram of the sample values.
 
@@ -42,6 +47,10 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0):
     Bins are sized closest to `bin_width` such that an integer number of bins
     spans `value_range`. The default value of ``1`` is suitable for integer
     data.
+  max_len: float, optional
+    Maximum number of samples to analyse. If `len(samples)` is greater than
+    `max_len` then `samples` will first be truncated to `max_len` samples. If
+    `None` then the whole array will be used.
 
   Returns
   -------
@@ -49,6 +58,10 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0):
     The `Axes` object that the histogram was drawn to.
 
   """
+  if max_len is not None and len(samples) > max_len:
+    logger.debug( "Truncating to %d samples." % max_len)
+    samples = samples[:max_len]
+
   if ax is None:
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -77,7 +90,7 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0):
 
   return ax
 
-def psd(samples, sampling_freq=None, ax=None):
+def psd(samples, sampling_freq=None, ax=None, max_len=ANALYSIS_MAX_LEN):
   """
   Plot the Power Spectral Density (PSD) of the sample data.
 
@@ -92,6 +105,10 @@ def psd(samples, sampling_freq=None, ax=None):
   ax : :class:`matplotlib.axes.Axes`, optional
     If `ax` is not `None` then the histogram will be plotted on the supplied
     :class:`matplotlib.axes.Axes` object rather than as a new figure.
+  max_len: float, optional
+    Maximum number of samples to analyse. If `len(samples)` is greater than
+    `max_len` then `samples` will first be truncated to `max_len` samples. If
+    `None` then the whole array will be used.
 
   Returns
   -------
@@ -99,6 +116,10 @@ def psd(samples, sampling_freq=None, ax=None):
     The `Axes` object that the PSD plot was drawn to.
 
   """
+  if max_len is not None and len(samples) > max_len:
+    logger.debug( "Truncating to %d samples." % max_len)
+    samples = samples[:max_len]
+
   if ax is None:
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -124,7 +145,7 @@ def psd(samples, sampling_freq=None, ax=None):
 
   return ax
 
-def summary(samples, sampling_freq=None):
+def summary(samples, sampling_freq=None, max_len=ANALYSIS_MAX_LEN):
   """
   Plot a summary sample data analysis, including the other plots as subplots.
 
@@ -139,14 +160,18 @@ def summary(samples, sampling_freq=None):
   sampling_freq : float, optional
     The sampling frequency of the data. If `sampling_freq` is `None` then the
     plots will be labeled in units of the sampling frequency.
+  max_len: float, optional
+    Maximum number of samples to analyse. If `len(samples)` is greater than
+    `max_len` then `samples` will first be truncated to `max_len` samples. If
+    `None` then the whole array will be used.
 
   """
   fig = plt.figure()
   ax1 = fig.add_subplot(121)
   ax2 = fig.add_subplot(122)
 
-  hist(samples, ax=ax1)
-  psd(samples, sampling_freq, ax=ax2)
+  hist(samples, ax=ax1, max_len=max_len)
+  psd(samples, sampling_freq, ax=ax2, max_len=max_len)
 
   fig.set_size_inches(10, 4, forward=True)
   fig.tight_layout()
@@ -154,6 +179,8 @@ def summary(samples, sampling_freq=None):
 def main():
   import argparse
   import peregrine.samples
+  from peregrine.log import default_logging_config
+  default_logging_config()
 
   parser = argparse.ArgumentParser()
   parser.add_argument("file", help="the sample data file to analyse")
