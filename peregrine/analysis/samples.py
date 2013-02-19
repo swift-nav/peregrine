@@ -125,14 +125,15 @@ def psd(samples, sampling_freq=None, ax=None, max_len=ANALYSIS_MAX_LEN):
     ax = fig.add_subplot(111)
 
   ax.set_title('Power Spectral Density')
-  ax.set_ylabel('Power Spectral Density ($\mathrm{Hz}^{-1}$)')
 
   if sampling_freq is None:
     ax.set_xlabel('Frequency (Hz/$f_s$)')
+    ax.set_ylabel('Power Spectral Density ($f_s \cdot \mathrm{Hz}^{-1}$)')
     sampling_freq = 1.0
   else:
     ax.ticklabel_format(style='sci', scilimits=(0,0), axis='x')
     ax.set_xlabel('Frequency (Hz)')
+    ax.set_ylabel('Power Spectral Density ($\mathrm{Hz}^{-1}$)')
 
   Pxx, freqs = mlab.psd(samples,
                         Fs=sampling_freq,
