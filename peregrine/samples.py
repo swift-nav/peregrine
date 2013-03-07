@@ -76,14 +76,19 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='int8'):
       num_skip_bytes = 0
       num_skip_samples = 0
       num_bytes = -1
-    with open(filename, 'rb') as f:
-      f.seek(num_skip_bytes)
-      packed = np.fromfile(f, dtype=np.uint8, count=num_bytes)
-    sign_mag_mapping = np.array([1, 3, 5, 7, -1, -3, -5, -7], dtype=np.int8)
+
+    packed = np.memmap(filename, offset=num_skip_bytes, dtype=np.uint8, mode='r')
+    if num_bytes > 0:
+      packed = packed[:num_bytes]
+
     samples = np.empty(len(packed) * 2, dtype=np.int8)
-    samples[::2] = (packed >> 5) & 7
+
+    # Unpack 2 samples from each byte
+    samples[::2] = (packed >> 5)
     samples[1::2] = (packed >> 2) & 7
-    samples = sign_mag_mapping[samples]
+    # Sign-magnitude to two's complement mapping
+    samples = (1-2*(samples>>2)) * (2*(samples&3)+1)
+
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
