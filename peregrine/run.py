@@ -94,7 +94,7 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq*1e-3*37100))
+                          int(settings.samplingFreq*1e-3*settings.msToProcess))
     track_results = track(signal, acq_results, settings)
     try:
       with open(track_results_file, 'wb') as f:
