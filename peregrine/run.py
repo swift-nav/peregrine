@@ -11,7 +11,7 @@
 
 import sys
 import argparse
-import pickle
+import cPickle
 import logging
 from operator import attrgetter
 
@@ -87,7 +87,7 @@ def main():
     logging.info("Skipping tracking, loading saved tracking results.")
     try:
       with open(track_results_file, 'rb') as f:
-        track_results = pickle.load(f)
+        track_results = cPickle.load(f)
     except IOError:
       logging.critical("Couldn't open tracking results file '%s'.",
                        track_results_file)
@@ -98,15 +98,23 @@ def main():
     track_results = track(signal, acq_results, settings)
     try:
       with open(track_results_file, 'wb') as f:
-        pickle.dump(track_results, f)
+        cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
       logging.debug("Saving tracking results as '%s'" % track_results_file)
     except IOError:
       logging.error("Couldn't save tracking results file '%s'.",
                     track_results_file)
 
   # Do navigation
+  nav_results_file = args.file + ".nav_results"
   if not args.skip_navigation:
-    navSolutions = navigation(track_results, settings)
+    nav_solns = navigation(track_results, settings)
+    nav_results = []
+    for s, t in nav_solns:
+      nav_results += [(t, s.pos_llh, s.vel_ned)]
+    with open(nav_results_file, 'wb') as f:
+      cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+    logging.debug("Saving navigation results as '%s'" % nav_results_file)
 
 if __name__ == '__main__':
   main()
+

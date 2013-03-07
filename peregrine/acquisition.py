@@ -15,7 +15,7 @@ to satellite acquisition.
 
 import numpy as np
 import pyfftw
-import pickle
+import cPickle
 
 from include.generateCAcode import caCodes
 
@@ -507,13 +507,13 @@ class Acquisition:
   def load_wisdom(self, wisdom_file=DEFAULT_WISDOM_FILE):
     """Load saved FFTW wisdom from file."""
     with open(wisdom_file, 'rb') as f:
-      wisdom = pickle.load(f)
+      wisdom = cPickle.load(f)
       pyfftw.import_wisdom(wisdom)
 
   def save_wisdom(self, wisdom_file=DEFAULT_WISDOM_FILE):
     """Save FFTW wisdom to file."""
     with open(wisdom_file, 'wb') as f:
-      pickle.dump(pyfftw.export_wisdom(), f)
+      cPickle.dump(pyfftw.export_wisdom(), f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 class AcquisitionResult:
@@ -573,7 +573,7 @@ def save_acq_results(filename, acq_results):
 
   """
   with open(filename, 'wb') as f:
-    pickle.dump(acq_results, f)
+    cPickle.dump(acq_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 def load_acq_results(filename):
   """
@@ -591,5 +591,5 @@ def load_acq_results(filename):
 
   """
   with open(filename, 'rb') as f:
-    return pickle.load(f)
+    return cPickle.load(f)
 
