@@ -27,32 +27,25 @@ except ImportError:
   _progressbar_available = False
 
 
-def calc_loop_coef(lbw, zeta, k):
-  omega_n = lbw*8.0*zeta / (4.0*zeta**2 + 1.0)
-  tau1 = k / (omega_n**2)
-  tau2 = 2.0 * zeta / omega_n
-  return (tau1, tau2)
 
+default_loop_filter = swiftnav.track.SimpleTrackingLoop(
+  (2, 0.7, 1),     # Code loop parameters
+  (25, 0.7, 0.25), # Carrier loop parameters
+  1e3              # Loop frequency
+)
 
-class LoopFilter:
-  def __init__(self, freq, lbw, zeta, k, loop_freq):
-    self.freq = freq
+comp_loop_filter = swiftnav.track.CompTrackingLoop(
+  (2, 0.7, 1),     # Code loop parameters
+  (25, 0.7, 0.25), # Carrier loop parameters
+  1e3,             # Loop frequency
+  0.005,           # Tau
+  1000             # Gain schedule after 1000 iterations (1s)
+)
 
-    tau1, tau2 = calc_loop_coef(lbw, zeta, k)
-    self.igain = 1.0 / (tau1 * loop_freq)
-    self.pgain = tau2 / tau1
-
-    self.prev_error = 0
-
-  def update(self, error):
-    self.freq += self.pgain * (error - self.prev_error) + \
-                 self.igain * error
-    self.prev_error = error
-
-    return self.freq
-
-
-def track(signal, channel, settings, show_progress=True, trk=swiftnav.correlate.track_correlate):
+def track(signal, channel, settings,
+          show_progress=True,
+          trk=swiftnav.correlate.track_correlate,
+          loop_filter=default_loop_filter):
   logger.info("Tracking starting")
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
 
@@ -85,11 +78,8 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.correlate.
     track_result = TrackResults(settings.msToProcess)
     track_result.PRN = channel[channelNr].prn
 
-    codeFreq = settings.codeFreqBasis
-    codeLoop = LoopFilter(codeFreq, 2, 0.7, 1, 1e3)
+    loop_filter.start(settings.codeFreqBasis, channel[channelNr].carr_freq)
     remCodePhase = 0.0
-    carrFreq = channel[channelNr].carr_freq
-    carrLoop = LoopFilter(carrFreq, 25, 0.7, 0.25, 1e3)
     remCarrPhase = 0.0
 
     # Get a vector with the C/A code sampled 1x/chip
@@ -108,27 +98,22 @@ def track(signal, channel, settings, show_progress=True, trk=swiftnav.correlate.
       if pbar:
         pbar.update(loopCnt + channelNr*settings.msToProcess, attr={'chan': channelNr+1})
 
-      codePhaseStep = codeFreq/settings.samplingFreq
+      codePhaseStep = loop_filter.code_freq/settings.samplingFreq
       rawSignal = signal[numSamplesToSkip:]#[:blksize_]
 
-      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, codeFreq, remCodePhase, carrFreq, remCarrPhase, caCode, settings)
+      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, loop_filter.code_freq, remCodePhase, loop_filter.carr_freq, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize
 
-      carrError = math.atan(Q_P/(I_P+1e-10)) / (2.0 * math.pi)
-      carrFreq = carrLoop.update(carrError)
+      E = I_E + Q_E*1.j
+      P = I_P + Q_P*1.j
+      L = I_L + Q_L*1.j
+      loop_filter.update(E, P, L)
 
-      track_result.carrFreq[loopCnt] = carrFreq
       track_result.carrPhase[loopCnt] = remCarrPhase
-      track_result.pllDiscr[loopCnt] = carrError
-
-      #Find DLL error and update code NCO
-      codeError = -(math.sqrt(I_E*I_E + Q_E*Q_E) - math.sqrt(I_L*I_L + Q_L*Q_L)) / \
-                   (math.sqrt(I_E*I_E + Q_E*Q_E) + math.sqrt(I_L*I_L + Q_L*Q_L) + 1e-10)
-      codeFreq = codeLoop.update(codeError)
+      track_result.carrFreq[loopCnt] = loop_filter.carr_freq
 
       track_result.codePhase[loopCnt] = remCodePhase
-      track_result.codeFreq[loopCnt] = codeFreq
-      track_result.dllDiscr[loopCnt] = codeError
+      track_result.codeFreq[loopCnt] = loop_filter.code_freq
 
       #Record stuff for postprocessing
       track_result.absoluteSample[loopCnt] = numSamplesToSkip
@@ -167,6 +152,4 @@ class TrackResults:
     self.Q_E = np.empty(n_points)
     self.Q_P = np.empty(n_points)
     self.Q_L = np.empty(n_points)
-    self.dllDiscr     = np.empty(n_points);
-    self.pllDiscr     = np.empty(n_points);
 
