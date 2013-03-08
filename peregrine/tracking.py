@@ -78,6 +78,11 @@ def track(signal, channel, settings,
     track_result = TrackResults(settings.msToProcess)
     track_result.PRN = channel[channelNr].prn
 
+    # Convert acquisition SNR to C/N0
+    cn0_0 = 10*np.log10(channel[channelNr].snr)
+    cn0_0 += 10*np.log10(1000) # Channel bandwidth
+    cn0_est = swiftnav.track.CN0Estimator(1e3, cn0_0, 10, 1e3)
+
     loop_filter.start(settings.codeFreqBasis, channel[channelNr].carr_freq)
     remCodePhase = 0.0
     remCarrPhase = 0.0
@@ -125,6 +130,8 @@ def track(signal, channel, settings,
       track_result.Q_P[loopCnt] = Q_P
       track_result.Q_L[loopCnt] = Q_L
 
+      track_result.cn0[loopCnt] = cn0_est.update(I_P)
+
     #Possibility for lock-detection later
     track_result.status = 'T'
     track_results += [track_result]
@@ -152,4 +159,5 @@ class TrackResults:
     self.Q_E = np.empty(n_points)
     self.Q_P = np.empty(n_points)
     self.Q_L = np.empty(n_points)
+    self.cn0 = np.empty(n_points)
 
