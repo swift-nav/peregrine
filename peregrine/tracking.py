@@ -27,6 +27,56 @@ except ImportError:
   _progressbar_available = False
 
 
+class TrackingLoop(object):
+  """
+  Abstract base class for a tracking loop.
+
+  Sub-classes should implement :meth:`update` and :meth:`start` and provide
+  access to `code_freq` and `carr_freq` attributes or properties.
+
+  The tracking loop should initialise its constant parameters in its `__init__`
+  method. :meth:`start` will be called to (re)initialise the tracking loop,
+  passing in the initial carrier and code frequencies.
+
+  """
+  __slots__ = ('code_freq', 'carr_freq')
+
+  def start(self, code_freq, carr_freq):
+    """
+    (Re-)initialise the tracking loop.
+
+    Parameters
+    ----------
+    code_freq : float
+      The code phase rate (i.e. frequency).
+    carr_freq : float
+      The carrier frequency.
+
+    """
+    raise NotImplementedError()
+
+  def update(self, e, p, l):
+    """
+    Tracking loop update step.
+
+    Parameters
+    ----------
+    e : complex, :math:`I_E + Q_E j`
+      The early correlation. The real component contains the in-phase
+      correlation and the imaginary component contains the quadrature
+      correlation.
+    p : complex, :math:`I_P + Q_P j`
+      The prompt correlation.
+    l : complex, :math:`I_L + Q_L j`
+      The late correlation.
+
+    Returns
+    -------
+    out : (float, float)
+      The tuple (code_freq, carrier_freq).
+
+    """
+    raise NotImplementedError()
 
 default_loop_filter = swiftnav.track.SimpleTrackingLoop(
   (2, 0.7, 1),     # Code loop parameters
