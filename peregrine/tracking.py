@@ -89,6 +89,7 @@ comp_loop_filter = swiftnav.track.CompTrackingLoop(
   (25, 0.7, 0.25), # Carrier loop parameters
   1e3,             # Loop frequency
   0.005,           # Tau
+  1540,            # Carrier cycles per code
   1000             # Gain schedule after 1000 iterations (1s)
 )
 
