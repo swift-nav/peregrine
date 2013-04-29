@@ -134,7 +134,7 @@ def track(signal, channel, settings,
     cn0_0 += 10*np.log10(1000) # Channel bandwidth
     cn0_est = swiftnav.track.CN0Estimator(1e3, cn0_0, 10, 1e3)
 
-    loop_filter.start(settings.codeFreqBasis, channel[channelNr].carr_freq)
+    loop_filter.start(0, channel[channelNr].carr_freq-settings.IF)
     remCodePhase = 0.0
     remCarrPhase = 0.0
 
@@ -154,10 +154,9 @@ def track(signal, channel, settings,
       if pbar:
         pbar.update(loopCnt + channelNr*settings.msToProcess, attr={'chan': channelNr+1})
 
-      codePhaseStep = loop_filter.code_freq/settings.samplingFreq
       rawSignal = signal[numSamplesToSkip:]#[:blksize_]
 
-      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, loop_filter.code_freq, remCodePhase, loop_filter.carr_freq, remCarrPhase, caCode, settings)
+      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, loop_filter.code_freq+settings.codeFreqBasis, remCodePhase, loop_filter.carr_freq+settings.IF, remCarrPhase, caCode, settings)
       numSamplesToSkip += blksize
 
       E = I_E + Q_E*1.j
@@ -166,10 +165,10 @@ def track(signal, channel, settings,
       loop_filter.update(E, P, L)
 
       track_result.carrPhase[loopCnt] = remCarrPhase
-      track_result.carrFreq[loopCnt] = loop_filter.carr_freq
+      track_result.carrFreq[loopCnt] = loop_filter.carr_freq+settings.IF
 
       track_result.codePhase[loopCnt] = remCodePhase
-      track_result.codeFreq[loopCnt] = loop_filter.code_freq
+      track_result.codeFreq[loopCnt] = loop_filter.code_freq+settings.codeFreqBasis
 
       #Record stuff for postprocessing
       track_result.absoluteSample[loopCnt] = numSamplesToSkip
