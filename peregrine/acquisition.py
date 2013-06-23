@@ -174,8 +174,8 @@ class Acquisition:
     self.samples = samples
 
     # Create two short sets of data to correlate with
-    self.short_samples1[:] = samples[0:self.n_coarse]
-    self.short_samples2[:] = samples[self.n_coarse:2*self.n_coarse]
+    self.short_samples1 = samples[0:self.n_coarse]
+    self.short_samples2 = samples[self.n_coarse:2*self.n_coarse]
 
     # Pre-compute Fourier transforms of the two short signals
     self.short_samples1_ft = np.fft.fft(self.short_samples1)
