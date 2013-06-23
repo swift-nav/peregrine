@@ -81,11 +81,13 @@ class Acquisition:
                samples_per_code,
                code_length=1023,
                n_codes_fine=8,
+               n_codes_coarse=2,
                wisdom_file=DEFAULT_WISDOM_FILE):
 
     self.sampling_freq = sampling_freq
     self.IF = IF
     self.samples_per_code = int(round(samples_per_code))
+    self.n_coarse = n_codes_coarse * self.samples_per_code
     self.code_length = code_length
     self.samples_per_chip = float(samples_per_code) / code_length
 
@@ -103,21 +105,21 @@ class Acquisition:
     # Setup acquisition:
 
     # Allocate aligned arrays for the code FFT.
-    self.code = pyfftw.n_byte_align_empty((self.samples_per_code), 16,
+    self.code = pyfftw.n_byte_align_empty((self.n_coarse), 16,
                                           dtype=np.complex128)
-    self.code_ft = pyfftw.n_byte_align_empty((self.samples_per_code), 16,
+    self.code_ft = pyfftw.n_byte_align_empty((self.n_coarse), 16,
                                              dtype=np.complex128)
     # Create an FFTW transforms which will execute the code FFT.
     self.code_fft = pyfftw.FFTW(self.code, self.code_ft)
 
     # Allocate aligned arrays for the inverse FFT.
-    self.corr_ft1 = pyfftw.n_byte_align_empty((self.samples_per_code), 16,
+    self.corr_ft1 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
                                               dtype=np.complex128)
-    self.corr1 = pyfftw.n_byte_align_empty((self.samples_per_code), 16,
+    self.corr1 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
                                            dtype=np.complex128)
-    self.corr_ft2 = pyfftw.n_byte_align_empty((self.samples_per_code), 16,
+    self.corr_ft2 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
                                               dtype=np.complex128)
-    self.corr2 = pyfftw.n_byte_align_empty((self.samples_per_code), 16,
+    self.corr2 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
                                            dtype=np.complex128)
 
     # Setup FFTW transforms for inverse FFT.
@@ -172,8 +174,8 @@ class Acquisition:
     self.samples = samples
 
     # Create two short sets of data to correlate with
-    self.short_samples1 = samples[0:self.samples_per_code]
-    self.short_samples2 = samples[self.samples_per_code:2*self.samples_per_code]
+    self.short_samples1[:] = samples[0:self.n_coarse]
+    self.short_samples2[:] = samples[self.n_coarse:2*self.n_coarse]
 
     # Pre-compute Fourier transforms of the two short signals
     self.short_samples1_ft = np.fft.fft(self.short_samples1)
@@ -210,7 +212,7 @@ class Acquisition:
     results = np.empty((len(freqs), self.samples_per_code))
 
     # Upsample the code to our sampling frequency.
-    code_indicies = np.arange(1.0, self.samples_per_code + 1.0) / \
+    code_indicies = np.arange(1.0, self.n_coarse + 1.0) / \
                     self.samples_per_chip
     code_indicies = np.remainder(np.asarray(code_indicies, np.int), self.code_length)
     self.code[:] = code[code_indicies]
@@ -243,13 +245,13 @@ class Acquisition:
       self.corr_ifft2.execute()
 
       # Find the correlation amplitude.
-      acq_mag1 = np.abs(self.corr1)
-      acq_mag2 = np.abs(self.corr2)
+      acq_mag1 = np.abs(self.corr1[:self.samples_per_code])
+      acq_mag2 = np.abs(self.corr2[:self.samples_per_code])
 
       # Use the signal with the largest correlation peak as the result as one
       # of the signals may contain a nav bit edge. Square the result to find
       # the correlation power.
-      if (np.max(acq_mag1) > np.max(acq_mag1)):
+      if (np.max(acq_mag1) > np.max(acq_mag2)):
         results[n] = np.square(acq_mag1)
       else:
         results[n] = np.square(acq_mag2)
@@ -392,7 +394,7 @@ class Acquisition:
                   prns=range(32),
                   start_doppler=-7000,
                   stop_doppler=7000,
-                  doppler_step=500,
+                  doppler_step=None,
                   threshold=DEFAULT_THRESHOLD,
                   show_progress=True):
     """
@@ -437,6 +439,15 @@ class Acquisition:
 
     """
     logger.info("Acquisition starting")
+
+    # If the Doppler step is not specified, compute it from the coarse
+    # acquisition length.
+    if doppler_step is None:
+      # TODO: Work out the best frequency bin spacing.
+      # This is slightly sub-optimal if power is split between two bins,
+      # perhaps you could peak fit or look at pairs of bins to get true peak
+      # magnitude.
+      doppler_step = self.sampling_freq / self.n_coarse
 
     freqs = np.arange(start_doppler, stop_doppler, doppler_step) + self.IF
 
