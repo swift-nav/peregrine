@@ -60,10 +60,6 @@ class Acquisition:
   code_length : int, optional
     The number of chips in the chipping code. Defaults to the GPS C/A code
     value of 1023.
-  n_codes_fine : int, optional
-    The number of whole code lengths of sample data to use when performing a
-    fine carrier frequency search. This is proportional to the frequency
-    resolution available. See :func:`fine_carrier`.
   wisdom_file : string or `None`, optional
     The filename from which to load and save FFTW `Wisdom
     <http://www.fftw.org/doc/Words-of-Wisdom_002dSaving-Plans.html>`_,
@@ -80,8 +76,7 @@ class Acquisition:
                IF,
                samples_per_code,
                code_length=1023,
-               n_codes_fine=8,
-               n_codes_coarse=2,
+               n_codes_coarse=4,
                wisdom_file=DEFAULT_WISDOM_FILE):
 
     self.sampling_freq = sampling_freq
@@ -128,27 +123,6 @@ class Acquisition:
     self.corr_ifft2 = pyfftw.FFTW(self.corr_ft2, self.corr2,
                                   direction='FFTW_BACKWARD')
 
-    # Setup fine carrier frequency search:
-
-    # Number of samples to use for fine carrier frequency search.
-    self.n_fine = n_codes_fine * self.samples_per_code
-    # Pre-calculate the window function used for the fine FFT.
-    self.fine_fft_window = np.hanning(self.n_fine)
-    # Use next highest power of 2 for fine FFT size.
-    self.n_fine_fft = 2**int(np.ceil(np.log2(self.n_fine)))
-
-    # Allocate an aligned array for the fine FFT input,
-    # this will contain the samples with the code wiped-off.
-    self.fine_wiped = pyfftw.n_byte_align_empty((self.n_fine_fft), 16,
-                                                dtype=np.complex128)
-    # The fine FFT input is padded so make sure it is zeroed.
-    self.fine_wiped[:] = 0
-    # Allocate aligned array for the fine FFT result.
-    self.fine_wiped_ft = pyfftw.n_byte_align_empty((self.n_fine_fft), 16,
-                                                   dtype=np.complex128)
-    # Create an FFTW transforms which will execute the fine FFT.
-    self.fine_fft = pyfftw.FFTW(self.fine_wiped, self.fine_wiped_ft)
-
     # Save FFTW wisdom for later
     if wisdom_file is not None:
       self.save_wisdom(wisdom_file)
@@ -180,6 +154,76 @@ class Acquisition:
     # Pre-compute Fourier transforms of the two short signals
     self.short_samples1_ft = np.fft.fft(self.short_samples1)
     self.short_samples2_ft = np.fft.fft(self.short_samples2)
+
+  def interpolate(self, S_0, S_1, S_2, interpolation='gaussian'):
+    """
+    Use interpolation to refine an FFT frequency estimate.
+
+    .. image:: /_static/interpolation_diagram.png
+      :align: center
+      :alt: Interpolation diagram
+
+    For an FFT bin spacing of :math:`\delta f`, the input frequency is
+    estimated as:
+
+    .. math:: f_{in} \\approx \delta f (k + \Delta)
+
+    Where :math:`k` is the FFT bin with the maximum magnitude and
+    :math:`\Delta \in [-\\frac{1}{2}, \\frac{1}{2}]` is a correction found by
+    interpolation.
+
+    **Parabolic interpolation:**
+
+    .. math:: \Delta = \\frac{1}{2} \\frac{S[k+1] - S[k-1]}{2S[k] - S[k-1] - S[k+1]}
+
+    Where :math:`S[n]` is the magnitude of FFT bin :math:`n`.
+
+    **Gaussian interpolation:**
+
+    .. math:: \Delta = \\frac{1}{2} \\frac{\ln(S[k+1]) - \ln(S[k-1])}{2\ln(S[k]) - \ln(S[k-1]) - \ln(S[k+1])}
+
+    The Gaussian interpolation method gives better results, especially when
+    used with a Gaussian window function, at the expense of computational
+    complexity. See [1]_ for detailed comparison.
+
+
+    Parameters
+    ----------
+    S_0 : float
+      :math:`S[k-1]`, i.e. the magnitude of FFT bin one before the maxima.
+    S_1 : float
+      :math:`S[k]` i.e. the magnitude of the maximum FFT.
+    S_2 : float
+      :math:`S[k+1]`, i.e. the magnitude of FFT bin one after the maxima.
+
+    Returns
+    -------
+    out : float
+      The fractional number of FFT bins :math:`\Delta` that the interpolated
+      maximum is from the maximum point :math:`S[k]`.
+
+    References
+    ----------
+
+    .. [1] Gasior, M. et al., "Improving FFT frequency measurement resolution
+       by parabolic and Gaussian spectrum interpolation" AIP Conf.Proc. 732
+       (2004) 276-285 `CERN-AB-2004-023-BDI
+       <http://cdsweb.cern.ch/record/738182>`_
+
+    """
+    if interpolation == 'parabolic':
+      # Parabolic interpolation.
+      return 0.5 * (S_2 - S_0) / (2*S_1 - S_0 - S_2)
+    elif interpolation == 'gaussian':
+      # Gaussian interpolation.
+      ln_S_0 = np.log(S_0)
+      ln_S_1 = np.log(S_1)
+      ln_S_2 = np.log(S_2)
+      return 0.5 * (ln_S_2 - ln_S_0) / (2*ln_S_1 - ln_S_0 - ln_S_2)
+    elif interpolation == 'none':
+      return 0
+    else:
+      raise ValueError("Unknown interpolation mode '%s'", interpolation)
 
   def acquire(self, code, freqs, progress_callback=None):
     """
@@ -258,7 +302,7 @@ class Acquisition:
 
     return results
 
-  def find_peak(self, freqs, results):
+  def find_peak(self, freqs, results, interpolation='gaussian'):
     """
     Find the peak within an set of acquisition results.
 
@@ -287,108 +331,27 @@ class Acquisition:
     # Find the results index of the maximum.
     freq_index, cp_samples = np.unravel_index(results.argmax(),
                                               results.shape)
-    # Convert to natural units.
-    freq = freqs[freq_index]
+
+    if freq_index > 1 and freq_index < len(freqs)-1:
+      delta = self.interpolate(
+        results[freq_index-1][cp_samples],
+        results[freq_index][cp_samples],
+        results[freq_index+1][cp_samples],
+        interpolation
+      )
+      if delta > 0:
+        freq = freqs[freq_index] + (freqs[freq_index+1] - freqs[freq_index]) * delta
+      else:
+        freq = freqs[freq_index] - (freqs[freq_index-1] - freqs[freq_index]) * delta
+    else:
+      freq = freqs[freq_index]
+
     code_phase = float(cp_samples) / self.samples_per_chip
 
     # Calculate SNR for the peak.
     snr = np.max(results) / np.mean(results)
 
     return (code_phase, freq, snr)
-
-  def fine_carrier(self, code, code_phase, interpolation='gaussian'):
-    """
-    Perform a fine carrier frequency search at a given code phase.
-
-    Without interpolation this yeilds a frequency estimate to within one FFT
-    bin. The interpolation methods and the frequency estimate improvement they
-    yeild are discussed in [1]_.
-
-    The FFT input is zero-padded up to the nearest power of two, so the FFT
-    frequency bin spacing is given by::
-
-      2 * sampling_freq / 2**ceil(log2(samples_per_code * n_codes_fine)
-
-    Parameters
-    ----------
-    code : :class:`numpy.ndarray`
-      An array containing the code to use, one element per chip
-      with value +/- 1.
-    code_phase : float
-      The code phase in chips.
-    interpolation : {'gaussian', 'parabolic', 'none'}, optional
-      Takes the values 'gaussian', 'parabolic' or 'none'.  When not 'none' the
-      carrier frequency estimate is refined by interpolating between FFT bins
-      with the specified type of fit.
-
-    Returns
-    -------
-    out : float
-      The carrier frequency estimate in Hz.
-
-    References
-    ----------
-
-    .. [1] Gasior, M. et al., "Improving FFT frequency measurement resolution
-       by parabolic and Gaussian spectrum interpolation" AIP Conf.Proc. 732
-       (2004) 276-285 `CERN-AB-2004-023-BDI
-       <http://cdsweb.cern.ch/record/738182>`_
-
-    """
-    # Upsample the code to our sampling frequency and number of samples.
-    code_indicies = np.arange(1.0, self.n_fine + 1.0) / self.samples_per_chip
-    code_indicies = np.remainder(np.asarray(code_indicies, np.int),
-                                 self.code_length)
-    long_code = code[code_indicies]
-
-    # Index into our samples to a point where the code phase is zero and grab
-    # n_fine samples, removing any DC offset.
-    code_phase_samples = code_phase * self.samples_per_chip
-    fine_samples = self.samples[code_phase_samples:][:self.n_fine].copy()
-    fine_samples -= np.mean(fine_samples)
-    # Perform a code 'wipe-off' by multiplying by a replica code
-    # (i.e. upsampled and at the same code phase)
-    # This leaves us with just the carrier.
-    self.fine_wiped[:self.n_fine] = fine_samples * long_code
-
-    # Apply window fuction to reduce spectral leakage.
-    self.fine_wiped[:self.n_fine] *= self.fine_fft_window
-
-    # Perform the FFT to find the carrier frequency.
-    self.fine_fft.execute()
-    # Find amplitude only looking at unique points in the FFT.
-    # TODO: Can probably just use a real FFT here!
-    unique_pts = int(np.ceil((self.n_fine_fft + 1) / 2))
-    carrier_fft = np.abs(self.fine_wiped_ft[:unique_pts])
-
-    # Find the location of the maximum in the FFT.
-    max_index = np.argmax(carrier_fft)
-
-    # Use interpolation to refine frequency estimate
-    # See: Improving FFT frequency measurement resolution by parabolic
-    #      and Gaussian spectrum interpolation - Gasior, M. et al.
-    #      AIP Conf.Proc. 732 (2004) 276-285 CERN-AB-2004-023-BDI
-
-    if interpolation == 'parabolic':
-      # Parabolic interpolation.
-      k_0 = carrier_fft[max_index - 1]
-      k_1 = carrier_fft[max_index]
-      k_2 = carrier_fft[max_index + 1]
-      max_index += 0.5 * (k_2 - k_0) / (2*k_1 - k_0 - k_2)
-    elif interpolation == 'gaussian':
-      # Gaussian interpolation.
-      ln_k_0 = np.log(carrier_fft[max_index - 1])
-      ln_k_1 = np.log(carrier_fft[max_index])
-      ln_k_2 = np.log(carrier_fft[max_index + 1])
-      max_index += 0.5 * (ln_k_2 - ln_k_0) / (2*ln_k_1 - ln_k_0 - ln_k_2)
-    elif interpolation == 'none':
-      pass
-    else:
-      raise ValueError("Unknown interpolation mode '%s'", interpolation)
-
-    carrier_freq = max_index * self.sampling_freq / self.n_fine_fft
-
-    return carrier_freq
 
   def acquisition(self,
                   prns=range(32),
@@ -398,20 +361,18 @@ class Acquisition:
                   threshold=DEFAULT_THRESHOLD,
                   show_progress=True):
     """
-    Perform a two stage acquisition for a given list of PRNs.
+    Perform an acquisition for a given list of PRNs.
 
-    Perform a two stage acquisition for a given list of PRNs across a range of
-    Doppler frequencies.
+    Perform an acquisition for a given list of PRNs across a range of Doppler
+    frequencies.
 
     This function returns :class:`AcquisitionResult` objects contatining the
     location of the acquisition peak for PRNs that have an acquisition
     Signal-to-Noise ratio (SNR) greater than `threshold`.
 
-    This function performs a two-stage acquisition. The first stage calls
-    `acquire` to find the precise code phase and a carrier frequency estimate
-    to within `doppler_step` Hz. The second stage calls `fine_carrier` to
-    refine the carrier frequency estimate with a fine resolution carrier
-    frequency search.
+    This calls `acquire` to find the precise code phase and a carrier frequency
+    estimate to within `doppler_step` Hz and then uses interpolation to refine
+    the carrier frequency estimate.
 
     Parameters
     ----------
@@ -482,11 +443,9 @@ class Acquisition:
       code_phase, carr_freq, snr = self.find_peak(freqs, coarse_results)
 
       # If the result is above the threshold, then we have acquired the
-      # satellite, do a second stage fine carrier search and change the
-      # acquisition status.
+      # satellite.
       status = '-'
       if (snr > threshold):
-        carr_freq = self.fine_carrier(caCodes[prn], code_phase)
         status = 'A'
 
       # Save properties of the detected satellite signal
@@ -548,8 +507,7 @@ class AcquisitionResult:
     The acquisition status of the satellite:
       * `'A'` : The satellite has been successfully acquired.
       * `'-'` : The acquisition was not successful, the SNR was below the
-                acquisition threshold. A second stage fine carrier frequency
-                search was not performed.
+                acquisition threshold.
 
   """
 
