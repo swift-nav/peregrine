@@ -117,7 +117,11 @@ setup_args = dict(
   maintainer = 'Fergus Noble',
   maintainer_email = 'fergus@swift-nav.com',
 
-  packages = ['peregrine'],
+  packages = [
+    'peregrine',
+    'peregrine.include',
+    'peregrine.analysis'
+  ],
 
   entry_points = {
     'console_scripts': [
