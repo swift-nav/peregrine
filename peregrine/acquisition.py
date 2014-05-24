@@ -60,6 +60,10 @@ class Acquisition:
   code_length : int, optional
     The number of chips in the chipping code. Defaults to the GPS C/A code
     value of 1023.
+  offsets : int, optional
+    Offsets, in units of code length (1ms), to use when performing long
+    integrations to avoid clobbering by nav bit edges.
+    If None, will try to figure out some suitable ones.
   wisdom_file : string or `None`, optional
     The filename from which to load and save FFTW `Wisdom
     <http://www.fftw.org/doc/Words-of-Wisdom_002dSaving-Plans.html>`_,
@@ -76,15 +80,31 @@ class Acquisition:
                IF,
                samples_per_code,
                code_length=1023,
-               n_codes_coarse=4,
+               n_codes_integrate = 4,
+               offsets = None,
                wisdom_file=DEFAULT_WISDOM_FILE):
 
     self.sampling_freq = sampling_freq
     self.IF = IF
     self.samples_per_code = int(round(samples_per_code))
-    self.n_coarse = n_codes_coarse * self.samples_per_code
+    self.n_integrate = n_codes_integrate * self.samples_per_code
     self.code_length = code_length
     self.samples_per_chip = float(samples_per_code) / code_length
+
+    if offsets is None:
+      if n_codes_integrate <= 10:
+        offsets = [0, self.n_integrate]
+      elif n_codes_integrate <= 13:
+        offsets = [0, 2*(n_codes_integrate - 10)*self.samples_per_code,
+                   self.n_integrate]
+      elif n_codes_integrate <= 15:
+        offsets = [0, (n_codes_integrate - 10) * self.samples_per_code,
+                   2*(n_codes_integrate - 10) * self.samples_per_code,
+                   self.n_integrate]
+      else:
+        raise ValueError("Integration interval too long to guess nav-declobber "
+                         + "offsets. Specify them or generalize the technique.")
+    self.offsets = offsets
 
     # Try to load saved FFTW wisdom.
     if wisdom_file is not None:
@@ -100,28 +120,22 @@ class Acquisition:
     # Setup acquisition:
 
     # Allocate aligned arrays for the code FFT.
-    self.code = pyfftw.n_byte_align_empty((self.n_coarse), 16,
+    self.code = pyfftw.n_byte_align_empty((self.n_integrate), 16,
                                           dtype=np.complex128)
-    self.code_ft = pyfftw.n_byte_align_empty((self.n_coarse), 16,
+    self.code_ft = pyfftw.n_byte_align_empty((self.n_integrate), 16,
                                              dtype=np.complex128)
     # Create an FFTW transforms which will execute the code FFT.
     self.code_fft = pyfftw.FFTW(self.code, self.code_ft)
 
     # Allocate aligned arrays for the inverse FFT.
-    self.corr_ft1 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
+    self.corr_ft = pyfftw.n_byte_align_empty((self.n_integrate), 16,
                                               dtype=np.complex128)
-    self.corr1 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
-                                           dtype=np.complex128)
-    self.corr_ft2 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
-                                              dtype=np.complex128)
-    self.corr2 = pyfftw.n_byte_align_empty((self.n_coarse), 16,
+    self.corr = pyfftw.n_byte_align_empty((self.n_integrate), 16,
                                            dtype=np.complex128)
 
     # Setup FFTW transforms for inverse FFT.
-    self.corr_ifft1 = pyfftw.FFTW(self.corr_ft1, self.corr1,
-                                  direction='FFTW_BACKWARD')
-    self.corr_ifft2 = pyfftw.FFTW(self.corr_ft2, self.corr2,
-                                  direction='FFTW_BACKWARD')
+    self.corr_ifft = pyfftw.FFTW(self.corr_ft, self.corr,
+                                 direction='FFTW_BACKWARD')
 
     # Save FFTW wisdom for later
     if wisdom_file is not None:
@@ -147,13 +161,12 @@ class Acquisition:
     """
     self.samples = samples
 
-    # Create two short sets of data to correlate with
-    self.short_samples1 = samples[0:self.n_coarse]
-    self.short_samples2 = samples[self.n_coarse:2*self.n_coarse]
+    # Create some short sets of data to correlate with
+    self.short_samples = [samples[off:(off + self.n_integrate)]
+                          for off in self.offsets]
 
-    # Pre-compute Fourier transforms of the two short signals
-    self.short_samples1_ft = np.fft.fft(self.short_samples1)
-    self.short_samples2_ft = np.fft.fft(self.short_samples2)
+    # Pre-compute Fourier transforms of the short signals
+    self.short_samples_ft = [np.fft.fft(samps) for samps in self.short_samples]
 
   def interpolate(self, S_0, S_1, S_2, interpolation='gaussian'):
     """
@@ -253,19 +266,20 @@ class Acquisition:
 
     """
     # Allocate array to hold results.
-    results = np.empty((len(freqs), self.samples_per_code))
+    results = np.empty((len(self.offsets), len(freqs), self.samples_per_code))
 
     # Upsample the code to our sampling frequency.
-    code_indicies = np.arange(1.0, self.n_coarse + 1.0) / \
+    code_indices = np.arange(1.0, self.n_integrate + 1.0) / \
                     self.samples_per_chip
-    code_indicies = np.remainder(np.asarray(code_indicies, np.int), self.code_length)
-    self.code[:] = code[code_indicies]
+    code_indices = np.remainder(np.asarray(code_indices, np.int), self.code_length)
+    self.code[:] = code[code_indices]
 
     # Find the conjugate Fourier transform of the code which will be used to
     # perform the correlation.
     self.code_fft.execute()
     code_ft_conj = np.conj(self.code_ft)
 
+    acq_mag = []
     for n, freq in enumerate(freqs):
       # Report on our progress
       if progress_callback:
@@ -273,34 +287,26 @@ class Acquisition:
 
       # Shift the signal in the frequency domain to remove the carrier
       # i.e. mix down to baseband.
-      shift = int(float(freq) * len(self.short_samples1_ft) /
+      shift = int(float(freq) * len(self.short_samples_ft[0]) /
                   self.sampling_freq)
-      short_samples1_ft_bb = np.append(self.short_samples1_ft[shift:],
-                                       self.short_samples1_ft[:shift])
-      short_samples2_ft_bb = np.append(self.short_samples2_ft[shift:],
-                                       self.short_samples2_ft[:shift])
 
-      # Multiplication in frequency <-> correlation in time.
-      self.corr_ft1[:] = short_samples1_ft_bb * code_ft_conj
-      self.corr_ft2[:] = short_samples2_ft_bb * code_ft_conj
+      # Search over the possible nav bit offset intervals
+      for offset_i in range(len(self.offsets)):
+        short_samples_ft_bb = np.append(self.short_samples_ft[offset_i][shift:],
+                                        self.short_samples_ft[offset_i][:shift])
 
-      # Perform inverse Fourier transform to obtain correlation results.
-      self.corr_ifft1.execute()
-      self.corr_ifft2.execute()
+        # Multiplication in frequency <-> correlation in time.
+        self.corr_ft[:] = short_samples_ft_bb * code_ft_conj
 
-      # Find the correlation amplitude.
-      acq_mag1 = np.abs(self.corr1[:self.samples_per_code])
-      acq_mag2 = np.abs(self.corr2[:self.samples_per_code])
+        # Perform inverse Fourier transform to obtain correlation results.
+        self.corr_ifft.execute()
+        acq_mag = np.abs(self.corr[:self.samples_per_code])
+        results[offset_i][n] = np.square(acq_mag)
 
-      # Use the signal with the largest correlation peak as the result as one
-      # of the signals may contain a nav bit edge. Square the result to find
-      # the correlation power.
-      if (np.max(acq_mag1) > np.max(acq_mag2)):
-        results[n] = np.square(acq_mag1)
-      else:
-        results[n] = np.square(acq_mag2)
+    # Choose the nav-bit-declobber sample interval with the best correlation
+    max_indices = np.unravel_index(results.argmax(), results.shape)
+    return results[max_indices[0]]
 
-    return results
 
   def find_peak(self, freqs, results, interpolation='gaussian'):
     """
@@ -355,11 +361,12 @@ class Acquisition:
 
   def acquisition(self,
                   prns=range(32),
-                  start_doppler=-7000,
-                  stop_doppler=7000,
-                  doppler_step=None,
+                  doppler_prior = None,
+                  doppler_search = 7000,
+                  doppler_step = None,
                   threshold=DEFAULT_THRESHOLD,
-                  show_progress=True):
+                  show_progress=True,
+  ):
     """
     Perform an acquisition for a given list of PRNs.
 
@@ -376,14 +383,13 @@ class Acquisition:
 
     Parameters
     ----------
-    prns : iterable
-      List of PRNs to acquire.
-    start_doppler : float, optional
-      Start of Doppler frequency search range in Hz. This value is included in
-      the search.
-    stop_doppler : float, optional
-      End of Doppler frequency search range in Hz. This value is not included
-      in the search.
+    prns : iterable, optional
+      List of PRNs to acquire. Default: 0..31 (0-indexed)
+    doppler_prior: list of floats, optional
+      List of expected Doppler frequencies in Hz (one per PRN).  Search will be
+      centered about these.  If None, will search around 0 for all PRNs.
+    doppler_search: float, optional
+      Maximum frequency away from doppler_prior to search.  Default: 7000
     doppler_step : float, optional
       Doppler frequency step to use when performing the coarse Doppler
       frequency search.
@@ -408,9 +414,11 @@ class Acquisition:
       # This is slightly sub-optimal if power is split between two bins,
       # perhaps you could peak fit or look at pairs of bins to get true peak
       # magnitude.
-      doppler_step = self.sampling_freq / self.n_coarse
+      doppler_step = self.sampling_freq / self.n_integrate
 
-    freqs = np.arange(start_doppler, stop_doppler, doppler_step) + self.IF
+    if doppler_prior is None:
+      doppler_prior = np.zeros_like(prns)
+
 
     # If progressbar is not available, disable show_progress.
     if show_progress and not _progressbar_available:
@@ -425,13 +433,16 @@ class Acquisition:
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
       pbar = progressbar.ProgressBar(widgets=widgets,
-                                     maxval=len(prns)*len(freqs))
+                                     maxval=len(prns) *
+                                     2 * doppler_search / doppler_step)
       pbar.start()
     else:
       pbar = None
 
     acq_results = []
     for n, prn in enumerate(prns):
+      freqs = np.arange(doppler_prior[n] - doppler_search,
+                        doppler_prior[n] + doppler_search, doppler_step) + self.IF
       if pbar:
         def progress_callback(freq_num, num_freqs):
           pbar.update(n*len(freqs) + freq_num, attr={'prn': prn + 1})
@@ -440,6 +451,8 @@ class Acquisition:
 
       coarse_results = self.acquire(caCodes[prn], freqs,
                                     progress_callback=progress_callback)
+
+
       code_phase, carr_freq, snr = self.find_peak(freqs, coarse_results)
 
       # If the result is above the threshold, then we have acquired the
@@ -561,4 +574,3 @@ def load_acq_results(filename):
   """
   with open(filename, 'rb') as f:
     return cPickle.load(f)
-
