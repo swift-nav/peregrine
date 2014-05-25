@@ -434,7 +434,7 @@ class Acquisition:
                  progressbar.Bar()]
       pbar = progressbar.ProgressBar(widgets=widgets,
                                      maxval=len(prns) *
-                                     2 * doppler_search / doppler_step)
+                                     (2 * doppler_search / doppler_step + 1))
       pbar.start()
     else:
       pbar = None
