@@ -90,7 +90,7 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
         for ar in nacq_acqed:
             print ar
         print "Maybe there's heavy jamming, prior orbit is badly wrong or thresholds need to be adjusted."
-        if settings.abortOnInsane:
+        if settings.abortIfInsane:
             print "Aborting this sample set."
             return []
 
