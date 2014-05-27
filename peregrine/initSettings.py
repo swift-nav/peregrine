@@ -22,7 +22,7 @@ class initSettings:
     self.samplingFreq         = 16.368e6  # Hz
     self.rxFreqTol            = 2.5e-6    # unitless
 
-    self.acqThreshold         = 20.0    # SNR (unitless)
+    self.acqThreshold         = 21.0    # SNR (unitless)
     self.acqSanityCheck       = True    # Check for sats known to be below the horizon
     self.navSanityMaxResid    = 25.0    # meters per SV, normalized nav residuals
     self.abortIfInsane        = True    # Abort the whole attempt if sanity check fails
