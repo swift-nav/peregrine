@@ -287,7 +287,7 @@ class Acquisition:
 
       # Shift the signal in the frequency domain to remove the carrier
       # i.e. mix down to baseband.
-      shift = int(float(freq) * len(self.short_samples_ft[0]) /
+      shift = round(float(freq) * len(self.short_samples_ft[0]) /
                   self.sampling_freq)
 
       # Search over the possible nav bit offset intervals
@@ -361,11 +361,12 @@ class Acquisition:
 
   def acquisition(self,
                   prns=range(32),
-                  doppler_prior = None,
+                  doppler_priors = None,
                   doppler_search = 7000,
                   doppler_step = None,
                   threshold=DEFAULT_THRESHOLD,
                   show_progress=True,
+                  multi=True
   ):
     """
     Perform an acquisition for a given list of PRNs.
@@ -406,6 +407,8 @@ class Acquisition:
 
     """
     logger.info("Acquisition starting")
+    from peregrine.parallel_processing import parmap
+    mapper = parmap if multi else map
 
     # If the Doppler step is not specified, compute it from the coarse
     # acquisition length.
@@ -416,8 +419,8 @@ class Acquisition:
       # magnitude.
       doppler_step = self.sampling_freq / self.n_integrate
 
-    if doppler_prior is None:
-      doppler_prior = np.zeros_like(prns)
+    if doppler_priors is None:
+      doppler_priors = np.zeros_like(prns)
 
 
     # If progressbar is not available, disable show_progress.
@@ -439,10 +442,11 @@ class Acquisition:
     else:
       pbar = None
 
-    acq_results = []
-    for n, prn in enumerate(prns):
-      freqs = np.arange(doppler_prior[n] - doppler_search,
-                        doppler_prior[n] + doppler_search, doppler_step) + self.IF
+    def do_acq(n):
+      prn = prns[n]
+      doppler_prior = doppler_priors[n]
+      freqs = np.arange(doppler_prior - doppler_search,
+                        doppler_prior + doppler_search, doppler_step) + self.IF
       if pbar:
         def progress_callback(freq_num, num_freqs):
           pbar.update(n*len(freqs) + freq_num, attr={'prn': prn + 1})
@@ -453,7 +457,8 @@ class Acquisition:
                                     progress_callback=progress_callback)
 
 
-      code_phase, carr_freq, snr = self.find_peak(freqs, coarse_results)
+      code_phase, carr_freq, snr = self.find_peak(freqs, coarse_results,
+                                                  interpolation = 'gaussian')
 
       # If the result is above the threshold, then we have acquired the
       # satellite.
@@ -468,11 +473,14 @@ class Acquisition:
                                      code_phase,
                                      snr,
                                      status)
-      acq_results.append(acq_result)
 
       # If the acquisition was successful, log it
       if (snr > threshold):
         logger.debug("Acquired %s" % acq_result)
+
+      return acq_result
+
+    acq_results = mapper(do_acq, range(len(prns)))
 
     # Acquisition is finished
 
@@ -574,3 +582,31 @@ def load_acq_results(filename):
   """
   with open(filename, 'rb') as f:
     return cPickle.load(f)
+
+def print_scores(acq_results, pred, pred_dopp = None):
+  if pred_dopp is None:
+    pred_dopp = np.zeros_like(pred)
+
+  print "PRN\tPred'd\tAcq'd\tError\tSNR"
+  n_match = 0
+  worst_dopp_err = 0
+  sum_dopp_err = 0
+  sum_abs_dopp_err = 0
+
+  for i, prn in enumerate(pred):
+      print "%2d\t%+6.0f" % (prn + 1, pred_dopp[i]),
+      if acq_results[i].status == 'A':
+          n_match += 1
+          dopp_err = acq_results[i].doppler - pred_dopp[i]
+          sum_dopp_err += dopp_err
+          sum_abs_dopp_err += abs(dopp_err)
+          if abs(dopp_err) > abs(worst_dopp_err):
+              worst_dopp_err = dopp_err
+          print "\t%+6.0f\t%+5.0f\t%5.1f" % (
+              acq_results[i].doppler, dopp_err, acq_results[i].snr)
+      else:
+          print
+
+  print "Found %d of %d, mean doppler error = %+5.0f Hz, mean abs err = %4.0f Hz, worst = %+5.0f Hz"\
+        % (n_match, len(pred),
+           sum_dopp_err/max(1, n_match), sum_abs_dopp_err/max(1, n_match), worst_dopp_err)

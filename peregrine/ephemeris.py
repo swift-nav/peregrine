@@ -1,4 +1,11 @@
 from peregrine.time import datetime_to_tow
+import peregrine.gps_constants as gps
+from datetime import datetime, timedelta
+import numpy as np
+from numpy import dot
+from numpy.linalg import norm
+from math import radians, degrees, sin, cos, asin, acos, sqrt, fabs, atan2
+
 
 def load_rinex3_nav_msg(filename, t):
     """
@@ -21,7 +28,6 @@ def load_rinex3_nav_msg(filename, t):
       e.g. ephem[21]['af0'] contains the first-order clock correction for PRN 22.
 
     """
-    from datetime import datetime
     f = open(filename,'r')
     ephem = {}
 
@@ -81,23 +87,26 @@ def obtain_ephemeris(t, cache_dir = "ephem"):
 
     Returns
     -------
-    filename : string
-      Path to a RINEX 3 GNSS Navigation Message File.
+    ephem : dict of dicts
+      dict by 0-indexed PRN of the ephemeris parameters.
+      e.g. ephem[21]['af0'] contains the first-order clock correction for PRN 22.
     """
+    return load_rinex3_nav_msg('gps_data/brdc1390.14p', t)
 
-def calc_sat_pos(eph, tow):
-    from math import cos, sin, sqrt, fabs, atan2
-    import numpy as np
-    import gps_constants as gps
+def calc_sat_pos(eph, tow, week = None, warn_stale = True):
 
     # Clock correction (except for general relativity which is applied later)
     tdiff = tow - eph['toc'][1] # Time of clock
+    if week is not None:
+        tdiff += (week - eph['toc'][0]) * 7 * 86400
     clock_err = eph['af0'] + tdiff * (eph['af1'] + tdiff * eph['af2']) - eph['tgd']
     clock_rate_err = eph['af1'] + 2 * tdiff * eph['af2']
 
     # Orbit propagation
     tdiff = tow - eph['toe'][1] # Time of ephemeris (might be different from time of clock)
-    if abs(tdiff) > 4 * 3600:
+    if week is not None:
+        tdiff += (week - eph['toe'][0]) * 7 * 86400
+    if warn_stale and abs(tdiff) > 4 * 3600:
         print "WARNING: PRN %2d using ephemeris more than 4 hours from time of observation" % eph['prn']
         print tdiff, tow, eph['toe']
 
@@ -170,3 +179,16 @@ def calc_sat_pos(eph, tow):
     clock_err += einstein
 
     return pos, vel, clock_err, clock_rate_err
+
+
+def pred_dopplers(prns, ephem, r, v, t):
+    wk, tow = datetime_to_tow(t)
+
+    dopplers = []
+    for prn in prns:
+        gps_r, gps_v, clock_err, clock_rate_err = calc_sat_pos(ephem[prn],
+                                        tow, week = wk, warn_stale = False)
+        los_r = gps_r - r
+        ratepred = dot(gps_v - v, los_r) / norm(los_r)
+        dopplers.append((-ratepred / gps.c - clock_rate_err) * gps.l1)
+    return dopplers

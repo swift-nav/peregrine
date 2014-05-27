@@ -16,18 +16,23 @@ class initSettings:
 
     self.msToProcess          = 37000
     self.numberOfChannels     = 8
-    self.skipNumberOfBytes    = 16368
+    self.skipNumberOfBytes    = 0
     #dataType             = 'int8'
-    self.IF                   = 4.092e6        #Hz
-    self.samplingFreq         = 16.368e6       #Hz
-    self.codeFreqBasis        = 1.023e6        #Hz
-    self.codeLength           = 1023
-  #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
+    self.IF                   = 4.092e6   # Hz
+    self.samplingFreq         = 16.368e6  # Hz
+    self.rxFreqTol            = 2.5e-6    # unitless
+
+    self.acqThreshold         = 20.0    # SNR (unitless)
+    self.acqSanityCheck       = True    # Check for sats known to be below the horizon
+    self.abortIfInsane        = True    # Abort the whole attempt if sanity check fails
+    self.cacheDir             = 'cache'
+
     self.navSolPeriod         = 500    #ms
     self.elevationMask        = 10     #degrees
     self.useTropCorr          = True
     self.truePositionE        = float('NaN')
     self.truePositionN        = float('NaN')
     self.truePositionU        = float('NaN')
-    self.c                    = 299792458
-    self.startOffset          = 68.802
+
+    self.codeFreqBasis        = 1.023e6   # Hz #TODO: redundant with gps_settings
+    self.codeLength           = 1023      # TODO: redundant with gps_settings
