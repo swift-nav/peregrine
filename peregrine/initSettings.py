@@ -28,7 +28,7 @@ class initSettings:
     self.abortIfInsane        = True    # Abort the whole attempt if sanity check fails
     self.useCache             = True
     self.cacheDir             = 'cache'
-    self.ephemMaxAge          = 4 * 3600.0
+    self.ephemMaxAge          = 4 * 3600.0 # Reject an ephemeris entry if older than this
 
     self.navSolPeriod         = 500    #ms
     self.elevationMask        = 10     #degrees

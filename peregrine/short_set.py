@@ -512,7 +512,7 @@ def prior_traj_time_offset(traj, t_sol, r_sol, v_sol):
     r_traj_t_off, v_traj_t_off = traj(t_sol + dt(params_min[0]))
     return params_min[0], fopt, norm(v_traj_t_off - v_sol)
 
-def postprocess_short_samples(signal, prior_traj, t_prior, settings,
+def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
                               plot = True):
     """
     Postprocess a short baseband sample record into a navigation solution.
@@ -540,11 +540,12 @@ def postprocess_short_samples(signal, prior_traj, t_prior, settings,
 
     """
 
-    if hasattr(prior_traj, '__call__'):
+    if hasattr(prior_trajectory, '__call__'):
         prior_traj_func = True
+        prior_traj = prior_trajectory
     else:
         prior_traj_func = False
-        prior_traj = lambda t: prior_traj
+        prior_traj = lambda t: prior_trajectory
 
     sig_len_ms = len(signal) / settings.samplingFreq / 1E-3
     print "Signal is %.2f ms long." % sig_len_ms

@@ -8,6 +8,7 @@ import swiftnav.coord_system
 
 from numpy.linalg import norm
 from math import degrees, radians, acos
+import os, os.path, shutil
 import logging
 logger = logging.getLogger(__name__)
 
@@ -60,10 +61,18 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
         notup = []
 
     # Acquisition
+    wiz_file = os.path.join(settings.cacheDir, "fftw_wisdom")
+    if not os.path.isfile(wiz_file):
+        if not os.path.isdir(settings.cacheDir):
+            os.makedirs(settings.cacheDir)
+        if os.path.isfile("/etc/fftw/wisdom"):
+            shutil.copy("/etc/fftw/wisdom", wiz_file)
+
     a = acquisition.Acquisition(signal, settings.samplingFreq,
-                                          settings.IF,
-                                          settings.samplingFreq * gps.code_period,
-                                          n_codes_integrate=n_codes_integrate)
+                                settings.IF,
+                                settings.samplingFreq * gps.code_period,
+                                n_codes_integrate=n_codes_integrate,
+                                wisdom_file = wiz_file)
     # Attempt to acquire both the sats we predict are visible
     # and some we predict are not.
     acq_results = a.acquisition(threshold = settings.acqThreshold,
