@@ -1,14 +1,7 @@
 from math import radians, degrees, sin, cos, asin, acos, sqrt
 from numpy.linalg import norm
-import swiftnav
 import swiftnav.almanac
 from peregrine.time import *
-
-def horizon_dip(r):
-    # Approximation to the dip angle of the horizon.
-    lat, lon, height = swiftnav.coord_system.wgsecef2llh(r[0], r[1], r[2])
-    r_e = norm(swiftnav.coord_system.wgsllh2ecef(lat, lon, 0))
-    return degrees(-acos(r_e / norm(r_e + height)))
 
 def grok_almanac(filename):
     f = open(filename,'r')
@@ -40,25 +33,3 @@ def grok_almanac(filename):
             raaw = raan - rora * toa
             alm[prn] = swiftnav.almanac.Almanac(ecc, toa, i, rora, a, raaw, argp, M, af0, af1, week, prn, health)
     return alm
-
-
-
-def whatsup(alm, r, t, mask = None):
-    if mask is None: # If elevation mask not specified, calculate it from the horizon dip angle
-        mask = horizon_dip(r)
-    wk, tow = datetime_to_tow(t)
-    satsup = []
-    for a in alm:
-        az, el = alm[a].calc_az_el(tow, r, wk)
-        if alm[a].healthy and degrees(el) > mask:
-            satsup.append(alm[a].prn)
-    return satsup
-
-def whatsdown(alm, r, t, mask = -45): # Return sats *below* a certain mask, for sanity check
-    wk, tow = datetime_to_tow(t)
-    satsdown = []
-    for a in alm:
-        az, el = alm[a].calc_az_el(tow, r, wk)
-        if degrees(el) < mask:
-            satsdown.append(alm[a].prn)
-    return satsdown

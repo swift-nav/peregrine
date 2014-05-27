@@ -2,20 +2,60 @@ import peregrine.almanac as almanac
 import peregrine.ephemeris as ephemeris
 import peregrine.acquisition as acquisition
 import peregrine.gps_constants as gps
+from peregrine.time import datetime_to_tow
+
+import swiftnav.coord_system
+
+from numpy.linalg import norm
+from math import degrees, radians, acos
 import logging
 logger = logging.getLogger(__name__)
 
-def warm_start(signal, t_prior, r_prior, v_prior, alm, ephem, settings,
+def horizon_dip(r):
+    # Approximation to the dip angle of the horizon.
+    lat, lon, height = swiftnav.coord_system.wgsecef2llh(r[0], r[1], r[2])
+    r_e = norm(swiftnav.coord_system.wgsllh2ecef(lat, lon, 0))
+    return degrees(-acos(r_e / norm(r_e + height)))
+
+def whatsup(ephem, r, t, mask = None):
+    if mask is None:
+        mask = horizon_dip(r)
+    wk, tow = datetime_to_tow(t)
+    satsup = []
+    for prn in ephem:
+        pos, _, _, _ = ephemeris.calc_sat_pos(ephem[prn], tow, wk,
+                                              warn_stale = False)
+        az, el = swiftnav.coord_system.wgsecef2azel(pos, r)
+        if ephem[prn]['healthy'] and degrees(el) > mask:
+            satsup.append(prn)
+    return satsup
+
+def whatsdown(ephem, r, t, mask = -45):
+    """
+    Return sats *below* a certain mask, for sanity check
+    """
+    wk, tow = datetime_to_tow(t)
+    satsdown = []
+    for prn in ephem:
+        pos, _, _, _ = ephemeris.calc_sat_pos(ephem[prn], tow, wk,
+                                              warn_stale = False)
+        az, el = swiftnav.coord_system.wgsecef2azel(pos, r)
+        if degrees(el) < mask:
+            satsdown.append(prn)
+    return satsdown
+
+
+def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
                n_codes_integrate = 8):
     """
     Perform rapid / more-sensitive acquisition based on a prior estimate of the
     receiver's position, velocity and time.
     """
 
-    pred = almanac.whatsup(alm, r_prior, t_prior)
+    pred = whatsup(ephem, r_prior, t_prior)
     pred_dopp = ephemeris.pred_dopplers(pred, ephem, r_prior, v_prior, t_prior)
     if settings.acqSanityCheck:
-        notup = almanac.whatsdown(alm, r_prior, t_prior)
+        notup = whatsdown(ephem, r_prior, t_prior)
     else:
         notup = []
 

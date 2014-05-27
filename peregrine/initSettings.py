@@ -24,8 +24,11 @@ class initSettings:
 
     self.acqThreshold         = 20.0    # SNR (unitless)
     self.acqSanityCheck       = True    # Check for sats known to be below the horizon
+    self.navSanityMaxResid    = 25.0    # meters per SV, normalized nav residuals
     self.abortIfInsane        = True    # Abort the whole attempt if sanity check fails
+    self.useCache             = True
     self.cacheDir             = 'cache'
+    self.ephemMaxAge          = 4 * 3600.0
 
     self.navSolPeriod         = 500    #ms
     self.elevationMask        = 10     #degrees

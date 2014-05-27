@@ -13,6 +13,7 @@
 import peregrine.gps_constants as gps
 import peregrine.samples
 import peregrine.acquisition
+import peregrine.warm_start
 from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
 from peregrine.time import datetime_to_tow
 
@@ -25,6 +26,10 @@ import hashlib
 from datetime import datetime, timedelta
 import os, os.path
 import cPickle
+from warnings import warn
+
+import logging
+logger = logging.getLogger(__name__)
 
 dt = lambda sec: timedelta(seconds=sec)
 
@@ -45,9 +50,9 @@ def resolve_ms_integers(obs_pr, pred_pr, prn_ref, disp = True):
     for prn, pr in obs_pr.iteritems():
         pr_int_est = (pred_pr[prn] - pr) / gps.code_wavelength
         pr_int = round(pr_int_est)
-        if abs(pr_int - pr_int_est) > 0.1:
-            print "WARNING: Pseudorange integer for PRN %2d is %.4f" % prn + \
-                  ", which isn't very close to an integer."
+        if abs(pr_int - pr_int_est) > 0.15:
+            logger.warn("Pseudorange integer for PRN %2d is %.4f" % (
+                prn + 1, pr_int_est) + ", which isn't very close to an integer.")
         pr += pr_int * gps.code_wavelength
         obs_pr[prn] = pr
         if disp:
@@ -456,7 +461,7 @@ def pt_solve(r_init, t_init, obs_pr, ephem):
     params_min = fmin(score, [0], disp = True)
     t_sol = t_init + timedelta(seconds = params_min[0])
     r_sol, residuals, los, tot = p_solve(r_init, t_sol, obs_pr, ephem)
-    return r_sol, t_sol, los, tot
+    return r_sol, t_sol, los, tot, residuals
 
 def plot_t_recv_sensitivity(r_init, t_ref, obs_pr, ephem, spread = 0.2, step = 0.025):
     times = [t_ref + dt(offset) for offset in np.arange(-spread, spread, step)]
@@ -492,7 +497,7 @@ def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     sol, v_residsq, _, _ = np.linalg.lstsq(G, X)
     v_sol = sol[0:3]
     f_sol = (sol[3] / gps.c) * gps.l1
-    print "Residual norm: %.1f m/s" % math.sqrt(v_residsq)
+    print "Velocity residual norm: %.1f m/s" % math.sqrt(v_residsq)
     print "Receiver clock frequency error: %+6.1f Hz" % f_sol
     return v_sol, f_sol
 
@@ -507,37 +512,60 @@ def prior_traj_time_offset(traj, t_sol, r_sol, v_sol):
     r_traj_t_off, v_traj_t_off = traj(t_sol + dt(params_min[0]))
     return params_min[0], fopt, norm(v_traj_t_off - v_sol)
 
-def process_sample_file(sample_filename, prior_traj, t_prior, settings, alm,
-                        plot = True):
-    print "*** Analysing '%s' ***" % sample_filename
-    signal = peregrine.samples.load_samples(sample_filename,
-                                            file_format = 'int8')
+def postprocess_short_samples(signal, prior_traj, t_prior, settings,
+                              plot = True):
+    """
+    Postprocess a short baseband sample record into a navigation solution.
+
+    Parameters
+    ----------
+    sample_filename : string
+      Filename to load baseband samples from
+    prior_traj : state vector tuple ([x,y,z], [vx, vy, vz]) or function f(t)
+      This specifies the prior estimate of the receiver trajectory.
+      It can either be a single position / velocity state vector, or
+      a function of time.
+      It is given in the ECEF frame in meters and meters / second.
+    t_prior : datetime
+      Prior estimate of the time the samples were captures (on GPST timescale)
+    settings : peregrine settings class
+      e.g. from peregrine.initSettings.initSettings()
+    plot : bool
+      Make pretty graphs.
+
+    Returns
+    -------
+    acq_results : [:class:`AcquisitionResult`]
+      List of :class:`AcquisitionResult` objects loaded from the file.
+
+    """
+
+    if hasattr(prior_traj, '__call__'):
+        prior_traj_func = True
+    else:
+        prior_traj_func = False
+        prior_traj = lambda t: prior_traj
+
     sig_len_ms = len(signal) / settings.samplingFreq / 1E-3
     print "Signal is %.2f ms long." % sig_len_ms
 
     r_prior, v_prior = prior_traj(t_prior)
 
-    ephem = peregrine.ephemeris.obtain_ephemeris(t_prior)
+    ephem = peregrine.ephemeris.obtain_ephemeris(t_prior, settings)
     n_codes_integrate = min(15, int(sig_len_ms / 2))
 
-    obs_cache_dir = settings.cacheDir + "/obs/"
-    obs_cache_file = obs_cache_dir + hashlib.md5(signal).hexdigest()
-    if os.path.exists(obs_cache_file):
+    obs_cache_dir = os.path.join(settings.cacheDir, "obs")
+    obs_cache_file = os.path.join(obs_cache_dir, hashlib.md5(signal).hexdigest())
+    if settings.useCache and os.path.exists(obs_cache_file):
         with open(obs_cache_file, 'rb') as f:
             (acqed_prns, obs_cp, obs_dopp) = cPickle.load(f)
+        print "Loaded cached observations from '%s'." % obs_cache_file
     else:
         print "Performing acquisition with %d ms integration." % n_codes_integrate
         acqed = peregrine.warm_start.warm_start(signal,
                                                 t_prior, r_prior, v_prior,
-                                                alm, ephem, settings,
+                                                ephem, settings,
                                                 n_codes_integrate)
-
-        # Check whether we have enough satellites
-        if len(acqed) < 4:
-            raise ValueError("Need at least 4 GPS satellites for a solution (and 5 for a proper one)")
-        elif len(acqed) < 5:
-            warn("Unable to solve for time of capture in short-capture mode with only 4 GPS satellites. Will assume prior time is correct.")
-            warn("Actually, that last part isn't implemented yet, so who knows what will happen.")
 
         # Rearrange to put sat with smallest range-rate first.
         # This makes graphs a bit less hairy.
@@ -548,11 +576,18 @@ def process_sample_file(sample_filename, prior_traj, t_prior, settings, alm,
         # Improve the observables with fine correlation search
         obs_cp, obs_dopp = refine_obs(signal, acqed[:], settings, plot = plot)
 
-        if not os.path.exists(obs_cache_dir):
-            os.makedirs(obs_cache_dir)
-        with open(obs_cache_file, 'wb') as f:
-            cPickle.dump((acqed_prns, obs_cp, obs_dopp), f,
-                         protocol=cPickle.HIGHEST_PROTOCOL)
+        if settings.useCache:
+            if not os.path.exists(obs_cache_dir):
+                os.makedirs(obs_cache_dir)
+            with open(obs_cache_file, 'wb') as f:
+                cPickle.dump((acqed_prns, obs_cp, obs_dopp), f,
+                             protocol=cPickle.HIGHEST_PROTOCOL)
+
+    # Check whether we have enough satellites
+    if len(acqed_prns) < 5:
+        logger.error(("Acquired %d SVs; need at least 5 for a solution" +
+                      " in short-capture mode.") % len(acqed_prns))
+        return
 
     # Determine the reference PRN
     prn_ref = acqed_prns[0]
@@ -579,14 +614,21 @@ def process_sample_file(sample_filename, prior_traj, t_prior, settings, alm,
 
     # Resolve code phase integers to find observed pseudoranges
     obs_pr = {prn: (obs_cp[prn] / gps.chip_rate) * gps.c for prn in acqed_prns}
-    obs_pr = resolve_ms_integers(obs_pr, pred_pr_t_better, prn_ref, disp = False)
+    obs_pr = resolve_ms_integers(obs_pr, pred_pr_t_better, prn_ref, disp = True)
 
     if plot:
         plot_expected_vs_measured(acqed_prns, prn_ref, obs_pr, obs_dopp,
                                   prior_traj, t_better, ephem)
 
     # Perform PVT navigation solution
-    r_sol, t_sol, los, tot = pt_solve(r_better, t_better, obs_pr, ephem)
+    r_sol, t_sol, los, tot, residuals = pt_solve(r_better, t_better, obs_pr,
+                                                 ephem)
+    resid_norm_norm = norm(residuals) / len(acqed_prns)
+    if resid_norm_norm > settings.navSanityMaxResid:
+        logger.error("PVT solution not satisfactorily converged: %.0f > %.0f" % (
+            resid_norm_norm, settings.navSanityMaxResid))
+        return
+
     print "Position: " + str(r_sol)
     print "t_recv:  " + str(t_sol)
     print "t_prior: " + str(t_prior)
@@ -607,3 +649,5 @@ def process_sample_file(sample_filename, prior_traj, t_prior, settings, alm,
         prior_traj, t_sol, r_sol, v_sol)
     print " or %.3f km, %.1f m/s with %+.3f s time offset" % (
         traj_r_err / 1E3, traj_v_err, traj_t_err)
+
+    return r_sol, v_sol, t_sol

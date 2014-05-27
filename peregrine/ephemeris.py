@@ -5,9 +5,10 @@ import numpy as np
 from numpy import dot
 from numpy.linalg import norm
 from math import radians, degrees, sin, cos, asin, acos, sqrt, fabs, atan2
+import os, os.path, subprocess
+import urllib
 
-
-def load_rinex3_nav_msg(filename, t):
+def load_rinex3_nav_msg(filename, t, settings):
     """
     Import a set of GPS ephemerides from a RINEX 3 GNSS Navigation Message file
 
@@ -28,7 +29,10 @@ def load_rinex3_nav_msg(filename, t):
       e.g. ephem[21]['af0'] contains the first-order clock correction for PRN 22.
 
     """
-    f = open(filename,'r')
+    if filename.endswith(".Z"):
+        f = gzip.GzipFile(filename, 'r')
+    else:
+        f = open(filename,'r')
     ephem = {}
 
     got_header = False
@@ -66,11 +70,16 @@ def load_rinex3_nav_msg(filename, t):
             e['sv_accuracy'], e['health'], e['tgd'], e['iodc'] = read4(f)
             f.readline() # Discard last row
             e['toe'] = week % 1024, toe # TODO: check mod-1024 situation
+            e['healthy'] = (e['health'] == 0.0) and depoch < timedelta(
+                seconds = settings.ephemMaxAge)
             ephem[prn] = e
     f.close()
+    count_healthy = sum([1 for e in ephem.values() if e['healthy']])
+    print "Ephemeris '%s' loaded with %d healthy satellites." % (
+        filename, count_healthy)
     return ephem
 
-def obtain_ephemeris(t, cache_dir = "ephem"):
+def obtain_ephemeris(t, settings):
     """
     Finds an appropriate GNSS ephemeris file for a certain time,
     downloading from BKG's Internet server if not already cached.
@@ -91,7 +100,24 @@ def obtain_ephemeris(t, cache_dir = "ephem"):
       dict by 0-indexed PRN of the ephemeris parameters.
       e.g. ephem[21]['af0'] contains the first-order clock correction for PRN 22.
     """
-    return load_rinex3_nav_msg('gps_data/brdc1390.14p', t)
+    print "Obtaining ephemeris file for ", t
+
+    filename = t.strftime("brdc%j0.%yp")
+    filedir = os.path.join(settings.cacheDir, "ephem")
+    filepath = os.path.join(filedir, filename)
+    url = t.strftime(
+        'http://igs.bkg.bund.de/root_ftp/NTRIP/BRDC_v3/%Y/%j/') + filename + '.Z'
+    if not os.path.isfile(filepath):
+        if not os.path.exists(filedir):
+            os.makedirs(filedir)
+        _, hdrs = urllib.urlretrieve(url, filepath + ".Z")
+        subprocess.check_call(["uncompress", filepath + ".Z"])
+    ephem = load_rinex3_nav_msg(filepath, t, settings)
+    if len(ephem) < 22:
+        raise ValueError(
+            "Unable to parse ephemeris file '%s' " % filename +
+            "(or surprisingly few sats in it)")
+    return ephem
 
 def calc_sat_pos(eph, tow, week = None, warn_stale = True):
 
@@ -106,8 +132,9 @@ def calc_sat_pos(eph, tow, week = None, warn_stale = True):
     tdiff = tow - eph['toe'][1] # Time of ephemeris (might be different from time of clock)
     if week is not None:
         tdiff += (week - eph['toe'][0]) * 7 * 86400
-    if warn_stale and abs(tdiff) > 4 * 3600:
-        print "WARNING: PRN %2d using ephemeris more than 4 hours from time of observation" % eph['prn']
+    if warn_stale and abs(tdiff) > 12 * 3600:
+        print "WARNING: PRN %2d using ephemeris %.1f hours old!" % (
+            eph['prn'] + 1, tdiff / 3600.0)
         print tdiff, tow, eph['toe']
 
     # Calculate position per IS-GPS-200D p 97 Table 20-IV
