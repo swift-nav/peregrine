@@ -102,6 +102,8 @@ def obtain_ephemeris(t, settings):
     """
     print "Obtaining ephemeris file for ", t
 
+    #TODO: If it's today and more than 1 hr old, check for an update
+
     filename = t.strftime("brdc%j0.%yp")
     filedir = os.path.join(settings.cacheDir, "ephem")
     filepath = os.path.join(filedir, filename)

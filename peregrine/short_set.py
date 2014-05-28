@@ -438,6 +438,7 @@ def pt_step(r_recv, delta_t, ephem, obs_pr, t_recv_ref):
     return residuals, los, tot
 
 def p_solve(r_init, t_recv, obs_pr, ephem):
+    # TODO: Adapt libswiftnav solver instead.  This is way slow.
     # Solve for position given pseudoranges, time of reception and initial position guess
     def score(params):
         r = params[0:3]
@@ -464,6 +465,7 @@ def pt_solve(r_init, t_init, obs_pr, ephem):
     return r_sol, t_sol, los, tot, residuals
 
 def plot_t_recv_sensitivity(r_init, t_ref, obs_pr, ephem, spread = 0.2, step = 0.025):
+    import matplotlib.pyplot as plt
     times = [t_ref + dt(offset) for offset in np.arange(-spread, spread, step)]
     scores = []
     t_sols = []
