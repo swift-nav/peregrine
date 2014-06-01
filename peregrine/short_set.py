@@ -503,17 +503,6 @@ def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     print "Receiver clock frequency error: %+6.1f Hz" % f_sol
     return v_sol, f_sol
 
-def prior_traj_time_offset(traj, t_sol, r_sol, v_sol):
-    # Find a time offset that minimizes the position error in the prior trajectory
-    def score(params):
-        t_traj_offset = params[0]
-        r_traj_t_sol, v_traj_t_sol = traj(t_sol + dt(t_traj_offset))
-        return norm(r_traj_t_sol - r_sol)
-    params_min, fopt, _, _, _ = fmin(score, [0],
-                                              full_output = True, disp = False)
-    r_traj_t_off, v_traj_t_off = traj(t_sol + dt(params_min[0]))
-    return params_min[0], fopt, norm(v_traj_t_off - v_sol)
-
 def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
                               plot = True):
     """
@@ -633,7 +622,7 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
         return
 
     print "Position: " + str(r_sol)
-    print "t_recv:  " + str(t_sol)
+    print "t_sol:  " + str(t_sol)
     print "t_prior: " + str(t_prior)
     v_sol, rx_freq_err = vel_solve(r_sol, t_sol, ephem, obs_dopp, los, tot)
     print "Velocity: %s (%.1f m/s)" % (v_sol, norm(v_sol))
@@ -642,15 +631,5 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
     if plot:
         plot_t_recv_sensitivity(r_sol, t_sol, obs_pr, ephem,
                                 spread = 0.1, step = 0.01)
-
-    # How good was the prior estimate of the trajectory?
-    r_traj_t_sol, v_traj_t_sol = prior_traj(t_sol)
-    print "Prior trajectory error: %.3f km, %.1f m/s" % (
-        norm(r_traj_t_sol - r_sol) / 1E3,
-        norm(v_traj_t_sol - v_sol))
-    traj_t_err, traj_r_err, traj_v_err = prior_traj_time_offset(
-        prior_traj, t_sol, r_sol, v_sol)
-    print " or %.3f km, %.1f m/s with %+.3f s time offset" % (
-        traj_r_err / 1E3, traj_v_err, traj_t_err)
 
     return r_sol, v_sol, t_sol
