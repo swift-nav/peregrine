@@ -478,6 +478,7 @@ def plot_t_recv_sensitivity(r_init, t_ref, obs_pr, ephem, spread = 0.2, step = 0
     plt.xlabel('t_recv (step = %.0f ms)' % (step / 1E-3))
     plt.ylim([0, max(scores)])
     plt.title('Sensitivity of solution to reception time')
+    plt.show()
 
 def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     prns = los.keys()
