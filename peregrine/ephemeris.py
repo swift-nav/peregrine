@@ -8,15 +8,15 @@ from math import radians, degrees, sin, cos, asin, acos, sqrt, fabs, atan2
 import os, os.path, subprocess
 import urllib
 
-def load_rinex3_nav_msg(filename, t, settings):
+def load_rinex_nav_msg(filename, t, settings):
     """
-    Import a set of GPS ephemerides from a RINEX 3 GNSS Navigation Message file
+    Import a set of GPS ephemerides from a RINEX 2 or 3 GNSS Navigation Message file
 
     Parameters
     ----------
     filename : string
-      Path to a RINEX 3 GNSS Navigation Message File
-      e.g. from http://igs.bkg.bund.de/root_ftp/NTRIP/BRDC_v3/
+      Path to a RINEX 2 or 3 GNSS Navigation Message File
+      e.g. from http://igs.bkg.bund.de/root_ftp/NTRIP/BRDC_v3/ or http://qz-vision.jaxa.jp/USE/archives/ephemeris/
     t : datetime
       The time of your observations.  The navigation message files usually
       contain multiple ephemerides over a range of epochs; load_rinex3_nav_msg
@@ -29,29 +29,43 @@ def load_rinex3_nav_msg(filename, t, settings):
       e.g. ephem[21]['af0'] contains the first-order clock correction for PRN 22.
 
     """
-    if filename.endswith(".Z"):
-        f = gzip.GzipFile(filename, 'r')
-    else:
-        f = open(filename,'r')
+    f = open(filename,'r')
     ephem = {}
 
     got_header = False
     best_depoch = {}
+    rinex_ver = None
     while True:
         line = f.readline()[:-1]
         if not line:
             break
         if got_header == False:
+            if rinex_ver is None:
+                if line[60:80] != "RINEX VERSION / TYPE":
+                    print line
+                    raise FormatException("Doesn't appear to be a RINEX file")
+                rinex_ver = int(float(line[0:9]))
+                print "Rinex version", rinex_ver
+                if line[20] != "N":
+                    raise FormatException("Doesn't appear to be a Navigation Message file")
             if line[60:73] == "END OF HEADER":
                 got_header = True
             continue
-        if line[0] != 'G':
-            continue
+        if rinex_ver == 3:
+            if line[0] != 'G':
+                continue
 
-        prn = int(line[1:3]) - 1
-        epoch = datetime.strptime(line[4:23], "%Y %m %d %H %M %S")
+        if rinex_ver == 3:
+            prn = int(line[1:3]) - 1
+            epoch = datetime.strptime(line[4:23], "%Y %m %d %H %M %S")
+        elif rinex_ver == 2:
+            prn = int(line[0:2]) - 1
+            epoch = datetime.strptime(line[3:20], "%y %m %d %H %M %S")
+            line = ' ' + line # Shift 1 char to the right
+
         depoch = abs(epoch - t)
         if prn not in best_depoch or depoch < best_depoch[prn]:
+            line = line.replace('D','E') # Handle bizarro float format
             best_depoch[prn] = depoch
             e = {'epoch': epoch, 'prn': prn}
             e['toc'] = datetime_to_tow(epoch)
@@ -60,6 +74,8 @@ def load_rinex3_nav_msg(filename, t, settings):
             e['af2'] = float(line[61:80])
             def read4(f):
                 line = f.readline()[:-1]
+                if rinex_ver == 2: line = ' ' + line # Shift 1 char to the right
+                line = line.replace('D','E') # Handle bizarro float format
                 return  float(line[4:23]), float(line[23:42]),\
                         float(line[42:61]), float(line[61:80])
             e['iode'], e['crs'], e['dn'], e['m0'] = read4(f)
@@ -69,10 +85,13 @@ def load_rinex3_nav_msg(filename, t, settings):
             e['inc_dot'], e['l2_codes'], week, e['l2_pflag'] = read4(f)
             e['sv_accuracy'], e['health'], e['tgd'], e['iodc'] = read4(f)
             f.readline() # Discard last row
+
             e['toe'] = week % 1024, toe # TODO: check mod-1024 situation
             e['healthy'] = (e['health'] == 0.0) and depoch < timedelta(
                 seconds = settings.ephemMaxAge)
             ephem[prn] = e
+        else: # Don't bother with this entry, time is too far off
+            for l in range(7): f.readline() # Discard 7 lines
     f.close()
     count_healthy = sum([1 for e in ephem.values() if e['healthy']])
     print "Ephemeris '%s' loaded with %d healthy satellites." % (
@@ -104,17 +123,16 @@ def obtain_ephemeris(t, settings):
 
     #TODO: If it's today and more than 1 hr old, check for an update
 
-    filename = t.strftime("brdc%j0.%yp")
+    filename = t.strftime("brdc%j0.%yn")
     filedir = os.path.join(settings.cacheDir, "ephem")
     filepath = os.path.join(filedir, filename)
     url = t.strftime(
-        'http://igs.bkg.bund.de/root_ftp/NTRIP/BRDC_v3/%Y/%j/') + filename + '.Z'
+        'http://qz-vision.jaxa.jp/USE/archives/ephemeris/%Y/') + filename
     if not os.path.isfile(filepath):
         if not os.path.exists(filedir):
             os.makedirs(filedir)
-        _, hdrs = urllib.urlretrieve(url, filepath + ".Z")
-        subprocess.check_call(["uncompress", filepath + ".Z"])
-    ephem = load_rinex3_nav_msg(filepath, t, settings)
+        _, hdrs = urllib.urlretrieve(url, filepath)
+    ephem = load_rinex_nav_msg(filepath, t, settings)
     if len(ephem) < 22:
         raise ValueError(
             "Unable to parse ephemeris file '%s' " % filename +
