@@ -9,7 +9,6 @@
 
 import numpy as np
 from include.generateCAcode import caCodes
-from samples import load_samples
 import progressbar
 import math
 

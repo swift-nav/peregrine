@@ -30,7 +30,12 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
       * `'int8'` : Binary file consisting of a packed array of 8-bit signed
         integers.
       * `'1bit'` : Binary file consisting of a packed array of 1-bit samples,
-        8 samples per byte. A high bit is considered positive.
+        8 samples per byte. A high bit is considered positive.  The most
+        significant bit of each byte is considered to be the first sample;
+        thus [0x80, 0x55] decodes to [1, -1, -1, -1, -1, -1, -1, -1,
+          -1, 1, -1, 1, -1, 1, -1, 1]
+      * `'1bitrev'`: As '1bit' but with the opposite bit order, that is
+        least significant bit first.
       * `'piksi'` : Binary file consisting of 3-bit sign-magnitude samples, 2
         samples per byte. First samples is in bits [7..5], second sample is in
         bits [4..2].
@@ -93,7 +98,7 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
     if num_samples > 0:
       samples = samples[:num_samples]
 
-  elif file_format == '1bit':
+  elif file_format == '1bit' or file_format == '1bitrev':
     if num_samples > 0:
       num_skip_bytes = num_skip / 8
       num_skip_samples = num_skip % 8
@@ -107,6 +112,8 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
       f.seek(num_skip_bytes)
       sample_bytes = np.fromfile(f, dtype=np.uint8, count=num_bytes)
     samples = 2*np.unpackbits(sample_bytes).astype(np.int8) - 1
+    if file_format == '1bitrev':
+        samples = np.reshape(samples,(-1,8))[:,::-1].flatten();
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
@@ -167,4 +174,3 @@ def save_samples(filename, samples, file_format='int8'):
 
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
-

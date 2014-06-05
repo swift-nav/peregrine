@@ -187,13 +187,15 @@ def main():
   parser.add_argument("file", help="the sample data file to analyse")
   parser.add_argument("-n", "--num-samples", type=int, default=65536,
                       help="number of samples to use, defaults to 65536")
+  parser.add_argument("-f", "--format", type=str, default="piksi",
+                      help="Sample file format: "
+                      + "'int8', '1bit', '1bitrev' or 'piksi' (default)")
   args = parser.parse_args()
 
-  samples = peregrine.samples.load_samples(args.file, args.num_samples)
+  samples = peregrine.samples.load_samples(args.file, args.num_samples, file_format = args.format)
   summary(samples)
 
   plt.show()
 
 if __name__ == "__main__":
   main()
-

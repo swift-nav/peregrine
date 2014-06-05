@@ -43,7 +43,7 @@ def main():
                       action="store_true")
   parser.add_argument("-f", "--file-format", default="piksi",
                       help="the format of the sample data file "
-                      "(e.g. 'piksi', 'int8', '1bit')")
+                      "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
   args = parser.parse_args()
   settings.fileName = args.file
 
@@ -122,4 +122,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
