@@ -41,6 +41,9 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
+  parser.add_argument("-f", "--file-format", default="piksi",
+                      help="the format of the sample data file "
+                      "(e.g. 'piksi', 'int8', '1bit')")
   args = parser.parse_args()
   settings.fileName = args.file
 
@@ -60,7 +63,8 @@ def main():
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
     acq_samples = load_samples(args.file, 11*samplesPerCode,
-                               settings.skipNumberOfBytes)
+                               settings.skipNumberOfBytes,
+                               file_format=args.file_format)
     acq = Acquisition(acq_samples, settings.samplingFreq, settings.IF,
                       samplesPerCode)
     acq_results = acq.acquisition()
@@ -94,7 +98,8 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq*1e-3*(settings.msToProcess+1)))
+                          int(settings.samplingFreq*1e-3*(settings.msToProcess+1)),
+                          file_format=args.file_format)
     track_results = track(signal, acq_results, settings)
     try:
       with open(track_results_file, 'wb') as f:
