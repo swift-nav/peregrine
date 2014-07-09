@@ -65,8 +65,7 @@ def main():
     acq_samples = load_samples(args.file, 11*samplesPerCode,
                                settings.skipNumberOfBytes,
                                file_format=args.file_format)
-    acq = Acquisition(acq_samples, settings.samplingFreq, settings.IF,
-                      samplesPerCode)
+    acq = Acquisition(acq_samples)
     acq_results = acq.acquisition()
 
     try:
