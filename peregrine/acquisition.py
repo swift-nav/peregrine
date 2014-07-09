@@ -16,6 +16,7 @@ to satellite acquisition.
 import numpy as np
 import pyfftw
 import cPickle
+import defaults
 
 from include.generateCAcode import caCodes
 
@@ -51,15 +52,14 @@ class Acquisition:
     Array of samples to use for acquisition. Can be `None` but in this case
     `init_samples` *must* be called with an array of samples before any other
     acquisition functions are used.
-  sampling_freq : float
+  sampling_freq : float, optional
     The sampling frequency of the samples in Hz.
-  IF : float
+  IF : float, optional
     The receiver intermediate frequency used when capturing the samples.
-  samples_per_code : float
+  samples_per_code : float, optional
     The number of samples corresponding to one code length.
   code_length : int, optional
-    The number of chips in the chipping code. Defaults to the GPS C/A code
-    value of 1023.
+    The number of chips in the chipping code.
   offsets : int, optional
     Offsets, in units of code length (1ms), to use when performing long
     integrations to avoid clobbering by nav bit edges.
@@ -76,11 +76,11 @@ class Acquisition:
 
   def __init__(self,
                samples,
-               sampling_freq,
-               IF,
-               samples_per_code,
-               code_length=1023,
-               n_codes_integrate = 4,
+               sampling_freq=defaults.sampling_freq,
+               IF=defaults.IF,
+               samples_per_code=defaults.samples_per_code,
+               code_length=defaults.code_length,
+               n_codes_integrate=4,
                offsets = None,
                wisdom_file=DEFAULT_WISDOM_FILE):
 
