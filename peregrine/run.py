@@ -20,6 +20,7 @@ from peregrine.acquisition import Acquisition, load_acq_results, save_acq_result
 from peregrine.navigation import navigation
 from peregrine.tracking import track
 from peregrine.log import default_logging_config
+import defaults
 
 from initSettings import initSettings
 
@@ -41,7 +42,7 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
-  parser.add_argument("-f", "--file-format", default="piksi",
+  parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
                       "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
   args = parser.parse_args()
