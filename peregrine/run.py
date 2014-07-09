@@ -98,9 +98,10 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq*1e-3*(settings.msToProcess+1)),
+                          int(settings.samplingFreq*1e-3*(settings.msToProcess+22)),
+                          settings.skipNumberOfBytes,
                           file_format=args.file_format)
-    track_results = track(signal, acq_results, settings)
+    track_results = track(signal, acq_results, settings.msToProcess)
     try:
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)

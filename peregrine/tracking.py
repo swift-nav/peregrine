@@ -16,6 +16,7 @@ import parallel_processing as pp
 
 import swiftnav.track
 import swiftnav.correlate
+import defaults
 
 import logging
 logger = logging.getLogger(__name__)
@@ -85,14 +86,47 @@ default_loop_filter = swiftnav.track.SimpleTrackingLoop(
   1e3              # Loop frequency
 )
 
-
-def track(signal, channel, settings,
+def track(samples, channels,
+          ms_to_track=None,
+          sampling_freq=defaults.sampling_freq,
+          chipping_rate=defaults.chipping_rate,
+          IF=defaults.IF,
           show_progress=True,
-          trk=swiftnav.correlate.track_correlate,
           loop_filter=default_loop_filter,
+          stage2_delay = 100,
+          correlator=swiftnav.correlate.track_correlate,
+          num_ms=4,
           multi=True):
+
+  n_channels = len(channels)
+
+  # Add 22ms for safety, the corellator might try to access data a bit past
+  # just the number of milliseconds specified.
+  # TODO: Fix the correlator so this isn't an issue.
+  samples_length_ms = 1e3 * len(samples) / sampling_freq - 22
+
+  if ms_to_track is None:
+    ms_to_track = samples_length_ms
+
+  if samples_length_ms < ms_to_track:
+    logger.warning("Samples set too short for requested tracking length (%.4fs)"
+        % (ms_to_track * 1e-3))
+    ms_to_track = samples_length_ms
+
+  logger.info("Tracking %.4fs of data (%d samples)" %
+      (ms_to_track * 1e-3, ms_to_track * 1e-3 * sampling_freq))
+
+  if ms_to_track <= stage2_delay:
+    num_points = int(math.floor(ms_to_track))
+  else:
+    num_points = stage2_delay + (ms_to_track - stage2_delay) / num_ms
+
+  # Make sure we have an integer number of points
+  num_points = int(math.floor(num_points))
+
   logger.info("Tracking starting")
-  logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
+  logger.debug("Tracking %d channels, PRNs %s" %
+      (n_channels, [chan.prn+1 for chan in channels]))
 
   # If progressbar is not available, disable show_progress.
   if show_progress and not _progressbar_available:
@@ -109,81 +143,90 @@ def track(signal, channel, settings,
                progressbar.ETA(), ' ',
                progressbar.Bar()]
     pbar = progressbar.ProgressBar(widgets=widgets,
-                                   maxval=len(channel)*settings.msToProcess,
-                                   attr={'nchan': len(channel)})
+                                   maxval=n_channels*num_points,
+                                   attr={'nchan': n_channels})
     pbar.start()
   else:
     pbar = None
 
-  #Do tracking for each channel
-  def do_channel(channelNr):
-    track_result = TrackResults(settings.msToProcess)
-    track_result.PRN = channel[channelNr].prn
+  # Run tracking for each channel
+  def do_channel(chan):
+    track_result = TrackResults(num_points)
+    track_result.prn = chan.prn
 
     # Convert acquisition SNR to C/N0
-    cn0_0 = 10*np.log10(channel[channelNr].snr)
-    cn0_0 += 10*np.log10(1000) # Channel bandwidth
+    cn0_0 = 10 * np.log10(chan.snr)
+    cn0_0 += 10 * np.log10(1000) # Channel bandwidth
     cn0_est = swiftnav.track.CN0Estimator(1e3, cn0_0, 10, 1e3)
 
     # Estimate initial code freq via aiding from acq carrier freq
-    code_freq_init = (channel[channelNr].carr_freq-settings.IF) * \
+    code_freq_init = (chan.carr_freq - IF) * \
                      gps_constants.chip_rate / gps_constants.l1
-    loop_filter.start(code_freq_init, channel[channelNr].carr_freq-settings.IF)
-    remCodePhase = 0.0
-    remCarrPhase = 0.0
-
+    loop_filter.start(code_freq_init, chan.carr_freq - IF)
+    code_phase = 0.0
+    carr_phase = 0.0
+    
     # Get a vector with the C/A code sampled 1x/chip
-    caCode = caCodes[channel[channelNr].prn]
+    ca_code = caCodes[chan.prn]
 
     # Add wrapping to either end to be able to do early/late
-    caCode = np.concatenate(([caCode[1022]],caCode,[caCode[0]]))
+    ca_code = np.concatenate(([ca_code[1022]], ca_code, [ca_code[0]]))
 
-    blksize_ = int(settings.samplingFreq * 1e-3 + 10)
-    #number of samples to seek ahead in file
-    samplesPerCodeChip = int(round(settings.samplingFreq / settings.codeFreqBasis))
-    numSamplesToSkip = settings.skipNumberOfBytes + channel[channelNr].code_phase*samplesPerCodeChip
+    # Number of samples to seek ahead in file
+    samples_per_chip = int(round(sampling_freq / chipping_rate))
 
-    #Process the specified number of ms
-    for loopCnt in range(settings.msToProcess):
+    # Set sample_index to start on a code rollover
+    sample_index = chan.code_phase * samples_per_chip
+
+    # Process the specified number of ms
+    for i in range(num_points):
       if pbar:
-        pbar.update(loopCnt + channelNr*settings.msToProcess, attr={'chan': channelNr+1})
+        pbar.update(i + n * num_points, attr={'chan': n+1})
 
-      rawSignal = signal[numSamplesToSkip:]#[:blksize_]
+      stage2 = i < stage2_delay
 
-      I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = trk(rawSignal, loop_filter.code_freq+settings.codeFreqBasis, remCodePhase, loop_filter.carr_freq+settings.IF, remCarrPhase, caCode, settings)
-      numSamplesToSkip += blksize
+      E = 0+0.j; P = 0+0.j; L = 0+0.j
 
-      E = I_E + Q_E*1.j
-      P = I_P + Q_P*1.j
-      L = I_L + Q_L*1.j
+      num_inner_loops = 1 if stage2 else num_ms
+      for j in range(num_inner_loops):
+        samples_ = samples[sample_index:]
+
+        E_, P_, L_, blksize, code_phase, carr_phase = correlator(
+          samples_,
+          loop_filter.code_freq + chipping_rate, code_phase,
+          loop_filter.carr_freq + IF, carr_phase,
+          ca_code,
+          sampling_freq
+        )
+        sample_index += blksize
+
+        E += E_; P += P_; L += L_
+
       loop_filter.update(E, P, L)
 
-      track_result.carrPhase[loopCnt] = remCarrPhase
-      track_result.carrFreq[loopCnt] = loop_filter.carr_freq+settings.IF
+      track_result.carr_phase[i] = carr_phase
+      track_result.carr_freq[i] = loop_filter.carr_freq + IF
 
-      track_result.codePhase[loopCnt] = remCodePhase
-      track_result.codeFreq[loopCnt] = loop_filter.code_freq+settings.codeFreqBasis
+      track_result.code_phase[i] = code_phase
+      track_result.code_freq[i] = loop_filter.code_freq + chipping_rate
 
-      #Record stuff for postprocessing
-      track_result.absoluteSample[loopCnt] = numSamplesToSkip
+      # Record stuff for postprocessing
+      track_result.absolute_sample[i] = sample_index
 
-      track_result.I_E[loopCnt] = I_E
-      track_result.I_P[loopCnt] = I_P
-      track_result.I_L[loopCnt] = I_L
-      track_result.Q_E[loopCnt] = Q_E
-      track_result.Q_P[loopCnt] = Q_P
-      track_result.Q_L[loopCnt] = Q_L
+      track_result.E[i] = E
+      track_result.P[i] = P
+      track_result.L[i] = L
 
-      track_result.cn0[loopCnt] = cn0_est.update(I_P)
+      track_result.cn0[i] = cn0_est.update(P.real)
 
-    #Possibility for lock-detection later
+    # Possibility for lock-detection later
     track_result.status = 'T'
     return track_result
 
   if multi:
-    track_results=pp.parmap(do_channel, range(len(channel)), show_progress=show_progress)
+    track_results=pp.parmap(do_channel, channels, show_progress=show_progress)
   else:
-    track_results=map(do_channel, range(len(channel)))
+    track_results=map(do_channel, channels)
 
   if pbar:
     pbar.finish()
@@ -196,17 +239,14 @@ def track(signal, channel, settings,
 class TrackResults:
   def __init__(self, n_points):
     self.status = '-'
-    self.PRN = None
-    self.absoluteSample = np.empty(n_points)
-    self.codePhase = np.empty(n_points)
-    self.codeFreq = np.empty(n_points)
-    self.carrPhase = np.empty(n_points)
-    self.carrFreq = np.empty(n_points)
-    self.I_E = np.empty(n_points)
-    self.I_P = np.empty(n_points)
-    self.I_L = np.empty(n_points)
-    self.Q_E = np.empty(n_points)
-    self.Q_P = np.empty(n_points)
-    self.Q_L = np.empty(n_points)
-    self.cn0 = np.empty(n_points)
+    self.prn = None
+    self.absolute_sample = np.zeros(n_points)
+    self.code_phase = np.zeros(n_points)
+    self.code_freq = np.zeros(n_points)
+    self.carr_phase = np.zeros(n_points)
+    self.carr_freq = np.zeros(n_points)
+    self.E = np.zeros(n_points, dtype=np.complex128)
+    self.P = np.zeros(n_points, dtype=np.complex128)
+    self.L = np.zeros(n_points, dtype=np.complex128)
+    self.cn0 = np.zeros(n_points)
 
