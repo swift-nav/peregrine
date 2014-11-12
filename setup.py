@@ -18,6 +18,9 @@ Peregrine makes use of the following packages:
 
 - `pyFFTW <http://pypi.python.org/pypi/pyFFTW>`_ 0.8.2 or later
 
+Peregrine can also be used interactively with `IPython <http://ipython.org/>`_
+and requires an additional two packages:
+
 - [Optional] `progressbar <http://code.google.com/p/python-progressbar/>`_ to 
   display a progress indication in the terminal whilst running.
 
@@ -26,24 +29,23 @@ Peregrine makes use of the following packages:
 
 On Ubuntu these can be installed from the repositories::
 
-    $ sudo apt-get install python-numpy python-fftw python-matplotlib 
-    libfftw3-dev
-
+    $ sudo apt-get install python-numpy python-fftw python-matplotlib \
+libfftw3-dev
     $ pip install git+https://github.com/fnoble/python-progressbar.git
 
+.. note::
+  Peregrine makes use of some extensions to the progressbar library that are
+  not yet merged upstream. For now you can install our `development version
+  <https://github.com/fnoble/python-progressbar/>`_ as shown in the command
+  above.
+
 Additionally, Peregrine depends on the libswiftnav libraries and Python
-bindings, see each the packages for installation instructions:
+bindings, see each of the packages for installation instructions:
 
 - `libswiftnav <https://github.com/swift-nav/libswiftnav>`_
 
 - `libswiftnav-python <https://github.com/swift-nav/libswiftnav-python>`_
 
-.. note::
-  Peregrine makes use of some extensions to the progressbar library that are
-  not yet merged upstream. For now you can install our `development version
-  <https://github.com/fnoble/python-progressbar/>`_ as follows::
-
-    $ pip install git+https://github.com/fnoble/python-progressbar.git
 
 Installing Peregrine
 ====================
@@ -79,6 +81,11 @@ To install Peregrine (from the root of the source tree)::
 
 This will download and install any required python modules from `PyPI
 <http://pypi.python.org/>`_.
+
+Peregrine also supports a developer mode that creates a symbolic link from the
+source location to the install location. This enables you to modify Peregrine
+without having to `install` it every time. 
+
 
 Building documentation
 ----------------------
