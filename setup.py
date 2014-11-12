@@ -84,7 +84,9 @@ This will download and install any required python modules from `PyPI
 
 Peregrine also supports a developer mode that creates a symbolic link from the
 source location to the install location. This enables you to modify Peregrine
-without having to `install` it every time. 
+without having to `install` it every time. It can be installed by::
+
+    $ python setup.py develop
 
 
 Building documentation
