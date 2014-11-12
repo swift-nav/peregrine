@@ -8,22 +8,35 @@ Installation
 Requirements
 ============
 
-Peregrine has the following requirements:
+Peregrine makes use of the following packages:
 
 - `Python <http://www.python.org/>`_ 2.6 or 2.7
 
 - `Numpy <http://www.numpy.org/>`_ 1.6 or later
 
+- `FFTW3 <http://www.fftw.org/>`_
+
 - `pyFFTW <http://pypi.python.org/pypi/pyFFTW>`_ 0.8.2 or later
+
+- [Optional] `progressbar <http://code.google.com/p/python-progressbar/>`_ to 
+  display a progress indication in the terminal whilst running.
+
+- [Optional] `matplotlib <http://matplotlib.org/>`_ to support generation 
+  of plots.
+
+On Ubuntu these can be installed from the repositories::
+
+    $ sudo apt-get install python-numpy python-fftw python-matplotlib 
+    libfftw3-dev
+
+    $ pip install git+https://github.com/fnoble/python-progressbar.git
+
+Additionally, Peregrine depends on the libswiftnav libraries and Python
+bindings, see each the packages for installation instructions:
 
 - `libswiftnav <https://github.com/swift-nav/libswiftnav>`_
 
 - `libswiftnav-python <https://github.com/swift-nav/libswiftnav-python>`_
-
-Peregrine also depends on other projects for optional features.
-
-- `progressbar <http://code.google.com/p/python-progressbar/>`_ to display a
-  progress indication in the terminal whilst running.
 
 .. note::
   Peregrine makes use of some extensions to the progressbar library that are
@@ -31,8 +44,6 @@ Peregrine also depends on other projects for optional features.
   <https://github.com/fnoble/python-progressbar/>`_ as follows::
 
     $ pip install git+https://github.com/fnoble/python-progressbar.git
-
-- `matplotlib <http://matplotlib.org/>`_ to support generation of plots.
 
 Installing Peregrine
 ====================
@@ -46,7 +57,7 @@ https://github.com/swift-nav/peregrine.
 The latest development version of peregrine can be cloned from GitHub
 using this command::
 
-   git clone git://github.com/swift-nav/peregrine.git
+   $ git clone git://github.com/swift-nav/peregrine.git
 
 Building and Installing
 -----------------------
@@ -69,16 +80,6 @@ To install Peregrine (from the root of the source tree)::
 This will download and install any required python modules from `PyPI
 <http://pypi.python.org/>`_.
 
-If you are a developer and intend to make modifications to Peregrine then you
-can instead run::
-
-    $ python setup.py develop
-
-Which is similar to `install` but instead of copying Peregrine to the install
-location, a link is made from the source location to the install location so
-you can continue to work on the source without having to run `install` every
-time you wish to test your changes.
-
 Building documentation
 ----------------------
 
@@ -93,6 +94,11 @@ additional packages:
     - `numpydoc <http://pypi.python.org/pypi/numpydoc>`_ 0.4 or later
     - `matplotlib <http://matplotlib.org/>`_ 1.1 or later
     - `ipython <http://ipython.org/>`_ 0.13.1 or later
+
+These packages can be installed on Ubuntu 12.04 or later::
+
+    $ sudo apt-get install python-sphinx python-matplotlib ipython
+    $ sudo pip install numpydoc
 
 To build the Peregrine documentation, execute the following commands::
 
