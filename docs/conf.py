@@ -23,7 +23,7 @@ extensions = [
   'sphinx.ext.viewcode',
   'matplotlib.sphinxext.only_directives',
   'matplotlib.sphinxext.plot_directive',
-  'ipython_directive',
+  'IPython.sphinxext.ipython_directive',
   'matplotlib.sphinxext.ipython_console_highlighting',
   'numpydoc',
 ]
