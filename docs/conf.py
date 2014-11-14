@@ -18,7 +18,7 @@ from setup import setup_args
 
 # Check which directive to use for the IPython Sphinx build
 if LooseVersion(IPython.__version__) < LooseVersion('2.0.0'):
-  ipython_driective = 'ipython_directive'
+  ipython_directive = 'ipython_directive'
 else:
   ipython_directive = 'IPython.sphinxext.ipython_directive'
 
