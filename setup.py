@@ -103,6 +103,8 @@ additional packages:
     - `numpydoc <http://pypi.python.org/pypi/numpydoc>`_ 0.4 or later
     - `matplotlib <http://matplotlib.org/>`_ 1.1 or later
     - `ipython <http://ipython.org/>`_ 0.13.1 or later
+    - `Latex <https://www.tug.org/texlive/>`_
+    - `dvipng <http://www.ctan.org/pkg/dvipng>`_ 1.14 or later
 
 These packages can be installed on Ubuntu 12.04 or later::
 
