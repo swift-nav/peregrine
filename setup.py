@@ -108,7 +108,8 @@ additional packages:
 
 These packages can be installed on Ubuntu 12.04 or later::
 
-    $ sudo apt-get install python-sphinx python-matplotlib ipython
+    $ sudo apt-get install python-sphinx python-matplotlib ipython \
+texlive-full dvipng
     $ sudo pip install numpydoc
 
 To build the Peregrine documentation, execute the following commands::
