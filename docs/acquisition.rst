@@ -151,18 +151,11 @@ list of frequencies and therefore is able to determine the code phase precisely
 frequency resolution achievable is low and it is not an efficient way to search
 over many carrier frequencies.
 
-The :meth:`Acquisition.fine_carrier` method is provided to refine the carrier
+The :meth:`Acquisition.interpolate` method is provided to refine the carrier
 frequency estimate of an acquisition performed using
-:meth:`Acquisition.acquire` using a fast FFT based method. It performs the
-search at a given code phase so the code phase must first be found using
+:meth:`Acquisition.acquire` using an interpolation based method. It performs 
+the search at a given code phase so the code phase must first be found using
 :meth:`Acquisition.acquire`.
-
-.. ipython::
-
-  In [22]: carr_freq_fine = acq.fine_carrier(caCodes[14], code_phase)
-
-  In [22]: carr_freq_fine - acq.IF # Doppler shift in Hz
-
 
 Reference / API
 ===============
