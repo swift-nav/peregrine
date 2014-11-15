@@ -1,4 +1,6 @@
 import sys, os
+import IPython
+from distutils.version import LooseVersion
 
 # Append the project root to the path so our packages can be found.
 sys.path.insert(0, os.path.abspath('..'))
@@ -13,6 +15,13 @@ from setup import setup_args
 #needs_sphinx = '1.0'
 
 # Sphinx extension modules.
+
+# Check which directive to use for the IPython Sphinx build
+if LooseVersion(IPython.__version__) < LooseVersion('2.0.0'):
+  ipython_directive = 'ipython_directive'
+else:
+  ipython_directive = 'IPython.sphinxext.ipython_directive'
+
 extensions = [
   'sphinx.ext.autosummary',
   'sphinx.ext.autodoc',
@@ -23,7 +32,7 @@ extensions = [
   'sphinx.ext.viewcode',
   'matplotlib.sphinxext.only_directives',
   'matplotlib.sphinxext.plot_directive',
-  'IPython.sphinxext.ipython_directive',
+  ipython_directive,
   'matplotlib.sphinxext.ipython_console_highlighting',
   'numpydoc',
 ]
