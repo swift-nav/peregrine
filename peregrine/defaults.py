@@ -9,7 +9,7 @@
 
 ms_to_track = 37*1e3
 skip_samples = 1000
-file_format = 'int8'
+file_format = 'piksi'
 IF = 4.092e6 # Hz
 sampling_freq = 16.368e6 # Hz
 chipping_rate = 1.023e6 # Hz
