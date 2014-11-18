@@ -81,9 +81,16 @@ class TrackingLoop(object):
     raise NotImplementedError()
 
 default_loop_filter = swiftnav.track.SimpleTrackingLoop(
-  (2, 0.7, 1),     # Code loop parameters
-  (25, 0.7, 0.25), # Carrier loop parameters
+  (2, 0.7, 1),     # Code loop NBW, zeta, k
+  (25, 0.7, 0.25), # Carrier loop NBW, zeta, k
   1e3              # Loop frequency
+)
+
+aided_loop_filter = swiftnav.track.AidedTrackingLoop(
+  (1, 0.7, 1),     # Code loop NBW, zeta, k
+  (25, 0.7, 1),    # Carrier loop NBW, zeta, k
+  1e3,             # Loop frequency
+  5                # Carrier loop aiding_igain
 )
 
 def track(samples, channels,
@@ -92,10 +99,10 @@ def track(samples, channels,
           chipping_rate=defaults.chipping_rate,
           IF=defaults.IF,
           show_progress=True,
-          loop_filter=default_loop_filter,
-          stage2_delay = 100,
+          loop_filter=aided_loop_filter,
+          stage2_delay = 7000,
           correlator=swiftnav.correlate.track_correlate,
-          num_ms=4,
+          num_ms=1,
           multi=True):
 
   n_channels = len(channels)
@@ -150,7 +157,7 @@ def track(samples, channels,
     pbar = None
 
   # Run tracking for each channel
-  def do_channel(chan):
+  def do_channel(chan, n=None):
     track_result = TrackResults(num_points)
     track_result.prn = chan.prn
 
@@ -226,7 +233,7 @@ def track(samples, channels,
   if multi:
     track_results=pp.parmap(do_channel, channels, show_progress=show_progress)
   else:
-    track_results=map(do_channel, channels)
+    track_results=map(lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
 
   if pbar:
     pbar.finish()
