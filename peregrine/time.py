@@ -41,7 +41,7 @@ def gpst_to_utc(t_gpst):
     """
     t_utc = t_gpst - datetime.timedelta(seconds = 16)
     if t_utc <= datetime.datetime(2012, 7, 1) or \
-       t_utc >= datetime.datetime(2015, 1, 1):
+       t_utc >= datetime.datetime(2015, 7, 1):
         raise ValueError("Don't know how many leap seconds to use.  " +
                          "Please implement something better in gpst_to_utc()")
     return t_utc
@@ -61,7 +61,7 @@ def utc_to_gpst(t_utc):
     """
     t_gpst = t_utc + datetime.timedelta(seconds = 16)
     if t_utc <= datetime.datetime(2012, 7, 1) or \
-       t_utc >= datetime.datetime(2015, 1, 1):
+       t_utc >= datetime.datetime(2015, 7, 1):
         raise ValueError("Don't know how many leap seconds to use.  " +
                          "Please implement something better in utc_to_gpst()")
     return t_gpst
