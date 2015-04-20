@@ -72,7 +72,7 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX
     max_val = np.max(samples)
     min_val = np.min(samples)
 
-  n_bins =  1 + np.round(float(max_val - min_val) / bin_width)
+  n_bins =  1 + np.round(float(max_val) - float(min_val) / bin_width)
   bins = np.linspace(min_val-bin_width/2.0, max_val+bin_width/2.0, n_bins+1)
 
   ticks = np.linspace(min_val, max_val, n_bins)
