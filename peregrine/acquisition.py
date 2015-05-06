@@ -366,7 +366,7 @@ class Acquisition:
     Perform an acquisition for a given list of PRNs across a range of Doppler
     frequencies.
 
-    This function returns :class:`AcquisitionResult` objects contatining the
+    This function returns :class:`AcquisitionResult` objects containing the
     location of the acquisition peak for PRNs that have an acquisition
     Signal-to-Noise ratio (SNR) greater than `threshold`.
 
