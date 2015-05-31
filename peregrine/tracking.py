@@ -9,6 +9,7 @@
 
 import numpy as np
 from include.generateCAcode import caCodes
+import gps_constants
 import progressbar
 import math
 
@@ -133,7 +134,10 @@ def track(signal, channel, settings,
     cn0_0 += 10*np.log10(1000) # Channel bandwidth
     cn0_est = swiftnav.track.CN0Estimator(1e3, cn0_0, 10, 1e3)
 
-    loop_filter.start(0, channel[channelNr].carr_freq-settings.IF)
+    # Estimate initial code freq via aiding from acq carrier freq
+    code_freq_init = (channel[channelNr].carr_freq-settings.IF) * \
+                     gps_constants.chip_rate / gps_constants.l1
+    loop_filter.start(code_freq_init, channel[channelNr].carr_freq-settings.IF)
     remCodePhase = 0.0
     remCarrPhase = 0.0
 
