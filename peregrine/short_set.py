@@ -319,6 +319,8 @@ def predict_observables(prior_traj, prior_datetime, prns, ephem, window):
             wk, tow = datetime_to_tow(t)
             gps_r, gps_v, clock_err, clock_rate_err = calc_sat_pos(ephem[prn], tow, week = wk)
 
+            # TODO: Should we be applying sagnac correction here?
+
             # Compute doppler
             los_r = gps_r - r
             ratepred = dot(gps_v - v, los_r) / norm(los_r)
