@@ -1,10 +1,12 @@
 # Multiprocessing helper functions thanks to stackoverflow user 'klaus se''
 # http://stackoverflow.com/questions/3288595/16071616#16071616
 
-import multiprocessing
+import progressbar as pb
+import multiprocessing as mp
+import time
 
 def spawn(f):
-    def fun(q_in,q_out):
+    def fun(q_in, q_out):
         while True:
             i,x = q_in.get()
             if i is None:
@@ -12,17 +14,27 @@ def spawn(f):
             q_out.put((i,f(x)))
     return fun
 
-def parmap(f, X, nprocs = multiprocessing.cpu_count()):
-    q_in   = multiprocessing.Queue(1)
-    q_out  = multiprocessing.Queue()
+def parmap(f, X, nprocs = mp.cpu_count(), progress=True):
+    q_in   = mp.Queue(1)
+    q_out  = mp.Queue()
 
-    proc = [multiprocessing.Process(target=spawn(f),args=(q_in,q_out)) for _ in range(nprocs)]
+    proc = [mp.Process(target=spawn(f),args=(q_in,q_out)) for _ in range(nprocs)]
+
     for p in proc:
         p.daemon = True
         p.start()
 
-    sent = [q_in.put((i,x)) for i,x in enumerate(X)]
+    if progress:
+        pbar = pb.ProgressBar(widgets=[pb.Percentage(), ' ', pb.ETA()], maxval=len(X)).start()
+    sent=[]
+    for i, x in enumerate(X):
+        sent.append(q_in.put((i,x)))
+        if progress:
+            pbar.update(i)
+
     [q_in.put((None,None)) for _ in range(nprocs)]
+    pbar.finish()
+
     res = [q_out.get() for _ in range(len(sent))]
 
     [p.join() for p in proc]
