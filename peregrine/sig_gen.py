@@ -94,6 +94,13 @@ def plot_traj(traj):
     for tl in ax2.get_yticklabels():
         tl.set_color('r')
 
+def interp_pv(traj, t):
+    # Find the entry in the trajectory table just preceding t
+    idx = max(0, np.argmax(traj[:,0] > t) - 1)
+    x0 = pvaj(traj[idx])
+    # Extrapolate from there
+    dt = t - traj[idx][0]
+    return integrate_state(x0, dt)[0:2]
         
 def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6):
     tow0 = datetime_to_tow(t0)[1]
@@ -104,14 +111,6 @@ def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6):
     step_samp_ix = np.arange(t_run / step_dt) * step_samps
     step_t = t_start + step_samp_ix / fs
     step_tow = tow0 + step_t
-
-    def interp_pv(traj, t):
-        # Find the entry in the trajectory table just preceding t
-        idx = max(0, np.argmax(traj[:,0] > t) - 1)
-        x0 = pvaj(traj[idx])
-        dt = t - traj[idx][0]
-        return integrate_state(x0, dt)[0:2]
-
     step_pv = map(lambda t: interp_pv(traj, t), step_t)
 
     return step_t, step_tow, step_pv, step_samps
@@ -407,10 +406,11 @@ def main():
     if args.prns:
         prns = [int(p) - 1 for p in args.prns.split(',')]
     else:
-        [x,y,z] = pvaj(traj[0])[0]
+        [x,y,z] = interp_pv(traj, args.t_start)[0]
         [lat,lon,h] = coord.wgsecef2llh(x,y,z)
         print "Finding satellites visible above %.2f, %.2f, %.0f on %s" % (
-            np.degrees(lat), np.degrees(lon), h, gpst0)
+            np.degrees(lat), np.degrees(lon), h,
+            gpst0 + timedelta(seconds=args.t_start))
         prns = peregrine.warm_start.whatsup(ephems, [x,y,z], gpst0, mask=10)
     print "Using PRNs:", [p + 1 for p in prns]
 
