@@ -1,7 +1,7 @@
 from math import radians, degrees, sin, cos, asin, acos, sqrt
 from numpy.linalg import norm
 import swiftnav.almanac
-from peregrine.time import *
+from peregrine.gps_time import *
 
 def grok_almanac(filename):
     f = open(filename,'r')

@@ -15,7 +15,7 @@ import peregrine.samples
 import peregrine.acquisition
 import peregrine.warm_start
 from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
-from peregrine.time import datetime_to_tow
+from peregrine.gps_time import datetime_to_tow
 
 import numpy as np
 from numpy import dot

@@ -1,4 +1,4 @@
-from peregrine.time import datetime_to_tow
+from peregrine.gps_time import datetime_to_tow
 import peregrine.gps_constants as gps
 from datetime import datetime, timedelta
 import numpy as np

@@ -2,7 +2,7 @@ import peregrine.almanac as almanac
 import peregrine.ephemeris as ephemeris
 import peregrine.acquisition as acquisition
 import peregrine.gps_constants as gps
-from peregrine.time import datetime_to_tow
+from peregrine.gps_time import datetime_to_tow
 
 import swiftnav.coord_system
 
