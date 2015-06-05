@@ -45,7 +45,7 @@ def load_rinex_nav_msg(filename, t, settings):
                     print line
                     raise FormatException("Doesn't appear to be a RINEX file")
                 rinex_ver = int(float(line[0:9]))
-                print "Rinex version", rinex_ver
+#                print "Rinex version", rinex_ver
                 if line[20] != "N":
                     raise FormatException("Doesn't appear to be a Navigation Message file")
             if line[60:73] == "END OF HEADER":
