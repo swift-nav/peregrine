@@ -60,6 +60,13 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
       f.seek(num_skip)
       samples = np.fromfile(f, dtype=np.int8, count=num_samples)
 
+  elif file_format == 'piksinew':
+    packed = np.memmap(filename, offset=num_skip, dtype=np.uint8, mode='r')
+    if num_samples > 0:
+      packed = packed[:num_samples]
+    samples = np.empty(len(packed), dtype=np.int8)
+    samples[:] = (packed >> 6) - 1
+
   elif file_format == 'piksi':
     """
     Piksi format is packed 3-bit sign-magnitude samples, 2 samples per byte.
