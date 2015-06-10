@@ -81,7 +81,8 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX
 
   ax.set_title('Histogram')
   ax.set_xlabel('Sample value')
-  ax.set_xticks(ticks)
+  if len(ticks) < 22:
+    ax.set_xticks(ticks)
   ax.set_xbound(min_val-bin_width, max_val+bin_width)
   ax.set_ylabel('Count')
   y_min, y_max = ax.get_ybound()
