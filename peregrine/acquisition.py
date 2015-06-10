@@ -408,7 +408,6 @@ class Acquisition:
     """
     logger.info("Acquisition starting")
     from peregrine.parallel_processing import parmap
-    mapper = parmap if multi else map
 
     # If the Doppler step is not specified, compute it from the coarse
     # acquisition length.
@@ -429,7 +428,7 @@ class Acquisition:
       logger.warning("show_progress = True but progressbar module not found.")
 
     # Setup our progress bar if we need it
-    if show_progress:
+    if show_progress and not multi:
       widgets = ['  Acquisition ',
                  progressbar.Attribute('prn', '(PRN: %02d)', '(PRN --)'), ' ',
                  progressbar.Percentage(), ' ',
@@ -480,7 +479,10 @@ class Acquisition:
 
       return acq_result
 
-    acq_results = mapper(do_acq, range(len(prns)))
+    if multi:
+      acq_results = parmap(do_acq, range(len(prns)), show_progress=show_progress)
+    else:
+      acq_results = map(do_acq, range(len(prns)))
 
     # Acquisition is finished
 

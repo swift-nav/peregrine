@@ -14,7 +14,7 @@ def spawn(f):
             q_out.put((i,f(x)))
     return fun
 
-def parmap(f, X, nprocs = mp.cpu_count(), progress=True):
+def parmap(f, X, nprocs = mp.cpu_count(), show_progress=True):
     q_in   = mp.Queue(1)
     q_out  = mp.Queue()
 
@@ -24,16 +24,17 @@ def parmap(f, X, nprocs = mp.cpu_count(), progress=True):
         p.daemon = True
         p.start()
 
-    if progress:
+    if show_progress:
         pbar = pb.ProgressBar(widgets=[pb.Percentage(), ' ', pb.ETA()], maxval=len(X)).start()
     sent=[]
     for i, x in enumerate(X):
         sent.append(q_in.put((i,x)))
-        if progress:
+        if show_progress:
             pbar.update(i)
 
     [q_in.put((None,None)) for _ in range(nprocs)]
-    pbar.finish()
+    if show_progress:
+        pbar.finish()
 
     res = [q_out.get() for _ in range(len(sent))]
 
