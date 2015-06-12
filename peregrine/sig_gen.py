@@ -339,7 +339,9 @@ def gen_signal(ephems, traj,
 
 def add_noise(s, level):
     rem = len(s)
-    noise = (np.random.randn(16*1024*1024)*level).astype(np.int8)
+    noise = np.random.randn(16*1024*1024)*level
+    noise = np.round(noise)
+    noise = noise.astype(np.int8)
     i = 0
     while rem:
         n = min(len(noise), rem)
