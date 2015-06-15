@@ -12,6 +12,7 @@ from include.generateCAcode import caCodes
 import gps_constants
 import progressbar
 import math
+import parallel_processing as pp
 
 import swiftnav.track
 import swiftnav.correlate
@@ -96,12 +97,10 @@ comp_loop_filter = swiftnav.track.CompTrackingLoop(
 def track(signal, channel, settings,
           show_progress=True,
           trk=swiftnav.correlate.track_correlate,
-          loop_filter=default_loop_filter):
+          loop_filter=default_loop_filter,
+          multi=True):
   logger.info("Tracking starting")
   logger.debug("Tracking %d channels, PRNs %s" % (len(channel), [chan.prn+1 for chan in channel]))
-
-  # Create list of tracking channels results (correlations, freqs, etc)
-  track_results = []
 
   # If progressbar is not available, disable show_progress.
   if show_progress and not _progressbar_available:
@@ -109,7 +108,7 @@ def track(signal, channel, settings,
     logger.warning("show_progress = True but progressbar module not found.")
 
   # Setup our progress bar if we need it
-  if show_progress:
+  if show_progress and not multi:
     widgets = ['  Tracking ',
                progressbar.Attribute(['chan', 'nchan'],
                                      '(CH: %d/%d)',
@@ -125,7 +124,7 @@ def track(signal, channel, settings,
     pbar = None
 
   #Do tracking for each channel
-  for channelNr in range(len(channel)):
+  def do_channel(channelNr):
     track_result = TrackResults(settings.msToProcess)
     track_result.PRN = channel[channelNr].prn
 
@@ -187,7 +186,12 @@ def track(signal, channel, settings,
 
     #Possibility for lock-detection later
     track_result.status = 'T'
-    track_results += [track_result]
+    return track_result
+
+  if multi:
+    track_results=pp.parmap(do_channel, range(len(channel)), show_progress=show_progress)
+  else:
+    track_results=map(do_channel, range(len(channel)))
 
   if pbar:
     pbar.finish()
