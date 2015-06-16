@@ -12,7 +12,7 @@ import defaults
 class initSettings:
   def __init__(self):
 
-    self.msToProcess          = 37000
+    self.msToProcess          = 39000
     self.skipNumberOfBytes    = 1000+(16368*87)
     self.IF                   = defaults.IF
     self.samplingFreq         = defaults.sampling_freq

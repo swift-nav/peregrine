@@ -14,6 +14,7 @@ import argparse
 import cPickle
 import logging
 from operator import attrgetter
+import numpy as np
 
 from peregrine.samples import load_samples
 from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
@@ -117,9 +118,16 @@ def main():
     nav_results = []
     for s, t in nav_solns:
       nav_results += [(t, s.pos_llh, s.vel_ned)]
-    with open(nav_results_file, 'wb') as f:
-      cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-    logging.debug("Saving navigation results as '%s'" % nav_results_file)
+    if len(nav_results):
+      print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
+        nav_results[0][0],
+        np.degrees(nav_results[0][1][0]), np.degrees(nav_results[0][1][1]), nav_results[0][1][2],
+        nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
+      with open(nav_results_file, 'wb') as f:
+        cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+      print "and %d more are cPickled in '%s'." % (len(nav_results)-1, nav_results_file)
+    else:
+      print "No navigation results."
 
 if __name__ == '__main__':
   main()

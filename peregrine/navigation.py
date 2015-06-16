@@ -18,37 +18,37 @@ def extract_ephemerides(track_results):
   track_results = [tr for tr in track_results if tr.status == 'T']
 
   for tr in track_results:
-    if len(tr.I_P) < 36000:
+    if len(tr.P) < 36000:
       raise Exception('Length of tracking too short to extract ephemeris')
 
   nav_msgs = [swiftnav.nav_msg.NavMsg() for tr in track_results]
   tow_indicies = [[] for tr in track_results]
   ephems = {}
   for n, tr in enumerate(track_results):
-    for i, cpi in enumerate(tr.I_P):
-      tow = nav_msgs[n].update(cpi)
+    for i, cpi in enumerate(np.real(tr.P)):
+      tow = nav_msgs[n].update(cpi, 1) # TODO: Handle long integrations
       if tow is not None:
-        #print tr.PRN, tow
+        #print tr.prn, tow
         tow_indicies[n] = (i, tow)
 
     if nav_msgs[n].eph_valid:
-      ephems[tr.PRN] = (nav_msgs[n], tow_indicies[n])
+      ephems[tr.prn] = (nav_msgs[n], tow_indicies[n])
 
   return ephems
 
 def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
   cms = []
   for tr in track_results:
-    i, tow_e = ephems[tr.PRN][1]
+    i, tow_e = ephems[tr.prn][1]
     tow = tow_e + (ms - i)
     cm = swiftnav.track.ChannelMeasurement(
-      tr.PRN,
-      tr.codePhase[ms],
-      tr.codeFreq[ms],
+      tr.prn,
+      tr.code_phase[ms],
+      tr.code_freq[ms],
       0,
-      tr.carrFreq[ms] - IF,
+      tr.carr_freq[ms] - IF,
       tow,
-      tr.absoluteSample[ms] / sampling_freq,
+      tr.absolute_sample[ms] / sampling_freq,
       100
     )
     cms += [cm]
@@ -70,15 +70,15 @@ def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
   mean_TOT = 0
 
   for i in len(track_results):
-    tow_i, tow_e = ephems[track_results[i].PRN][1]
+    tow_i, tow_e = ephems[track_results[i].prn][1]
     tow = tow_e + (ms - tow_i)
     TOTs[i] = 1e-3 * tow
-    TOTs[i] += tr.codePhase[ms] / 1.023e6
-    TOTs[i] += (ms/1000.0 - track_results[i].absoluteSample[ms]/sampling_freq) * \
-               track_results[i].codeFreq[ms] / 1.023e6
+    TOTs[i] += tr.code_phase[ms] / 1.023e6
+    TOTs[i] += (ms/1000.0 - track_results[i].absolute_sample[ms]/sampling_freq) * \
+               track_results[i].code_freq[ms] / 1.023e6
 
     mean_TOT += TOTs[i]
-    prrs[i] = 299792458 * -(track_results[i].carrFreq[ms] - IF) / 1.57542e9;
+    prrs[i] = 299792458 * -(track_results[i].carr_freq[ms] - IF) / 1.57542e9;
 
   mean_TOT = mean_TOT/len(track_channels)
 
@@ -97,7 +97,7 @@ def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
     #nav_meas[i]->pseudorange -= tropo_correction(el);
     prs[i] += clock_err*299792458
     prrs[i] -= clock_rate_err*299792458
-    nms += [NavigationMeasurement(prs[i], prrs[i], ephems[track_results[i].PRN][0].gps_week_num(), TOTs[i], (0,0,0), (0,0,0))]
+    nms += [NavigationMeasurement(prs[i], prrs[i], ephems[track_results[i].prn][0].gps_week_num(), TOTs[i], (0,0,0), (0,0,0))]
   return nms
 
 def make_solns(nms):
@@ -105,10 +105,11 @@ def make_solns(nms):
 
 
 def navigation(track_results, settings, ephems=None, mss=range(10000, 35000, 200)):
+
   if ephems is None:
     ephems = extract_ephemerides(track_results)
 
-  track_results = [tr for tr in track_results if tr.status == 'T' and tr.PRN in ephems]
+  track_results = [tr for tr in track_results if tr.status == 'T' and tr.prn in ephems]
 
   if len(track_results) < 4:
     raise Exception('Too few satellites to calculate nav solution')
@@ -119,8 +120,7 @@ def navigation(track_results, settings, ephems=None, mss=range(10000, 35000, 200
 
   ss = make_solns(nms)
 
-  # TODO: Fix this to properly deal with week number rollover.
-  wn = 1024 + ephems.values()[0][0].gps_week_num()
+  wn = ephems.values()[0][0].gps_week_num()
   ts = []
   for s in ss:
     t = datetime.datetime(1980, 1, 5) + \
