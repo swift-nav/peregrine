@@ -13,20 +13,21 @@ import datetime
 import swiftnav.nav_msg
 import swiftnav.track
 import swiftnav.pvt
+import sys
 
 def extract_ephemerides(track_results):
   track_results = [tr for tr in track_results if tr.status == 'T']
 
-  for tr in track_results:
-    if len(tr.P) < 36000:
-      raise Exception('Length of tracking too short to extract ephemeris')
+#  for tr in track_results:
+#    if len(tr.P) < 36000:
+#      raise Exception('Length of tracking too short to extract ephemeris')
 
   nav_msgs = [swiftnav.nav_msg.NavMsg() for tr in track_results]
   tow_indicies = [[] for tr in track_results]
   ephems = {}
   for n, tr in enumerate(track_results):
     for i, cpi in enumerate(np.real(tr.P)):
-      tow = nav_msgs[n].update(cpi, 1) # TODO: Handle long integrations
+      tow = nav_msgs[n].update(cpi, tr.coherent_ms[i])
       if tow is not None:
         #print tr.prn, tow
         tow_indicies[n] = (i, tow)
@@ -40,7 +41,7 @@ def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6
   cms = []
   for tr in track_results:
     i, tow_e = ephems[tr.prn][1]
-    tow = tow_e + (ms - i)
+    tow = tr.tow[ms]
     cm = swiftnav.track.ChannelMeasurement(
       tr.prn,
       tr.code_phase[ms],
@@ -116,6 +117,7 @@ def navigation(track_results, settings, ephems=None, mss=range(10000, 35000, 200
 
   cmss = [make_chan_meas(track_results, ms, ephems,
                          settings.samplingFreq, settings.IF) for ms in mss]
+
   nms = make_nav_meas(cmss, ephems)
 
   ss = make_solns(nms)

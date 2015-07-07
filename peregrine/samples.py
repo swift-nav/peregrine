@@ -141,7 +141,10 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
     with open(filename, 'rb') as f:
       f.seek(num_skip_bytes)
       sample_bytes = np.fromfile(f, dtype=np.uint8, count=num_bytes)
-    samples = 2*np.unpackbits(sample_bytes).astype(np.int8) - 1
+#    samples = 2*np.unpackbits(sample_bytes).astype(np.int8) - 1
+    samples = np.unpackbits(sample_bytes).view('int8')
+    samples *= 2
+    samples -= 1
     if file_format == '1bitrev':
         samples = np.reshape(samples,(-1,8))[:,::-1].flatten();
     samples = samples[num_skip_samples:]
