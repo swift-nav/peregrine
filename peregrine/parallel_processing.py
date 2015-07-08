@@ -12,27 +12,23 @@ def spawn(f):
             if i is None:
                 break
             try:
-                try:
-                    # Does the function support progress reporting?
+                if q_progress:
                     q_out.put((i,f(x, q_progress=q_progress)))
-                except TypeError as e:
-                    if e.message.endswith("got an unexpected keyword argument 'q_progress'"):
-                        # No, it doesn't.
-                        q_out.put((i,f(x)))
-                        # Declare 100% progress on this workpiece when complete.
-                        q_progress.put(1)
-                    else:
-                        raise e
+                else:
+                    q_out.put((i,f(x)))
             except Exception as err:
                 print "Subprocess raised exception:"
                 print err
                 q_out.put(None)
     return worker
 
-def parmap(f, X, nprocs = mp.cpu_count(), show_progress=True):
+def parmap(f, X, nprocs = mp.cpu_count(), show_progress=True, func_progress=False):
     q_in   = mp.Queue()
     q_out  = mp.Queue()
-    q_progress  = mp.Queue(100)
+    if func_progress:
+        q_progress = mp.Queue(100)
+    else:
+        q_progress = None
 
     proc = [mp.Process(target=spawn(f),args=(q_in, q_out, q_progress)) for _ in range(nprocs)]
 
@@ -52,16 +48,19 @@ def parmap(f, X, nprocs = mp.cpu_count(), show_progress=True):
     res = []
     t0 = time.time()
     while n_done < len(X):
+        res.append(q_out.get())
+        n_done += 1
         while not q_out.empty():
-            res.append(q_out.get_nowait())
+            res.append(q_out.get())
             n_done += 1
-        while not q_progress.empty():
-            progress_increment = q_progress.get_nowait()
-            progress += progress_increment
-#            print time.time() - t0, progress_increment, progress, progress / len(X)
+        if q_progress:
+            while not q_progress.empty():
+                progress_increment = q_progress.get_nowait()
+                progress += progress_increment
+        else:
+            progress = n_done
         if show_progress and progress <= len(X):
             pbar.update(progress)
-        time.sleep(0.1)
 
     if show_progress:
         pbar.finish()

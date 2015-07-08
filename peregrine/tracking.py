@@ -240,6 +240,7 @@ def track(samples, channels,
       track_result.nav_bit_sync.update(np.real(P), coherent_ms)
 
       tow = track_result.nav_msg.update(np.real(P), coherent_ms)
+      track_result.nav_msg_bit_phase_ref[i] = track_result.nav_msg.bit_phase_ref
       track_result.tow[i] = tow or (track_result.tow[i-1] + coherent_ms)
 
       track_result.carr_phase[i] = carr_phase
@@ -271,12 +272,14 @@ def track(samples, channels,
     track_result.status = 'T'
 
     track_result.resize(i)
-    q_progress.put(1.0 - progress)
+    if q_progress:
+      q_progress.put(1.0 - progress)
         
     return track_result
 
   if multi:
-    track_results=pp.parmap(do_channel, channels, show_progress=show_progress)
+    track_results=pp.parmap(do_channel, channels,
+                            show_progress=show_progress, func_progress=show_progress)
   else:
     track_results=map(lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
     
@@ -304,6 +307,7 @@ class TrackResults:
     self.L = np.zeros(n_points, dtype=np.complex128)
     self.cn0 = np.zeros(n_points)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
+    self.nav_msg_bit_phase_ref = np.zeros(n_points)
     self.nav_bit_sync = NBSMatchBit()
     self.tow = np.empty(n_points)
     self.tow[:] = np.NAN
