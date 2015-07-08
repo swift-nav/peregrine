@@ -41,38 +41,43 @@ def check_smooth(traj, tol=[0.010, 0.1, 10], repair=False, verbose=True):
     smooth = True
     traj_new = [traj[0]]
     for i in range(1, len(traj)):
+        this_pt = traj[i]
         x0 = pvaj(traj[i-1])
-        dt = traj[i][0] - traj[i-1][0]
+        dt = this_pt[0] - traj[i-1][0]
         x1 = integrate_state(x0, dt)
-        dx = pvaj(traj[i]) - x1
+        dx = pvaj(this_pt) - x1
+        new_pt = None
         for axis, desc in enumerate(["Position", "Velocity", "Acceleration"]):
             if np.any(np.abs(dx[axis]) > tol[axis]):
                 if verbose:
                     print "%s discontinuity at row %d, time %.3f:" % (
-                        desc, i, traj[i][0])
+                        desc, i, this_pt[0])
                     print dx[axis]
                 smooth = False
                 if repair:
                     # Compute a new point in between the two previous points such that
                     # the position and velocity are smooth
-                    new_pvaj = integrate_state(x0, dt/2)
+                    dtA = 0.000
+                    dtB = dt - dtA
+                    new_pvaj = integrate_state(x0, dtA)
                     for axis in range(3):
                         p0 = new_pvaj[0][axis]
-                        p1 = pvaj(traj[i])[0][axis]
+                        p1 = pvaj(this_pt)[0][axis]
                         v0 = new_pvaj[1][axis]
-                        v1 = pvaj(traj[i])[1][axis]
-                        j0 = ((dt/2/2)*(v1+v0)-p1+p0) / ((dt/2)**3 / 12)
-                        a0 = (v1-v0)/(dt/2) - (dt/2/2) * j0
+                        v1 = pvaj(this_pt)[1][axis]
+                        j0 = ((dtB/2)*(v1+v0)-p1+p0) / ((dtB)**3 / 12)
+                        a0 = (v1-v0)/(dtB) - (dtB/2) * j0
                         new_pvaj[2][axis] = a0
                         new_pvaj[3][axis] = j0
 
-                    new_pt = np.concatenate([[traj[i-1][0] + dt/2],
+                    new_pt = np.concatenate([[traj[i-1][0] + dtA],
                                              new_pvaj[0],
                                              new_pvaj[1],
                                              new_pvaj[2],
                                              new_pvaj[3]])
+                    traj_new.pop()
                     traj_new.append(new_pt)
-        traj_new.append(traj[i])
+        traj_new.append(this_pt)
     return np.array(traj_new), smooth
 
 def load_umt(filename):
