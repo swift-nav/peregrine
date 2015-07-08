@@ -34,11 +34,12 @@ def mags(x):
     ''' Get the magnitudes of the XYZ position, velocity and jerk '''
     return np.linalg.norm(x, axis=1)
 
-def check_smooth(traj, tol=[0.010, 0.1, 10]):
+def check_smooth(traj, tol=[0.010, 0.1, 10], repair=False, verbose=True):
     '''Check that the position, velocity and acceleration terms
     in a trajectory are smooth to within some tolerance.
     '''
     smooth = True
+    traj_new = [traj[0]]
     for i in range(1, len(traj)):
         x0 = pvaj(traj[i-1])
         dt = traj[i][0] - traj[i-1][0]
@@ -46,11 +47,33 @@ def check_smooth(traj, tol=[0.010, 0.1, 10]):
         dx = pvaj(traj[i]) - x1
         for axis, desc in enumerate(["Position", "Velocity", "Acceleration"]):
             if np.any(np.abs(dx[axis]) > tol[axis]):
-                print "%s discontinuity at row %d, time %.3f:" % (
-                desc, i, traj[i][0])
-                print dx[axis]
+                if verbose:
+                    print "%s discontinuity at row %d, time %.3f:" % (
+                        desc, i, traj[i][0])
+                    print dx[axis]
                 smooth = False
-    return smooth
+                if repair:
+                    # Compute a new point in between the two previous points such that
+                    # the position and velocity are smooth
+                    new_pvaj = integrate_state(x0, dt/2)
+                    for axis in range(3):
+                        p0 = new_pvaj[0][axis]
+                        p1 = pvaj(traj[i])[0][axis]
+                        v0 = new_pvaj[1][axis]
+                        v1 = pvaj(traj[i])[1][axis]
+                        j0 = ((dt/2/2)*(v1+v0)-p1+p0) / ((dt/2)**3 / 12)
+                        a0 = (v1-v0)/(dt/2) - (dt/2/2) * j0
+                        new_pvaj[2][axis] = a0
+                        new_pvaj[3][axis] = j0
+
+                    new_pt = np.concatenate([[traj[i-1][0] + dt/2],
+                                             new_pvaj[0],
+                                             new_pvaj[1],
+                                             new_pvaj[2],
+                                             new_pvaj[3]])
+                    traj_new.append(new_pt)
+        traj_new.append(traj[i])
+    return np.array(traj_new), smooth
 
 def load_umt(filename):
     x = np.loadtxt(filename, comments='<', delimiter=',', ndmin=2,
@@ -359,6 +382,8 @@ def main():
                        help="Simple single-point trajectory: "
                        "ECEF x,y,z[,vx,vy,vz[,ax,ay,az[,jx,jy,jz]]] "
                        "e.g. 6378137,0,0")
+    parser.add_argument("--no-repair", dest="repair", action='store_false',
+                       help="Do not attempt to repair a discontinuous input trajectory")
     parser.add_argument("-s", dest="t_start", default=0.0, type=float,
                        help="Start time (seconds)")
     parser.add_argument("-l", dest="t_run", type=float,
@@ -380,6 +405,8 @@ def main():
                        help="Sampling rate (default: %(default).0f)")
     parser.add_argument("-p", dest="prns",
                        help="Comma-separated 1-indexed PRNs to simulate (default: autoselect)")
+    parser.add_argument("-v", dest="verbose", action='store_true',
+                       help="Increase verbosity")
     args = parser.parse_args()
 
     if args.umtfile:
@@ -387,8 +414,11 @@ def main():
         if len(traj) < 1:
             print "Couldn't load any trajectory points from %s." % args.umtfile
             return 1
-        if not check_smooth(traj):
+        traj, smooth = check_smooth(traj, repair=args.repair, verbose=args.verbose)
+        if not smooth:
             print "WARNING: Input trajectory may not be sufficiently smooth for cycle-accurate results."
+            if args.repair:
+                print "Repairs were attempted but may result in momentary large accelerations."
 
     if args.eceftraj:
         traj = np.array([[0.0] + [float(x) for x in args.eceftraj.split(',')]])
