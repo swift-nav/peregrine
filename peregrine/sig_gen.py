@@ -34,51 +34,23 @@ def mags(x):
     ''' Get the magnitudes of the XYZ position, velocity and jerk '''
     return np.linalg.norm(x, axis=1)
 
-def check_smooth(traj, tol=[0.010, 0.1, 10], repair=False, verbose=True):
+def check_smooth(traj, tol=[0.010, 0.1, 10]):
     '''Check that the position, velocity and acceleration terms
     in a trajectory are smooth to within some tolerance.
     '''
     smooth = True
-    traj_new = [traj[0]]
     for i in range(1, len(traj)):
-        this_pt = traj[i]
         x0 = pvaj(traj[i-1])
-        dt = this_pt[0] - traj[i-1][0]
+        dt = traj[i][0] - traj[i-1][0]
         x1 = integrate_state(x0, dt)
-        dx = pvaj(this_pt) - x1
-        new_pt = None
+        dx = pvaj(traj[i]) - x1
         for axis, desc in enumerate(["Position", "Velocity", "Acceleration"]):
             if np.any(np.abs(dx[axis]) > tol[axis]):
-                if verbose:
-                    print "%s discontinuity at row %d, time %.3f:" % (
-                        desc, i, this_pt[0])
-                    print dx[axis]
+                print "%s discontinuity at row %d, time %.3f:" % (
+                desc, i, traj[i][0])
+                print dx[axis]
                 smooth = False
-                if repair:
-                    # Compute a new point in between the two previous points such that
-                    # the position and velocity are smooth
-                    dtA = 0.000
-                    dtB = dt - dtA
-                    new_pvaj = integrate_state(x0, dtA)
-                    for axis in range(3):
-                        p0 = new_pvaj[0][axis]
-                        p1 = pvaj(this_pt)[0][axis]
-                        v0 = new_pvaj[1][axis]
-                        v1 = pvaj(this_pt)[1][axis]
-                        j0 = ((dtB/2)*(v1+v0)-p1+p0) / ((dtB)**3 / 12)
-                        a0 = (v1-v0)/(dtB) - (dtB/2) * j0
-                        new_pvaj[2][axis] = a0
-                        new_pvaj[3][axis] = j0
-
-                    new_pt = np.concatenate([[traj[i-1][0] + dtA],
-                                             new_pvaj[0],
-                                             new_pvaj[1],
-                                             new_pvaj[2],
-                                             new_pvaj[3]])
-                    traj_new.pop()
-                    traj_new.append(new_pt)
-        traj_new.append(this_pt)
-    return np.array(traj_new), smooth
+    return smooth
 
 def load_umt(filename):
     x = np.loadtxt(filename, comments='<', delimiter=',', ndmin=2,
@@ -130,7 +102,7 @@ def interp_pv(traj, t):
     dt = t - traj[idx][0]
     return integrate_state(x0, dt)[0:2]
         
-def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6):
+def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6, smoothify=False):
     tow0 = datetime_to_tow(t0)[1]
     t_start = traj[0][0] + t_skip
     t_stop = t_start + t_run
@@ -140,6 +112,13 @@ def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6):
     step_t = t_start + step_samp_ix / fs
     step_tow = tow0 + step_t
     step_pv = map(lambda t: interp_pv(traj, t), step_t)
+
+    if smoothify:
+        # Patch velocity of each step to make the projected position match
+        # the next one
+        dp = np.diff(np.array(step_pv)[:,0], axis=0)
+        for ix in range(len(dp)):
+            step_pv[ix][1] = dp[ix] / step_dt
 
     return step_t, step_tow, step_pv, step_samps
 
@@ -338,9 +317,11 @@ def gen_signal(ephems, traj,
                t0, t_run, t_skip=0, t_step=0.002,
                fs=16.368e6, fi=4.092e6,
                snr=1, jitter=0,
-               prns=range(1), scale=16):
+               prns=range(1), scale=16, repair_unsmooth=True):
 
-    step_t, step_tow, step_pv, step_samps = interp_traj(traj, t0, t_run, t_skip, t_step, fs)
+    step_t, step_tow, step_pv, step_samps = \
+        interp_traj(traj, t0, t_run, t_skip, t_step, fs,
+                    smoothify=repair_unsmooth)
     step_prn_snrs = [{p: snr for p in prns} for t in step_t]
     np.random.seed(222)
     nav_msg_tow0 = int(step_tow[0] / (5*6)) * 5*6 # Round to beginning of 30-second nav msg cycle
@@ -419,11 +400,11 @@ def main():
         if len(traj) < 1:
             print "Couldn't load any trajectory points from %s." % args.umtfile
             return 1
-        traj, smooth = check_smooth(traj, repair=args.repair, verbose=args.verbose)
+        smooth = check_smooth(traj, repair=args.repair, verbose=args.verbose)
         if not smooth:
             print "WARNING: Input trajectory may not be sufficiently smooth for cycle-accurate results."
             if args.repair:
-                print "Repairs were attempted but may result in momentary large accelerations."
+                print "Repairs will be attempted but may result in momentary large accelerations."
 
     if args.eceftraj:
         traj = np.array([[0.0] + [float(x) for x in args.eceftraj.split(',')]])
@@ -452,7 +433,7 @@ def main():
     print "Using PRNs:", [p + 1 for p in prns]
 
     print "Generating samples..."
-    s = gen_signal(ephems, traj, gpst0,
+    s = gen_signal(ephems, traj, gpst0, repair_unsmooth=args.repair,
                    t_run=args.t_run, t_skip=args.t_start, t_step=args.t_step,
                    fs=args.fs, fi=args.fi, prns=prns)
     

@@ -48,8 +48,11 @@ def parmap(f, X, nprocs = mp.cpu_count(), show_progress=True, func_progress=Fals
     res = []
     t0 = time.time()
     while n_done < len(X):
-        res.append(q_out.get())
-        n_done += 1
+        if func_progress:
+            time.sleep(0.02)
+        else:
+            res.append(q_out.get())
+            n_done += 1
         while not q_out.empty():
             res.append(q_out.get())
             n_done += 1
