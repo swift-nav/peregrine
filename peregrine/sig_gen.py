@@ -400,7 +400,7 @@ def main():
         if len(traj) < 1:
             print "Couldn't load any trajectory points from %s." % args.umtfile
             return 1
-        smooth = check_smooth(traj, repair=args.repair, verbose=args.verbose)
+        smooth = check_smooth(traj)
         if not smooth:
             print "WARNING: Input trajectory may not be sufficiently smooth for cycle-accurate results."
             if args.repair:
