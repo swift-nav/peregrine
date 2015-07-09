@@ -94,14 +94,46 @@ def plot_traj(traj):
     for tl in ax2.get_yticklabels():
         tl.set_color('r')
 
-def interp_pv(traj, t):
+def interp_pv(traj, t, smoothify=False):
     # Find the entry in the trajectory table just preceding t
     idx = max(0, np.argmax(traj[:,0] > t) - 1)
     x0 = pvaj(traj[idx])
+    t0 = traj[idx][0]
     # Extrapolate from there
-    dt = t - traj[idx][0]
-    return integrate_state(x0, dt)[0:2]
+    dt01 = t - t0
+    x01 = integrate_state(x0, dt01)[0:2]
+    if smoothify and idx < len(traj):
+        # Non-causally interpolate back from the following entry
+        x2 = pvaj(traj[idx+1])
+        t2 = traj[idx+1][0]
+        dt21 = t - t2
+        x21 = integrate_state(x2, dt21)[0:2]
+        x1 = (dt01 / (t2 - t0)) * x21 + \
+             (-dt21 / (t2 - t0)) * x01
+    else:
+        x1 = x01
+    return x1
         
+def interp_p(traj, t, causal=True):
+    # Find the entry in the trajectory table just preceding t
+    idx = max(0, np.argmax(traj[:,0] > t) - 1)
+    x0 = pvaj(traj[idx])
+    t0 = traj[idx][0]
+    # Extrapolate from there
+    dt01 = t - t0
+    x01 = integrate_state(x0, dt01)[0]
+    if (not causal) and idx < len(traj):
+        # Non-causally interpolate back from the following entry
+        x2 = pvaj(traj[idx+1])
+        t2 = traj[idx+1][0]
+        dt21 = t - t2
+        x21 = integrate_state(x2, dt21)[0]
+        x1 = (dt01 / (t2 - t0)) * x21 + \
+             (-dt21 / (t2 - t0)) * x01
+    else:
+        x1 = x01
+    return x1
+
 def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6, smoothify=False):
     tow0 = datetime_to_tow(t0)[1]
     t_start = traj[0][0] + t_skip
@@ -111,14 +143,11 @@ def interp_traj(traj, t0, t_run, t_skip=0, t_step=0.002, fs=16.368e6, smoothify=
     step_samp_ix = np.arange(t_run / step_dt) * step_samps
     step_t = t_start + step_samp_ix / fs
     step_tow = tow0 + step_t
-    step_pv = map(lambda t: interp_pv(traj, t), step_t)
-
-    if smoothify:
-        # Patch velocity of each step to make the projected position match
-        # the next one
-        dp = np.diff(np.array(step_pv)[:,0], axis=0)
-        for ix in range(len(dp)):
-            step_pv[ix][1] = dp[ix] / step_dt
+    step_p = map(lambda t: interp_p(traj, t, causal=not smoothify), step_t)
+    step_v = np.zeros_like(step_p)
+    step_v[:-1] = np.diff(np.array(step_p), axis=0) / step_dt
+    step_v[-1] = step_v[-2]
+    step_pv = np.array(zip(step_p, step_v))
 
     return step_t, step_tow, step_pv, step_samps
 
