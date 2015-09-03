@@ -9,17 +9,16 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 import pprint
-from collections import OrderedDict
 
 pp = pprint.PrettyPrinter(indent=2)
 
 
 class SbasMsg:
   def __init__(self, bitstring):
-    self.bitstring = bitstring
+    self.bitstring = bitstring[8+6:]
     self.crc = 0
     self.preamble = bitstring[:8]
-    self.type = int(self.bitstring[8:8 + 6], 2)
+    self.type = int(bitstring[8:8 + 6], 2)
 
   def bitstring(self):
     return self.bitstring
@@ -143,9 +142,47 @@ class SbasMsgAlm(SbasMsg):
   def __init__(self, bitstring):
     SbasMsg.__init__(self, bitstring)
     self.full_name = 'GEO Almanacs'
+    self.data = {}
+    self.fields = [
+      ('Data ID', 2, 1, False),
+      ('PRN', 8, 1, False),
+      ('Health', 8, 1, False),
+
+      ('X', 15, 2600, True),
+      ('Y', 15, 2600, True),
+      ('Z', 9, 26000, True),
+
+      ('X - Rate of Change', 3, 10, True),
+      ('Y - Rate of Change', 3, 10, True),
+      ('Z - Rate of Change', 4, 40.96, True),
+
+      ('Time-of-Day', 11, 64, False)
+    ]
+
+  def process(self):
+    offset = 0
+    for idx in range(1, 4):
+      tmp = {}
+      for ix, field in enumerate(self.fields[:-1]):
+        val = int(self.bitstring[offset: offset + field[1]], 2)
+        if field[3]:  # 2's complement
+          if val & (1 << (field[1] - 1)):  # MSB set
+            val = -((1 << field[1]) - val)
+        tmp[field[0]] = val * field[2]  # Scale factor
+        offset += field[1]
+      self.data['PRN ' + str(tmp['PRN'])] = tmp
+    tod = self.fields[len(self.fields) - 1]
+    offset_tod = tod[1]
+    tod_val = self.bitstring[offset: offset + offset_tod]
+    val = int(tod_val, 2)
+    self.data[tod[0]] = val
+
+
 
   def __str__(self):
-    return self.full_name
+    s = self.full_name + " has content: \n"
+    s += pprint.pformat(self.data, indent=2)
+    return s
 
 
 class SbasMsgDegParam(SbasMsg):
