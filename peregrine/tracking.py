@@ -164,8 +164,7 @@ def track(samples, channels,
   # Run tracking for each channel
   def do_channel(chan, n=None, q_progress=None):
     loop_filter = loop_filter_class(*stage1_loop_filter_params)
-    track_result = TrackResults(num_points)
-    track_result.prn = chan.prn
+    track_result = TrackResults(num_points, chan.prn)
 
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
@@ -179,7 +178,7 @@ def track(samples, channels,
     loop_filter.start(code_freq_init, chan.carr_freq - IF)
     code_phase = 0.0
     carr_phase = 0.0
-    
+
     # Get a vector with the C/A code sampled 1x/chip
     ca_code = caCodes[chan.prn]
 
@@ -217,7 +216,7 @@ def track(samples, channels,
                                               1e3/stage2_coherent_ms)
 
       coherent_ms = 1 if stage1 else stage2_coherent_ms
-      
+
       for j in range(coherent_ms):
         samples_ = samples[sample_index:]
 
@@ -236,7 +235,7 @@ def track(samples, channels,
 
       loop_filter.update(E, P, L)
       track_result.coherent_ms[i] = coherent_ms
-        
+
       track_result.nav_bit_sync.update(np.real(P), coherent_ms)
 
       tow = track_result.nav_msg.update(np.real(P), coherent_ms)
@@ -264,7 +263,7 @@ def track(samples, channels,
       ms_tracked += coherent_ms
 
       if q_progress and (i % 200 == 0):
-        p = 1.0 * ms_tracked / ms_to_track;
+        p = 1.0 * ms_tracked / ms_to_track
         q_progress.put(p - progress)
         progress = p
 
@@ -274,7 +273,7 @@ def track(samples, channels,
     track_result.resize(i)
     if q_progress:
       q_progress.put(1.0 - progress)
-        
+
     return track_result
 
   if multi:
@@ -282,7 +281,7 @@ def track(samples, channels,
                             show_progress=show_progress, func_progress=show_progress)
   else:
     track_results=map(lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
-    
+
   if pbar:
     pbar.finish()
 
@@ -292,9 +291,9 @@ def track(samples, channels,
 
 
 class TrackResults:
-  def __init__(self, n_points):
+  def __init__(self, n_points, prn):
     self.status = '-'
-    self.prn = None
+    self.prn = prn
     self.absolute_sample = np.zeros(n_points)
     self.code_phase = np.zeros(n_points)
     self.code_phase_acc = np.zeros(n_points)
@@ -308,7 +307,7 @@ class TrackResults:
     self.cn0 = np.zeros(n_points)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
-    self.nav_bit_sync = NBSMatchBit()
+    self.nav_bit_sync = NBSMatchBit() if prn < 30 else NBSSBAS()
     self.tow = np.empty(n_points)
     self.tow[:] = np.NAN
     self.coherent_ms = np.zeros(n_points)
@@ -346,6 +345,57 @@ class NavBitSync:
   def bitstring(self):
     return ''.join(map(str, self.bits))
 
+class NavBitSyncSBAS:
+  def __init__(self):
+    self.bit_phase = 0
+    self.bit_integrate = 0
+    self.synced=False
+    self.bits=[]
+    self.bit_phase_ref=-1 # A new bit begins when bit_phase == bit_phase_ref
+    self.count = 0
+
+  def update(self, corr, ms):
+    self.bit_phase += ms
+    self.bit_phase %= 2
+    self.count += 1
+    self.bit_integrate += corr
+    if not self.synced:
+      self.update_bit_sync(corr, ms)
+    if self.bit_phase == self.bit_phase_ref:
+      self.bits.append(1 if self.bit_integrate > 0 else 0)
+      self.bit_integrate = 0
+
+  def update_bit_sync(self, corr, ms):
+    raise NotImplementedError
+
+  def bitstring(self):
+    return ''.join(map(str, self.bits))
+
+
+class NBSSBAS(NavBitSyncSBAS):
+  def __init__(self, thres=200):
+    NavBitSyncSBAS.__init__(self)
+    self.hist = np.zeros(2)
+    self.acc = 0
+    self.prev = np.zeros(2)
+    self.thres = thres
+    self.score = 0
+
+  def update_bit_sync(self, corr, ms):
+    self.bit_integrate -= self.prev[self.bit_phase]
+    self.prev[self.bit_phase] = corr
+    if self.count >= 2:
+      # Accumulator valid
+      self.hist[self.bit_phase % 2] += abs(self.bit_integrate)
+      if self.bit_phase == 1:
+        # Histogram valid
+        sh = sorted(self.hist)
+        self.score = sh[-1] - sh[-2]
+        max_prev_corr = max(np.abs(self.prev))
+        if self.score > self.thres * 2 * max_prev_corr:
+          self.synced = True
+          self.bit_phase_ref = np.argmax(self.hist)
+
 class NBSLibSwiftNav(NavBitSync):
   def __init__(self):
     NavBitSync.__init__(self)
@@ -355,9 +405,9 @@ class NBSLibSwiftNav(NavBitSync):
     self.nav_msg.update(corr, ms)
     self.bit_phase_ref = self.nav_msg.bit_phase_ref
     self.synced = self.bit_phase_ref >= 0
-    
+
 class NBSMatchBit(NavBitSync):
-  def __init__(self, thres=20):
+  def __init__(self, thres=22):
     NavBitSync.__init__(self)
     self.hist = np.zeros(20)
     self.acc = 0
@@ -379,7 +429,7 @@ class NBSMatchBit(NavBitSync):
         if self.score > self.thres * 2 * max_prev_corr:
           self.synced = True
           self.bit_phase_ref = np.argmax(self.hist)
-      
+
 class NBSHistogram(NavBitSync):
   def __init__(self, thres=10):
     NavBitSync.__init__(self)
@@ -399,7 +449,6 @@ class NBSHistogram(NavBitSync):
         self.bit_phase_ref = np.argmax(self.hist)
         self.hist = np.zeros(20)
         self.bit_phase_count = 0
-
 
 class NBSMatchEdge(NavBitSync):
   # TODO: This isn't quite right - might get wrong answer with long leading run of same bits, depending on initial phase
@@ -423,5 +472,3 @@ class NBSMatchEdge(NavBitSync):
         if sh[-1] - sh[-2] > self.thres:
           self.synced = True
           self.bit_phase_ref = np.argmax(self.hist)
-
-    
