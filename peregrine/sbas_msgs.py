@@ -15,7 +15,7 @@ pp = pprint.PrettyPrinter(indent=2)
 
 class SbasMsg:
   def __init__(self, bitstring):
-    self.bitstring = bitstring[8+6:]
+    self.bitstring = bitstring[8 + 6:]
     self.crc = 0
     self.preamble = bitstring[:8]
     self.type = int(bitstring[8:8 + 6], 2)
@@ -71,8 +71,13 @@ class SbasMsgNull(SbasMsg):
     SbasMsg.__init__(self, bitstring)
     self.full_name = 'Null Message'
 
+  def process(self):
+    pass
+
   def __str__(self):
-    return self.full_name
+    s = self.full_name + " has content: \n"
+    s += 'NULL'
+    return s
 
 
 class SbasMsgLTC(SbasMsg):
@@ -141,7 +146,7 @@ class SbasMsgM(SbasMsg):
         self.data += ['PRN ' + str(idx)]
 
   def __str__(self):
-    s = "Corrections for the following PRNs:"
+    s = self.full_name + " has content: \n"
     s += pprint.pformat(self.data, indent=2)
     return s
 
@@ -185,8 +190,6 @@ class SbasMsgAlm(SbasMsg):
     val = int(tod_val, 2)
     self.data[tod[0]] = val
 
-
-
   def __str__(self):
     s = self.full_name + " has content: \n"
     s += pprint.pformat(self.data, indent=2)
@@ -197,6 +200,37 @@ class SbasMsgDegParam(SbasMsg):
   def __init__(self, bitstring):
     SbasMsg.__init__(self, bitstring)
     self.full_name = 'Degradation Parameters'
+    self.data = {}
+    self.fields =[
+      ('B_rcc', 10, 0.002, False),
+      ('C_ltc_lsb', 10, 0.002, False),
+      ('C_ltc_v1', 10, 0.00005, False),
+      ('I_ltc_v1', 9, 1, False),
+      ('C_ltc_v0', 10, 0.002, False),
+      ('I_ltc_v0', 9, 1, False),
+      ('C_geo_lsb', 10, 0.0005, False),
+      ('C_geo_v', 10, 0.00005, False),
+      ('I_geo', 9, 1, False),
+      ('C_er', 6, 0.5, False),
+      ('C_iono_step', 10, 0.001, False),
+      ('I_iono', 9, 1, False),
+      ('C_iono_ramp', 10, 0.000005, False),
+      ('RSS_UDRE', 1, 1, False),
+      ('RSS_iono', 1, 1, False),
+      ('C_covariance', 7, 0.1, False)
+    ]
+
+  def process(self):
+    offset = 0
+    for ix, field in enumerate(self.fields):
+      val = int(self.bitstring[offset: offset + field[1]], 2)
+      if field[3]:  # 2's complement
+        if val & (1 << (field[1] - 1)):  # MSB set
+          val = -((1 << field[1]) - val)
+      self.data[field[0]] = val * field[2]  # Scale factor
+      offset += field[1]
 
   def __str__(self):
-    return self.full_name
+    s = self.full_name + " has content: \n"
+    s += pprint.pformat(self.data, indent=2)
+    return s
