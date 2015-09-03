@@ -79,7 +79,7 @@ class Sbas:
               self.count += 1
               self.messages += [msg]
 
-              if msg.type == 9 or msg.type == 17:
+              if msg.type == 9 or msg.type == 17 or msg.type == 1:
                 msg.process()
                 print msg
 

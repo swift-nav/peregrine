@@ -133,9 +133,17 @@ class SbasMsgM(SbasMsg):
   def __init__(self, bitstring):
     SbasMsg.__init__(self, bitstring)
     self.full_name = 'PRN Mask Assignments'
+    self.data = []
+
+  def process(self):
+    for idx in range(1, 211):
+      if self.bitstring[idx - 1] == '1':
+        self.data += ['PRN ' + str(idx)]
 
   def __str__(self):
-    return self.full_name
+    s = "Corrections for the following PRNs:"
+    s += pprint.pformat(self.data, indent=2)
+    return s
 
 
 class SbasMsgAlm(SbasMsg):
