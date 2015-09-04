@@ -98,6 +98,8 @@ class SbasMsg:
     crc_bytearray = bits2byte(self.crc_bitstring)
     msg_bytearray = bits2byte(self.preamble_bitstring + self.type_bitstring + self.msg_bitstring)
     computed_crc = crc24(msg_bytearray, len(msg_bytearray))
+    if len(crc_bytearray) < 3:
+      raise ValueError("Msg incomplete!")
     msg_crc = getbitu(crc_bytearray, 0, 24)
     if computed_crc != msg_crc:
       raise ValueError("Msg CRC is bad!")

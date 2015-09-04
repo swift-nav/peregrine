@@ -40,13 +40,13 @@ def process_all_preambles(self):
             try:
               verify.process()
             except ValueError as e:
-              print e
+              self.count_bad += 1
               pass
             try:
               msg = self.type_to_class[m_type](b)
               try:
                 msg.process()
-                self.count += 1
+                self.count_good += 1
                 self.messages += [msg]
               except NotImplementedError:
                 pass
@@ -72,19 +72,60 @@ def process_any_preamble(self):
         try:
           verify.process()
         except ValueError as e:
-          print e
+          self.count_bad += 1
           pass
         try:
           msg = self.type_to_class[m_type](b)
           try:
             msg.process()
-            self.count += 1
+            self.count_good += 1
             self.messages += [msg]
+            print msg.preamble_bitstring
           except NotImplementedError:
             pass
         except:
           pass
 
+def is_inverse(val):
+  if val == '10101100' or val == '01100101' or val == '00111001':
+    return True
+  return False
+
+def process_new(self):
+  p_to_loc = {
+    '01010011': [],
+    '10011010': [],
+    '11000110': [],
+    '10101100': [],
+    '01100101': [],
+    '00111001': []
+  }
+  for idx, value in enumerate(p_to_loc):
+    for m in re.finditer(value, self.bitstring):
+      p_to_loc[value] += [m.start()]
+  for idx, value in enumerate(p_to_loc):
+    locations = p_to_loc[value]
+    for loc in locations:
+      b = self.bitstring[loc:loc + 250]
+      if is_inverse(value) is True:
+        b = ''.join(map(lambda c: chr(ord(c) ^ 1), b))
+      m_type = int(b[8:8 + 6], 2)
+      verify = SbasMsg(b)
+      try:
+        verify.process()
+      except ValueError as e:
+        self.count_bad += 1
+        pass
+      try:
+        msg = self.type_to_class[m_type](b)
+        try:
+          msg.process()
+          self.count_good += 1
+          self.messages += [msg]
+        except NotImplementedError:
+          pass
+      except:
+        pass
 
 class Sbas:
   frame_len = 250
@@ -120,9 +161,10 @@ class Sbas:
       sys.exit(1)
 
     self.prn = prn
-    self.count = 0
+    self.count_good = 0
+    self.count_bad = 0
     self.bitstring = ''
-    self.p_function = process_all_preambles
+    self.p_function = process_any_preamble
 
     for b in bits(self.file):
       self.bitstring += str(b)
@@ -135,24 +177,41 @@ parser = argparse.ArgumentParser(description='Utility to decode SBAS binary file
 def get_args():
   parser.add_argument("file", help="the data file to process")
   parser.add_argument('-p', '--prn', nargs=1, help='PRN of the satellite')
+  parser.add_argument('-c', '--check', nargs=1, help='Type of function to check for preambles [all,any]')
   return parser.parse_args()
 
 
 def main():
   args = get_args()
   prn = args.prn
+  check = args.check
 
   if args.file is None:
     parser.print_help()
     sys.exit(1)
 
+  if check is None:
+    parser.print_help()
+    sys.exit(1)
+
+  check = check[0]
   sbas_proc = Sbas(args.file, prn)
+  if check == 'all':
+    sbas_proc.p_function = process_all_preambles
+  elif check == 'any':
+    sbas_proc.p_function = process_any_preamble
+  elif check == 'new':
+    sbas_proc.p_function = process_new
+  else:
+    parser.print_help()
+    sys.exit(1)
   sbas_proc.p_function(sbas_proc)
 
   for msg in sbas_proc.messages:
     print msg
 
-  print str(args.file) + " has " + str(sbas_proc.count) + " messages."
+  print str(args.file) + " has " + str(sbas_proc.count_good) + " good messages and " + \
+      str(sbas_proc.count_bad) + " bad messages!"
 
 
 if __name__ == '__main__':
