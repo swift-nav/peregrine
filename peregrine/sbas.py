@@ -12,8 +12,12 @@
 import sys
 import argparse
 import re
+import math
 from sbas_msgs import *
+from swiftnav.coord_system import wgsecef2llh
 
+import pprint
+pp = pprint.PrettyPrinter(indent=2)
 
 def bits(f):
   bbytes = (ord(b) for b in f.read())
@@ -86,10 +90,12 @@ def process_any_preamble(self):
         except:
           pass
 
+
 def is_inverse(val):
   if val == '10101100' or val == '01100101' or val == '00111001':
     return True
   return False
+
 
 def process_new(self):
   p_to_loc = {
@@ -112,20 +118,18 @@ def process_new(self):
       m_type = int(b[8:8 + 6], 2)
       verify = SbasMsg(b)
       try:
-        verify.process()
+        verify.check_crc()
       except ValueError as e:
         self.count_bad += 1
         pass
       try:
         msg = self.type_to_class[m_type](b)
-        try:
-          msg.process()
-          self.count_good += 1
-          self.messages += [msg]
-        except NotImplementedError:
-          pass
+        msg.process()
+        self.messages += [msg]
+        self.count_good += 1
       except:
         pass
+
 
 class Sbas:
   frame_len = 250
@@ -135,19 +139,23 @@ class Sbas:
     'inverse': ['10101100', '01100101', '00111001']
   }
   type_to_class = {
+    0: SbasMsgT,
     1: SbasMsgM,
     2: SbasMsgFC,
     3: SbasMsgFC,
     4: SbasMsgFC,
     5: SbasMsgFC,
+    6: SbasMsgII,
     7: SbasMsgFCDF,
     9: SbasMsgGeo,
     10: SbasMsgDegParam,
     12: SbasMsgTime,
-    18: SbasMsgIGPM,
     17: SbasMsgAlm,
+    18: SbasMsgIGPM,
+    24: SbasMsgMC,
     25: SbasMsgLTC,
     26: SbasMsgIDC,
+    27: SbasMsgSM,
     28: SbasMsgCECM,
     62: SbasMsgIT,
     63: SbasMsgNull
@@ -191,10 +199,9 @@ def main():
     sys.exit(1)
 
   if check is None:
-    parser.print_help()
-    sys.exit(1)
-
-  check = check[0]
+    check = 'new'
+  else:
+    check = check[0]
   sbas_proc = Sbas(args.file, prn)
   if check == 'all':
     sbas_proc.p_function = process_all_preambles
@@ -207,8 +214,13 @@ def main():
     sys.exit(1)
   sbas_proc.p_function(sbas_proc)
 
+  counter = {}
+  for item in Sbas.type_to_class:
+    counter[item] = 0
   for msg in sbas_proc.messages:
-    print msg
+    counter[msg.type] += 1
+  for key, val in counter.iteritems():
+    print str(Sbas.type_to_class[key]) + ": " + str(val)
 
   print str(args.file) + " has " + str(sbas_proc.count_good) + " good messages and " + \
       str(sbas_proc.count_bad) + " bad messages!"
