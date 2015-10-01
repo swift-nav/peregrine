@@ -17,27 +17,34 @@ import sys
 import posix
 
 class streamer(gr.top_block):
-    def __init__(self, filenames, dev_addrs,
+    def __init__(self, filenames, dev_addrs, dual,
                  onebit, iq, noise, mix, gain, fs, fc, unint, sync_pps):
         gr.top_block.__init__(self)
-
         if mix:
             raise NotImplementedError("TODO: Hilbert remix mode not implemented.")
 
+        if dual:
+            channels = [0 , 1]
+        else:
+            channels = [0]
         uhd_sinks = [
             uhd.usrp_sink(",".join(
                 [addr, "send_frame_size=32768,num_send_frames=128"]),
                           uhd.stream_args(
                               cpu_format="fc32",
                               otwformat="sc8",
-                              channels=[0]))
+                              channels=channels))
             for addr in dev_addrs]
 
         for sink in uhd_sinks:
-            sink.set_clock_rate(fs*2, uhd.ALL_MBOARDS)
+            sink.set_clock_rate(fs, uhd.ALL_MBOARDS)
             sink.set_samp_rate(fs)
             sink.set_center_freq(fc, 0)
             sink.set_gain(gain, 0)
+            if dual:
+            	sink.set_center_freq(fc, 1)
+            	sink.set_gain(gain, 1)
+            	sink.set_subdev_spec("A:B A:A", 0)
             # TODO Use offset tuning?
             if sync_pps:
                 sink.set_clock_source("external") # 10 MHz
@@ -47,7 +54,7 @@ class streamer(gr.top_block):
             if noise or onebit or not iq:
                 raise NotImplementedError("TODO: RX channel-interleaved mode only "
                                           "supported for noiseless 8-bit complex.")
-            
+
             BLOCK_N=16*1024*1024
             demux = blocks.vector_to_streams(2, len(uhd_sinks))
             self.connect(blocks.file_source(2*len(uhd_sinks)*BLOCK_N, filenames[0], False),
@@ -62,16 +69,19 @@ class streamer(gr.top_block):
                              sink)
 
         else:
-            file_srcs = [blocks.file_source(gr.sizeof_char*1, f, False)
-                         for f in filenames]
-
-            for src, sink in zip(file_srcs, uhd_sinks):
-
+            for i, filename in enumerate(filenames):
+                src = blocks.file_source(gr.sizeof_char*1, filename, False)
+                if dual:
+                    channel = i % 2
+                    sink = uhd_sinks[i/2]
+                else:
+                    channel = 0
+                    sink = uhd_sinks[i]
                 if iq:
                     node = blocks.multiply_const_cc(1.0/1024)
                     if onebit:
                         self.connect(src,
-                                     blocks.unpack_k_bits_bb(8), 
+                                     blocks.unpack_k_bits_bb(8),
                                      blocks.char_to_short(), # [0, 1] -> [0, 256]
                                      blocks.add_const_ss(-128), # [-128, +128],
                                      blocks.interleaved_short_to_complex(), # [ -128.0, +128.0]
@@ -80,7 +90,7 @@ class streamer(gr.top_block):
                         self.connect(src, # [-128..127]
                                      blocks.interleaved_char_to_complex(), # [-128.0, +127.0]
                                      node) # [-0.125, +0.125)
-                    
+
                 else:
                     node = blocks.float_to_complex(1)
                     if onebit:
@@ -93,17 +103,17 @@ class streamer(gr.top_block):
                         self.connect(src, # [-128..127] -> [-0.125, +0.125)
                                      blocks.char_to_float(vlen=1, scale=1024),
                                      node)
-                        
+
                 if noise:
                     combiner = blocks.add_vcc(1)
-                    self.connect(node,
-                                 combiner,
-                                 sink)
+                    self.connect((node, 0),
+                                 (combiner, 0),
+                                 (sink, channel))
                     self.connect(analog.fastnoise_source_c(analog.GR_GAUSSIAN, noise, -222, 8192),
                                  (combiner, 1))
                 else:
-                    self.connect(node,
-                                 sink)
+                    self.connect((node, 0),
+                                 (sink, channel))
 
         print "Setting clocks..."
         if sync_pps:
@@ -125,8 +135,8 @@ class streamer(gr.top_block):
         t_start = uhd.time_spec(time.time() + 1.5)
         [sink.set_start_time(t_start) for sink in uhd_sinks]
         print "ready"
-            
-        
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("files", help="input file(s)", nargs='+')
@@ -153,6 +163,8 @@ if __name__ == '__main__':
                         help="TX gain / dB (%(default).0f)")
     parser.add_argument("-f", dest="fc", default=1.57542e9-4.092e6, type=float,
                         help="Center frequency (%(default).0f)")
+    parser.add_argument("-d", dest="dual", action='store_true',
+                        help="Using dual USRP devices")
     args = parser.parse_args()
 
     if not args.eightbit and not args.onebit:
@@ -175,7 +187,7 @@ if __name__ == '__main__':
     tb = streamer(filenames=args.files, dev_addrs=args.addrs,
                   onebit=args.onebit, iq=args.iq, noise=args.noise,
                   mix=args.mix, gain=args.gain, fs=args.fs, fc=args.fc,
-                  unint=args.unint,
+                  unint=args.unint, dual = args.dual,
                   sync_pps=args.pps)
     tb.start()
     tb.wait()
