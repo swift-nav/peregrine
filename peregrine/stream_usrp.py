@@ -11,15 +11,27 @@ from gnuradio import blocks
 from gnuradio import eng_notation
 from gnuradio import gr
 from gnuradio import uhd
+from gnuradio import gru
 import time
 import argparse
 import sys
 import posix
 
+from cStringIO import StringIO
+import sys
+
+
+class output_stream():
+    def __init__(self):
+        self.stdout = " "
+    def write(self, string):
+        self.stdout += string
+
 class streamer(gr.top_block):
     def __init__(self, filenames, dev_addrs, dual,
                  onebit, iq, noise, mix, gain, fs, fc, unint, sync_pps):
         gr.top_block.__init__(self)
+        self.uhd_amsg_source = gr.msg_queue(0)
         if mix:
             raise NotImplementedError("TODO: Hilbert remix mode not implemented.")
 
@@ -35,8 +47,13 @@ class streamer(gr.top_block):
                               otwformat="sc8",
                               channels=channels))
             for addr in dev_addrs]
-
-        for sink in uhd_sinks:
+        self.msg_src = uhd.amsg_source("", msgq=self.uhd_amsg_source)
+        self.async_rcv = gru.msgq_runner(self.uhd_amsg_source, self.async_callback)
+        
+        for sink in uhd_sinks:  
+            a= sink.get_usrp_info()
+            for each in a.keys():
+              print each + " : " + a.get(each)
             sink.set_clock_rate(fs, uhd.ALL_MBOARDS)
             sink.set_samp_rate(fs)
             sink.set_center_freq(fc, 0)
@@ -135,9 +152,13 @@ class streamer(gr.top_block):
         t_start = uhd.time_spec(time.time() + 1.5)
         [sink.set_start_time(t_start) for sink in uhd_sinks]
         print "ready"
-
+  
+    def async_callback(self, msg):
+        print "got a message"
 
 if __name__ == '__main__':
+    if gr.enable_realtime_scheduling() != gr.RT_OK:
+         print " Real time scheduling error"
     parser = argparse.ArgumentParser()
     parser.add_argument("files", help="input file(s)", nargs='+')
     group = parser.add_mutually_exclusive_group(required=False)
@@ -165,6 +186,8 @@ if __name__ == '__main__':
                         help="Center frequency (%(default).0f)")
     parser.add_argument("-d", dest="dual", action='store_true',
                         help="Using dual USRP devices")
+    parser.add_argument("-o", dest="outfile", default="out.txt",
+                        help="Route Python stdout/stderr to this file")
     args = parser.parse_args()
 
     if not args.eightbit and not args.onebit:
@@ -183,7 +206,10 @@ if __name__ == '__main__':
     if args.unint and len(args.files) > 1:
         print "Interleaved channel mode (-i) specified, but more than one file given."
         sys.exit(posix.EX_USAGE)
-
+    if args.outfile:
+      stdout = open(args.outfile, "w+")
+      sys.stdout=stdout
+      sys.stderr=stdout
     tb = streamer(filenames=args.files, dev_addrs=args.addrs,
                   onebit=args.onebit, iq=args.iq, noise=args.noise,
                   mix=args.mix, gain=args.gain, fs=args.fs, fc=args.fc,
@@ -191,3 +217,4 @@ if __name__ == '__main__':
                   sync_pps=args.pps)
     tb.start()
     tb.wait()
+    stdout.close()
