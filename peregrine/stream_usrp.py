@@ -21,17 +21,11 @@ from cStringIO import StringIO
 import sys
 
 
-class output_stream():
-    def __init__(self):
-        self.stdout = " "
-    def write(self, string):
-        self.stdout += string
 
 class streamer(gr.top_block):
     def __init__(self, filenames, dev_addrs, dual,
                  onebit, iq, noise, mix, gain, fs, fc, unint, sync_pps):
         gr.top_block.__init__(self)
-        self.uhd_amsg_source = gr.msg_queue(0)
         if mix:
             raise NotImplementedError("TODO: Hilbert remix mode not implemented.")
 
@@ -47,10 +41,8 @@ class streamer(gr.top_block):
                               otwformat="sc8",
                               channels=channels))
             for addr in dev_addrs]
-        self.msg_src = uhd.amsg_source("", msgq=self.uhd_amsg_source)
-        self.async_rcv = gru.msgq_runner(self.uhd_amsg_source, self.async_callback)
-        
-        for sink in uhd_sinks:  
+
+        for sink in uhd_sinks:
             a= sink.get_usrp_info()
             for each in a.keys():
               print each + " : " + a.get(each)
@@ -152,11 +144,52 @@ class streamer(gr.top_block):
         t_start = uhd.time_spec(time.time() + 1.5)
         [sink.set_start_time(t_start) for sink in uhd_sinks]
         print "ready"
-  
-    def async_callback(self, msg):
-        print "got a message"
 
-if __name__ == '__main__':
+def cleanup_USRP_stuff():
+  pass
+
+
+# This function should behave exactly as MAIN, except it errors out
+# as soon as any of the USRP errors are encountered.  It should be run in
+# a fashion like this:
+# PYTHONPATH=. python -c "import peregrine.stream_usrp; peregrine.stream_usrp.main_capture_errors()"
+# ... -1 -u name=MyB210 -d -g30 peregrine/sample_2015_09_11_18-47-11.1bit peregrine/a
+
+def main_capture_errors():
+    import subprocess
+    import sys
+    import datetime
+    import time
+    args = sys.argv
+    args.pop(0)
+    args.insert(0,"peregrine/stream_usrp.py")
+    print args
+    proc = subprocess.Popen(args,
+                            stderr=subprocess.PIPE)
+    out_str=""
+    while proc.poll() == None:
+      a = proc.stderr.read(1)
+      if a == 'U':
+        print "Stream_usrp exiting due to Underflow at time {0}".format(str(datetime.datetime.now()))
+        proc.kill()
+        sys.exit(2)
+      if a == 'L':
+        print "Stream_usrp exiting due to Undeflow at time {0}".format(str(dateime.datetime.now()))
+        proc.kill()
+        sys.exit(3)
+      if a == "\n":
+        sys.stderr.write(out_str)
+        out_str = ""
+      else:
+        out_str += a
+    # Sleep for a second before exiting if it's not one of the cases we handle specially
+    time.sleep(1)
+    out_str += proc.stderr.read()
+    if out_str != "":
+      sys.stderr.write(out_str)
+    return proc.returncode
+
+def main():
     if gr.enable_realtime_scheduling() != gr.RT_OK:
          print " Real time scheduling error"
     parser = argparse.ArgumentParser()
@@ -218,3 +251,6 @@ if __name__ == '__main__':
     tb.start()
     tb.wait()
     stdout.close()
+if __name__ == '__main__':
+    main()
+
