@@ -14,12 +14,14 @@ import argparse
 import cPickle
 import logging
 from operator import attrgetter
+import numpy as np
 
 from peregrine.samples import load_samples
 from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
 from peregrine.navigation import navigation
 from peregrine.tracking import track
 from peregrine.log import default_logging_config
+import defaults
 
 from initSettings import initSettings
 
@@ -41,9 +43,9 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
-  parser.add_argument("-f", "--file-format", default="piksi",
+  parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
-                      "(e.g. 'piksi', 'int8', '1bit')")
+                      "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
   args = parser.parse_args()
   settings.fileName = args.file
 
@@ -65,8 +67,7 @@ def main():
     acq_samples = load_samples(args.file, 11*samplesPerCode,
                                settings.skipNumberOfBytes,
                                file_format=args.file_format)
-    acq = Acquisition(acq_samples, settings.samplingFreq, settings.IF,
-                      samplesPerCode)
+    acq = Acquisition(acq_samples)
     acq_results = acq.acquisition()
 
     try:
@@ -98,9 +99,10 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq*1e-3*(settings.msToProcess+1)),
+                          int(settings.samplingFreq*1e-3*(settings.msToProcess+22)),
+                          settings.skipNumberOfBytes,
                           file_format=args.file_format)
-    track_results = track(signal, acq_results, settings)
+    track_results = track(signal, acq_results, settings.msToProcess)
     try:
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
@@ -116,10 +118,16 @@ def main():
     nav_results = []
     for s, t in nav_solns:
       nav_results += [(t, s.pos_llh, s.vel_ned)]
-    with open(nav_results_file, 'wb') as f:
-      cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-    logging.debug("Saving navigation results as '%s'" % nav_results_file)
+    if len(nav_results):
+      print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
+        nav_results[0][0],
+        np.degrees(nav_results[0][1][0]), np.degrees(nav_results[0][1][1]), nav_results[0][1][2],
+        nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
+      with open(nav_results_file, 'wb') as f:
+        cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+      print "and %d more are cPickled in '%s'." % (len(nav_results)-1, nav_results_file)
+    else:
+      print "No navigation results."
 
 if __name__ == '__main__':
   main()
-

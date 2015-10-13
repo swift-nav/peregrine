@@ -7,27 +7,21 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+import defaults
+
 class initSettings:
   def __init__(self):
-    self.plotTrackingLowInds  = range(1)
-    self.plotTrackingLowCorr  = True
-    self.plotTrackingLowDisc  = True
-    self.plotTrackingNumPts   = 200
 
-    self.msToProcess          = 37000
-    self.numberOfChannels     = 8
-    self.skipNumberOfBytes    = 16368
-    #dataType             = 'int8'
-    self.IF                   = 4.092e6        #Hz
-    self.samplingFreq         = 16.368e6       #Hz
-    self.codeFreqBasis        = 1.023e6        #Hz
-    self.codeLength           = 1023
-  #  samplesPerCode       = int(round(samplingFreq / (codeFreqBasis / codeLength)))
-    self.navSolPeriod         = 500    #ms
-    self.elevationMask        = 10     #degrees
-    self.useTropCorr          = True
-    self.truePositionE        = float('NaN')
-    self.truePositionN        = float('NaN')
-    self.truePositionU        = float('NaN')
-    self.c                    = 299792458
-    self.startOffset          = 68.802
+    self.msToProcess          = 39000
+    self.skipNumberOfBytes    = 1000+(16368*87)
+    self.IF                   = defaults.IF
+    self.samplingFreq         = defaults.sampling_freq
+    self.codeFreqBasis        = defaults.chipping_rate
+    self.codeLength           = defaults.code_length
+    self.acqThreshold         = 21.0    # SNR (unitless)
+    self.acqSanityCheck       = True    # Check for sats known to be below the horizon
+    self.navSanityMaxResid    = 25.0    # meters per SV, normalized nav residuals
+    self.abortIfInsane        = True    # Abort the whole attempt if sanity check fails
+    self.useCache             = True
+    self.cacheDir             = 'cache'
+    self.ephemMaxAge          = 4 * 3600.0 # Reject an ephemeris entry if older than this

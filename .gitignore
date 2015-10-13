@@ -16,3 +16,6 @@ docs/_static/acq_analysis_acq_plot_3d.png
 docs/_static/acq_analysis_peak_plot.png
 docs/_static/acq_analysis_snr_bars.png
 RELEASE-VERSION
+dist/
+CMakeFiles/
+build/
