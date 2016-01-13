@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-
 # Copyright (C) 2015 Swift Navigation Inc.
+# Contact: Fergus Noble <fergus@swiftnav.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -9,12 +9,12 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import sys
-import argparse
-import re
-import math
 from sbas_msgs import *
-from swiftnav.coord_system import wgsecef2llh
+from swiftnav.coord_system import wgsecef2llh_
+import argparse
+import math
+import re
+import sys
 
 import pprint
 pp = pprint.PrettyPrinter(indent=2)

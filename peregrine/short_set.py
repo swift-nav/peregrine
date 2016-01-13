@@ -10,23 +10,22 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import peregrine.gps_constants as gps
-import peregrine.samples
-import peregrine.acquisition
-import peregrine.warm_start
-from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
-from peregrine.gps_time import datetime_to_tow
-
-import numpy as np
+from datetime import datetime, timedelta
 from numpy import dot
 from numpy.linalg import norm
+from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
+from peregrine.gps_time import datetime_to_tow
 from scipy.optimize import fmin, fmin_powell
-import math
-import hashlib
-from datetime import datetime, timedelta
-import os, os.path
-import cPickle
 from warnings import warn
+import cPickle
+import hashlib
+import math
+import numpy as np
+import os, os.path
+import peregrine.acquisition
+import peregrine.gps_constants as gps
+import peregrine.samples
+import peregrine.warm_start
 
 import logging
 logger = logging.getLogger(__name__)
@@ -80,17 +79,12 @@ def nav_bit_hypotheses(n_ms):
 def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False, coherent = 0, nav_bit_hypoth = None):
     from swiftnav.correlate import track_correlate
     code_freq_shift = (doppler / gps.l1) * gps.chip_rate
-
     samples_per_chip = settings.samplingFreq / (gps.chip_rate + code_freq_shift)
     samples_per_code = samples_per_chip * gps.chips_per_code
-
     numSamplesToSkip = round(code_phase * samples_per_chip)
-
     remCodePhase = (1.0 * numSamplesToSkip / samples_per_chip) - code_phase
     remCarrPhase = 0.0
-
     n_ms = int((len(signal) - numSamplesToSkip) / samples_per_code)
-
     i_p = []
     q_p = []
     i_c = []
@@ -99,7 +93,7 @@ def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False,
     costas_q = 0.0
     for loopCnt in range(n_ms):
         rawSignal = signal[numSamplesToSkip:]#[:blksize_]
-        I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate(
+        I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate_(
                             rawSignal,
                             code_freq_shift + gps.chip_rate,
                             remCodePhase,
@@ -109,7 +103,6 @@ def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False,
         #print "@ %d, I_P = %.0f, Q_P = %.0f" % (loopCnt, I_P, Q_P)
         i_p.append(I_P)
         q_p.append(Q_P)
-
         if coherent == 0:
             Q_C = 0
             I_C = math.sqrt(I_P**2 + Q_P**2)
@@ -127,12 +120,10 @@ def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False,
                 Q_C = Q_P * nav_bit_hypoth[loopCnt]
         else:
             raise ValueError("'coherent' should be 0, 0.5 or 1")
-
         i_c.append(I_C)
         q_c.append(Q_C)
         costas_i += I_C
         costas_q += Q_C
-
     if plot:
         ax = plt.figure(figsize=(5,5)).gca()
         ax.plot(i_p, q_p, '.')

@@ -1,3 +1,6 @@
+*.*~
+__pycache__/
+
 *.pyc
 
 *.acq_results
@@ -7,6 +10,24 @@ fftw_wisdom
 .DS_Store
 Peregrine.egg*
 distribute-*
+
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 
 docs/_build
 docs/api
@@ -19,3 +40,8 @@ RELEASE-VERSION
 dist/
 CMakeFiles/
 build/
+
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt

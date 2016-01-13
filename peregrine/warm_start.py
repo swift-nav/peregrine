@@ -1,21 +1,31 @@
+#!/usr/bin/env python
+# Copyright (C) 2012 - 2016 Swift Navigation Inc.
+# Contact: Fergus Noble <fergus@swiftnav.com>
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
+from math import degrees, radians, acos
+from numpy.linalg import norm
+from peregrine.gps_time import datetime_to_tow
+import os, os.path, shutil
+import peregrine.acquisition as acquisition
 import peregrine.almanac as almanac
 import peregrine.ephemeris as ephemeris
-import peregrine.acquisition as acquisition
 import peregrine.gps_constants as gps
-from peregrine.gps_time import datetime_to_tow
-
 import swiftnav.coord_system
 
-from numpy.linalg import norm
-from math import degrees, radians, acos
-import os, os.path, shutil
 import logging
 logger = logging.getLogger(__name__)
 
 def horizon_dip(r):
     # Approximation to the dip angle of the horizon.
-    lat, lon, height = swiftnav.coord_system.wgsecef2llh(r[0], r[1], r[2])
-    r_e = norm(swiftnav.coord_system.wgsllh2ecef(lat, lon, 0))
+    lat, lon, height = swiftnav.coord_system.wgsecef2llh_(r[0], r[1], r[2])
+    r_e = norm(swiftnav.coord_system.wgsllh2ecef_(lat, lon, 0))
     return degrees(-acos(r_e / norm(r_e + height)))
 
 def whatsup(ephem, r, t, mask = None):
@@ -26,7 +36,7 @@ def whatsup(ephem, r, t, mask = None):
     for prn in ephem:
         pos, _, _, _ = ephemeris.calc_sat_pos(ephem[prn], tow, wk,
                                               warn_stale = False)
-        az, el = swiftnav.coord_system.wgsecef2azel(pos, r)
+        az, el = swiftnav.coord_system.wgsecef2azel_(pos, r)
         if ephem[prn]['healthy'] and degrees(el) > mask:
             satsup.append(prn)
     return satsup
@@ -40,7 +50,7 @@ def whatsdown(ephem, r, t, mask = -45):
     for prn in ephem:
         pos, _, _, _ = ephemeris.calc_sat_pos(ephem[prn], tow, wk,
                                               warn_stale = False)
-        az, el = swiftnav.coord_system.wgsecef2azel(pos, r)
+        az, el = swiftnav.coord_system.wgsecef2azel_(pos, r)
         if degrees(el) < mask:
             satsdown.append(prn)
     return satsdown
