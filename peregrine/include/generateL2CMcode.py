@@ -24,6 +24,7 @@ __xor_mask ^= 1 << 21
 __xor_mask ^= 1 << 24
 __or_mask = 1 << 26
 
+
 def generateL2CMcode(PRN):
   """
   The function generates PRN sequence for a particular SV.
@@ -40,7 +41,7 @@ def generateL2CMcode(PRN):
 
   #--- Initial states for shift register for each PRN[1..32], ---------------
   # see IS-GPS-200H, Table 3-IIa
-  initL2CM = [\
+  initL2CM = [
       0742417664,  # PRN 1
       0756014035,
       0002747144,
@@ -99,4 +100,3 @@ def generateL2CMcode(PRN):
 L2CMCodes = np.empty((32, 10230), dtype=np.int8)
 for PRN in range(32):
   L2CMCodes[PRN][:] = generateL2CMcode(PRN)[0]
-
