@@ -1,4 +1,6 @@
-# Copyright (C) 2012 Swift Navigation Inc.
+#!/usr/bin/env python
+# Copyright (C) 2012-2016 Swift Navigation Inc.
+# Contact: Fergus Noble <fergus@swiftnav.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -7,12 +9,12 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import numpy as np
 from initSettings import initSettings
 import datetime
+import numpy as np
 import swiftnav.nav_msg
-import swiftnav.track
 import swiftnav.pvt
+import swiftnav.track
 import sys
 
 def extract_ephemerides(track_results):
@@ -31,10 +33,8 @@ def extract_ephemerides(track_results):
       if tow is not None:
         #print tr.prn, tow
         tow_indicies[n] = (i, tow)
-
     if nav_msgs[n].eph_valid:
       ephems[tr.prn] = (nav_msgs[n], tow_indicies[n])
-
   return ephems
 
 def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
@@ -64,12 +64,10 @@ def make_nav_meas(cmss, ephems):
 
 def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
   nms = []
-
   TOTs = np.empty(len(track_results))
   prrs = np.empty(len(track_results))
   prs = np.empty(len(track_results))
   mean_TOT = 0
-
   for i in len(track_results):
     tow_i, tow_e = ephems[track_results[i].prn][1]
     tow = tow_e + (ms - tow_i)
@@ -77,24 +75,16 @@ def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
     TOTs[i] += tr.code_phase[ms] / 1.023e6
     TOTs[i] += (ms/1000.0 - track_results[i].absolute_sample[ms]/sampling_freq) * \
                track_results[i].code_freq[ms] / 1.023e6
-
     mean_TOT += TOTs[i]
     prrs[i] = 299792458 * -(track_results[i].carr_freq[ms] - IF) / 1.57542e9;
-
   mean_TOT = mean_TOT/len(track_channels)
-
   clock_err, clock_rate_err = (0,0)
-
   #double az, el;
-
   ref_ecef = np.array([3428027.88064438,   603837.64228578,  5326788.33674493])
-
   for i in len(track_results):
     prs[i] = (mean_TOT - TOTs[i])*299792458 + 22980e3
-
     #calc_sat_pos(nav_meas[i]->sat_pos, nav_meas[i]->sat_vel, &clock_err, &clock_rate_err, ephemerides[i], TOTs[i]);
     #wgsecef2azel(nav_meas[i]->sat_pos, ref_ecef, &az, &el);
-
     #nav_meas[i]->pseudorange -= tropo_correction(el);
     prs[i] += clock_err*299792458
     prrs[i] -= clock_rate_err*299792458
@@ -109,19 +99,13 @@ def navigation(track_results, settings, ephems=None, mss=range(10000, 35000, 200
 
   if ephems is None:
     ephems = extract_ephemerides(track_results)
-
   track_results = [tr for tr in track_results if tr.status == 'T' and tr.prn in ephems]
-
   if len(track_results) < 4:
     raise Exception('Too few satellites to calculate nav solution')
-
   cmss = [make_chan_meas(track_results, ms, ephems,
                          settings.samplingFreq, settings.IF) for ms in mss]
-
   nms = make_nav_meas(cmss, ephems)
-
   ss = make_solns(nms)
-
   wn = ephems.values()[0][0].gps_week_num()
   ts = []
   for s in ss:
@@ -200,4 +184,3 @@ def nav_stats(nav_solns):
   means = np.mean(xyzs, axis=0)
   vars = np.var(xyzs, axis=0)
   return (means, vars, np.sqrt(np.sum(vars)))
-

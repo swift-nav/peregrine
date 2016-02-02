@@ -1,11 +1,11 @@
-from peregrine.gps_time import datetime_to_tow
-import peregrine.gps_constants as gps
 from datetime import datetime, timedelta
-import numpy as np
+from math import radians, degrees, sin, cos, asin, acos, sqrt, fabs, atan2
 from numpy import dot
 from numpy.linalg import norm
-from math import radians, degrees, sin, cos, asin, acos, sqrt, fabs, atan2
+from peregrine.gps_time import datetime_to_tow
+import numpy as np
 import os, os.path, subprocess
+import peregrine.gps_constants as gps
 import urllib
 
 def load_rinex_nav_msg(filename, t, settings):

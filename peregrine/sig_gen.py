@@ -1,4 +1,14 @@
 #!/usr/bin/env python
+# Copyright (C) 2012 - 2016 Swift Navigation Inc.
+# Contact: Fergus Noble <fergus@swiftnav.com>
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
 from datetime import datetime, timedelta
 import argparse
 import dateutil.parser
@@ -113,7 +123,7 @@ def interp_pv(traj, t, smoothify=False):
     else:
         x1 = x01
     return x1
-        
+
 def interp_p(traj, t, causal=True):
     # Find the entry in the trajectory table just preceding t
     idx = max(0, np.argmax(traj[:,0] > t) - 1)
@@ -199,9 +209,9 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
         # Polynomials from libswiftnav:nav_msg.c
         polys = [0xBB1F34A0, 0x5D8F9A50, 0xAEC7CD08,
                  0x5763E684, 0x6BB1F342, 0x8B7A89C1]
-        
+
         x <<= 6 # Make room for the parity bits
-        
+
         if D30star:
             x |= 1<<30
 
@@ -226,7 +236,7 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
 
     def enc(val, scale, bits):
         return np.round(val / (2**scale)).astype(np.int64) & (2**bits - 1)
-    
+
     def gen_sf1(ephem):
         ura_thres=[0, 2.4, 3.4, 4.85, 6.85, 9.65, 13.65, 24, 48, 96, 192,
                    384, 768, 1536, 3072, 6144]
@@ -248,7 +258,7 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
                      enc(ephem['af1'], -43, 16),
                  10: enc(ephem['af0'], -31, 22) << 2 }
         return [word[n] for n in range(3,11)]
-    
+
     def gen_sf2(ephem):
         m0 = enc(ephem['m0'] / gps.pi, -31, 32)
         e = enc(ephem['ecc'], -33, 32)
@@ -268,7 +278,7 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
                      0b01111100  # fit interval + aodo from rx nav msg archive
         }
         return [word[n] for n in range(3,11)]
-    
+
     def gen_sf3(ephem):
         omega0 = enc(ephem['omega0'] / gps.pi, -31, 32)
         inc = enc(ephem['inc'] / gps.pi, -31, 32)
@@ -287,7 +297,7 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
                 enc(ephem['inc_dot'] / gps.pi, -43, 14) << 2
         }
         return [word[n] for n in range(3,11)]
-    
+
     def gen_sf4(ephem):
         # Just copy some stuff from the air (PRN01, 2015-05-25 00:00:00)
         navbits = [511488068, 945940202, 386273405, 48194904,
@@ -298,9 +308,9 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
             words.append((rxword >> 6) ^ (0xFFFFFF * d30star))
             d30star = rxword & 1
         return words
-    
+
     def gen_sf5(ephem):
-        navbits = [293620849, 834459796, 1062420482, 675506260, 
+        navbits = [293620849, 834459796, 1062420482, 675506260,
                    742955800, 606233551, 115587165, 981462416]
         d30star = 0
         words = []
@@ -313,10 +323,10 @@ def gen_nav_msg(ephem, tow0, n_subframes=5*25):
     for subframe_ix in range(n_subframes):
         subframe_id = (subframe_ix % 5) + 1  # 1,2,3,4,5
         tlm = 0b100010110000110011011000 # From received nav msg archive
-        
+
         trunc_tow = tow0 / 6 + subframe_ix + 1 # Start of next sf
         how = (trunc_tow << 7) | (0b01 << 5) | (subframe_id << 2)
-        
+
         words = [tlm, how]
         if subframe_id == 1:
             words += (gen_sf1(ephem))
@@ -370,7 +380,7 @@ def gen_signal(ephems, traj,
             s = np.int8(s * scale)
             ss.append(s)
         return np.concatenate(ss)
-    
+
     sss = pp.parmap(lambda i: gen_chunk(i, min(chunk_len, len(step_t)-i)),
                     range(0, len(step_t), chunk_len))
     return np.concatenate(sss)
@@ -444,32 +454,29 @@ def main():
     if not args.t_run:
         args.t_run = max(traj[-1][0] - args.t_start, 60)
         print "Run length not specified; using %.1f seconds" % args.t_run
-        
+
     gpst0 = dateutil.parser.parse(args.gps_time)
 
-    settings = peregrine.initSettings.initSettings()        
+    settings = peregrine.initSettings.initSettings()
     ephems = eph.obtain_ephemeris(gpst0, settings)
 
     if args.prns:
         prns = [int(p) - 1 for p in args.prns.split(',')]
     else:
         [x,y,z] = interp_pv(traj, args.t_start)[0]
-        [lat,lon,h] = coord.wgsecef2llh(x,y,z)
+        [lat,lon,h] = coord.wgsecef2llh_(x, y, z)
         print "Finding satellites visible above %.2f, %.2f, %.0f on %s" % (
             np.degrees(lat), np.degrees(lon), h,
             gpst0 + timedelta(seconds=args.t_start))
         prns = peregrine.warm_start.whatsup(ephems, [x,y,z], gpst0, mask=10)
     print "Using PRNs:", [p + 1 for p in prns]
-
     print "Generating samples..."
     s = gen_signal(ephems, traj, gpst0, repair_unsmooth=args.repair,
                    t_run=args.t_run, t_skip=args.t_start, t_step=args.t_step,
                    fs=args.fs, fi=args.fi, prns=prns)
-    
     if args.noise:
         print "Adding noise..."
         add_noise(s, args.noise)
-
     print "Writing output..."
     peregrine.samples.save_samples(args.outfile, s, file_format=args.outformat)
     print "Saved", args.outfile
