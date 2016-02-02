@@ -91,12 +91,6 @@ Building and Installing
   system package manager. For Mac OS X we recommend using `Homebrew
   <http://mxcl.github.com/homebrew/>`_.
 
-.. note::
-
-  Installation requires `Distribute <http://pypi.python.org/pypi/distribute>`_,
-  if your python installation doesn't provide this it will automatically be
-  installed.
-
 To install Peregrine (from the root of the source tree)::
 
     $ python setup.py install
