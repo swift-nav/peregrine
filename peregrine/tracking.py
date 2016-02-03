@@ -81,21 +81,6 @@ class TrackingLoop(object):
     """
     raise NotImplementedError()
 
-default_loop_filter = swiftnav.track.SimpleTrackingLoop(
-  (2, 0.7, 1),     # Code loop NBW, zeta, k
-  (25, 0.7, 0.25), # Carrier loop NBW, zeta, k
-  1e3              # Loop frequency
-)
-
-aided_loop_filter = swiftnav.track.AidedTrackingLoop(
-  (1, 0.7, 1),     # Code loop NBW, zeta, k
-  (25, 0.7, 1),    # Carrier loop NBW, zeta, k
-  1e3,             # Loop frequency
-  5,               # Carrier loop aiding_igain
-  1540             # Carrier-to-code freq ratio (carrier aiding)
-)
-
-
 def track(samples, channels,
           ms_to_track=None,
           sampling_freq=defaults.sampling_freq,
@@ -110,7 +95,7 @@ def track(samples, channels,
             5,               # Carrier loop aiding_igain
             1540
           ),
-          correlator=swiftnav.correlate.track_correlate,
+          correlator=swiftnav.correlate.track_correlate_,
           stage2_coherent_ms=None,
           stage2_loop_filter_params=None,
           multi=True):
@@ -163,19 +148,34 @@ def track(samples, channels,
 
   # Run tracking for each channel
   def do_channel(chan, n=None, q_progress=None):
-    loop_filter = loop_filter_class(*stage1_loop_filter_params)
     track_result = TrackResults(num_points, chan.prn)
 
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
     cn0_0 += 10 * np.log10(1000) # Channel bandwidth
-    cn0_est = swiftnav.track.CN0Estimator(1e3, cn0_0, 10, 1e3)
+    cn0_est = swiftnav.track.CN0Estimator(bw=1e3,
+                                          cn0_0=cn0_0,
+                                          cutoff_freq=10,
+                                          loop_freq=1e3)
 
     # Estimate initial code freq via aiding from acq carrier freq
     code_freq_init = (chan.carr_freq - IF) * \
                      gps_constants.chip_rate / gps_constants.l1
-    code_freq_init = 0
-    loop_filter.start(code_freq_init, chan.carr_freq - IF)
+#    code_freq_init = 0
+    carr_freq_init = chan.carr_freq - IF
+    loop_filter = loop_filter_class(
+      loop_freq = stage1_loop_filter_params[2], \
+      code_freq = code_freq_init, \
+      code_bw = stage1_loop_filter_params[0][0],
+      code_zeta = stage1_loop_filter_params[0][1],
+      code_k = stage1_loop_filter_params[0][2],
+      carr_to_code = stage1_loop_filter_params[4],
+      carr_freq = carr_freq_init, \
+      carr_bw = stage1_loop_filter_params[1][0],
+      carr_zeta = stage1_loop_filter_params[1][1],
+      carr_k = stage1_loop_filter_params[1][2],
+      carr_freq_b1 = stage1_loop_filter_params[3],
+    )
     code_phase = 0.0
     carr_phase = 0.0
 
@@ -211,9 +211,10 @@ def track(samples, channels,
         #print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1, ms_tracked)
         stage1 = False
         loop_filter.retune(*stage2_loop_filter_params)
-        cn0_est = swiftnav.track.CN0Estimator(1e3/stage2_coherent_ms,
-                                              track_result.cn0[i-1], 10,
-                                              1e3/stage2_coherent_ms)
+        cn0_est = swiftnav.track.CN0Estimator(bw=1e3/stage2_coherent_ms,
+                                              cn0_0=track_result.cn0[i-1],
+                                              cutoff_freq=10,
+                                              loop_freq=1e3/stage2_coherent_ms)
 
       coherent_ms = 1 if stage1 else stage2_coherent_ms
 
