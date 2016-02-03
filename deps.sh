@@ -16,7 +16,7 @@ function install_deps_debian () {
          build-essential \
          python-numpy \
          python-dev \
-         cython
+         cython \
          python-cython \
          python-dev
     git submodule update --init
