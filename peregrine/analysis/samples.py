@@ -25,7 +25,7 @@ matplotlib.rc('mathtext', fontset='stixsans')
 import logging
 logger = logging.getLogger(__name__)
 
-ANALYSIS_MAX_LEN = 2e6
+ANALYSIS_MAX_LEN = 2000000
 
 def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX_LEN):
   """

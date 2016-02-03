@@ -287,8 +287,8 @@ class Acquisition:
 
       # Shift the signal in the frequency domain to remove the carrier
       # i.e. mix down to baseband.
-      shift = round(float(freq) * len(self.short_samples_ft[0]) /
-                  self.sampling_freq)
+      shift = int((float(freq) * len(self.short_samples_ft[0]) /
+                  self.sampling_freq) + 0.5)
 
       # Search over the possible nav bit offset intervals
       for offset_i in range(len(self.offsets)):
@@ -435,8 +435,8 @@ class Acquisition:
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
       pbar = progressbar.ProgressBar(widgets=widgets,
-                                     maxval=len(prns) *
-                                     (2 * doppler_search / doppler_step + 1))
+                                     maxval=int(len(prns) *
+                                     (2 * doppler_search / doppler_step + 1)))
       pbar.start()
     else:
       pbar = None
