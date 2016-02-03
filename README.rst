@@ -51,8 +51,7 @@ and requires an additional two packages:
 
 On Ubuntu these can be installed from the repositories::
 
-    $ sudo apt-get install python-numpy python-fftw python-matplotlib \
-libfftw3-dev
+    $ sudo apt-get install python-numpy python-fftw python-matplotlib libfftw3-dev
     $ pip install git+https://github.com/fnoble/python-progressbar.git
 
 .. note::
@@ -125,8 +124,7 @@ additional packages:
 
 These packages can be installed on Ubuntu 12.04 or later::
 
-    $ sudo apt-get install python-sphinx python-matplotlib ipython \
-texlive-full dvipng
+    $ sudo apt-get install python-sphinx python-matplotlib ipython texlive-full dvipng
     $ sudo pip install numpydoc
 
 To build the Peregrine documentation, execute the following commands::

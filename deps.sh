@@ -36,6 +36,11 @@ function install_deps_debian () {
 
 function install_deps_osx () {
     # TODO: Add OS X brew installation dependencies
+    if [[ ! -x /usr/local/bin/brew ]]; then
+        echo "You're missing Homebrew!"
+        exit 1
+    fi
+    brew install fftw
     git submodule update --init
     # Build and install libswiftnav
     cd libswiftnav/
