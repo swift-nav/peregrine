@@ -29,7 +29,7 @@ function install_deps_debian () {
     sudo make install
     cd ../python
     python setup.py build && python setup.py install
-    cd ../../../
+    cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
 }
@@ -46,7 +46,7 @@ function install_deps_osx () {
     sudo make install
     cd ../python
     python setup.py build && python setup.py install
-    cd ../../../
+    cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
 }
