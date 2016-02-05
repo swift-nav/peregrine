@@ -13,7 +13,7 @@ class initSettings:
   def __init__(self):
 
     self.msToProcess          = 39000
-    self.skipNumberOfBytes    = 1000+(16368*87)
+    self.skipNumberOfBytes    = 0
     self.IF                   = defaults.IF
     self.samplingFreq         = defaults.sampling_freq
     self.codeFreqBasis        = defaults.chipping_rate
