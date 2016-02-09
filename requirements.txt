@@ -4,9 +4,6 @@ numpy>=1.9
 # This is the default index.
 --index-url https://pypi.python.org/simple/
 
-# Install swiftnav from the included submodule
--e ./libswiftnav/python/
-
 # Peregrine makes use of some extensions to the progressbar library
 # that are not yet merged upstream
 -e git+https://github.com/fnoble/python-progressbar.git#egg=progressbar
