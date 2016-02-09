@@ -27,8 +27,6 @@ function install_deps_ubuntu_maybe () {
     cmake ../
     make
     sudo make install
-    cd ../python
-    python setup.py build && python setup.py install
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
@@ -57,9 +55,6 @@ function install_deps_debian_jessie_or_stretch () {
     sudo ldconfig
     # Don't think we need to build/install the libswiftnav python
     # bindings; the peregrine pip install will do that for us.
-#    cd ../python
-#    python setup.py build
-#    sudo python setup.py install
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
@@ -80,8 +75,6 @@ function install_deps_osx () {
     cmake ../
     make
     sudo make install
-    cd ../python
-    python setup.py build && python setup.py install
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
