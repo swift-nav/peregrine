@@ -164,7 +164,6 @@ def track(samples, channels,
     code_freq_init = (chan.carr_freq - IF) * \
                      gps_constants.chip_rate / gps_constants.l1
     carr_freq_init = chan.carr_freq - IF
-    print "before loop_filter_class"
     loop_filter = loop_filter_class(
       loop_freq = stage1_loop_filter_params[2], \
       code_freq = code_freq_init, \
@@ -212,9 +211,7 @@ def track(samples, channels,
       if stage1 and stage2_coherent_ms and track_result.nav_msg.bit_phase == track_result.nav_msg.bit_phase_ref:
         #print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1, ms_tracked)
         stage1 = False
-        print "using loop_filter"
         loop_filter.retune(*stage2_loop_filter_params)
-        print "creating cn0_est"
         cn0_est = swiftnav.track.CN0Estimator(bw=1e3/stage2_coherent_ms,
                                               cn0_0=track_result.cn0[i-1],
                                               cutoff_freq=10,
@@ -225,7 +222,6 @@ def track(samples, channels,
       for j in range(coherent_ms):
         samples_ = samples[sample_index:]
 
-        print "creating correlator"
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
           samples_,
           loop_filter.get_fields()['code_freq'] + chipping_rate, code_phase,
@@ -234,7 +230,6 @@ def track(samples, channels,
           sampling_freq
         )
         sample_index += blksize
-        print "getting fields again"
         carr_phase_acc += loop_filter.get_fields()['carr_freq'] * blksize / sampling_freq
         code_phase_acc += loop_filter.get_fields()['code_freq'] * blksize / sampling_freq
 
@@ -245,7 +240,8 @@ def track(samples, channels,
 
       track_result.nav_bit_sync.update(np.real(P), coherent_ms)
 
-      tow = track_result.nav_msg.update(np.real(P), coherent_ms)
+      # TODO - Is this the correct way to call nav_msg.update?
+      tow = track_result.nav_msg.update(np.real(P) >= 0)
       track_result.nav_msg_bit_phase_ref[i] = track_result.nav_msg.bit_phase_ref
       track_result.tow[i] = tow or (track_result.tow[i-1] + coherent_ms)
 
