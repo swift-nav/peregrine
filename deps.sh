@@ -27,6 +27,10 @@ function install_deps_ubuntu_maybe () {
     cmake ../
     make
     sudo make install
+    # Make sure last version of libswiftnav bindings are deleted
+    # Returns an exception but does uninstall
+    pip uninstall swiftnav -y 2>/dev/null || true
+    # Install libswiftnav bindings
     cd ../python
     sudo python setup.py build
     sudo python setup.py install
@@ -56,6 +60,10 @@ function install_deps_debian_jessie_or_stretch () {
     make -j$(nproc)
     sudo make install
     sudo ldconfig
+    # Make sure last version of libswiftnav bindings are deleted
+    # Returns an exception but does uninstall
+    pip uninstall swiftnav -y 2>/dev/null || true
+    # Install libswiftnav bindings
     cd ../python
     sudo python setup.py build
     sudo python setup.py install
@@ -79,6 +87,10 @@ function install_deps_osx () {
     cmake ../
     make
     sudo make install
+    # Make sure last version of libswiftnav bindings are deleted
+    # Returns an exception but does uninstall
+    pip uninstall swiftnav -y 2>/dev/null || true
+    # Install libswiftnav bindings
     cd ../python
     sudo python setup.py build
     sudo python setup.py install
