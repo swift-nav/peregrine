@@ -224,14 +224,14 @@ def track(samples, channels,
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
           samples_,
-          loop_filter.get_fields()['code_freq'] + chipping_rate, code_phase,
-          loop_filter.get_fields()['carr_freq'] + IF, carr_phase,
+          loop_filter.to_dict()['code_freq'] + chipping_rate, code_phase,
+          loop_filter.to_dict()['carr_freq'] + IF, carr_phase,
           ca_code,
           sampling_freq
         )
         sample_index += blksize
-        carr_phase_acc += loop_filter.get_fields()['carr_freq'] * blksize / sampling_freq
-        code_phase_acc += loop_filter.get_fields()['code_freq'] * blksize / sampling_freq
+        carr_phase_acc += loop_filter.to_dict()['carr_freq'] * blksize / sampling_freq
+        code_phase_acc += loop_filter.to_dict()['code_freq'] * blksize / sampling_freq
 
         E += E_; P += P_; L += L_
 
@@ -247,11 +247,11 @@ def track(samples, channels,
 
       track_result.carr_phase[i] = carr_phase
       track_result.carr_phase_acc[i] = carr_phase_acc
-      track_result.carr_freq[i] = loop_filter.get_fields()['carr_freq'] + IF
+      track_result.carr_freq[i] = loop_filter.to_dict()['carr_freq'] + IF
 
       track_result.code_phase[i] = code_phase
       track_result.code_phase_acc[i] = code_phase_acc
-      track_result.code_freq[i] = loop_filter.get_fields()['code_freq'] + chipping_rate
+      track_result.code_freq[i] = loop_filter.to_dict()['code_freq'] + chipping_rate
 
       # Record stuff for postprocessing
       track_result.absolute_sample[i] = sample_index
