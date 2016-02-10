@@ -153,16 +153,18 @@ def track(samples, channels,
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
     cn0_0 += 10 * np.log10(1000) # Channel bandwidth
-    cn0_est = swiftnav.track.CN0Estimator(bw=1e3,
+    cn0_est = swiftnav.track.CN0Estimator(
+                                          bw=1e3,
                                           cn0_0=cn0_0,
                                           cutoff_freq=10,
-                                          loop_freq=1e3)
+                                          loop_freq=1e3
+                                          )
 
     # Estimate initial code freq via aiding from acq carrier freq
     code_freq_init = (chan.carr_freq - IF) * \
                      gps_constants.chip_rate / gps_constants.l1
-#    code_freq_init = 0
     carr_freq_init = chan.carr_freq - IF
+    print "before loop_filter_class"
     loop_filter = loop_filter_class(
       loop_freq = stage1_loop_filter_params[2], \
       code_freq = code_freq_init, \
@@ -210,7 +212,9 @@ def track(samples, channels,
       if stage1 and stage2_coherent_ms and track_result.nav_msg.bit_phase == track_result.nav_msg.bit_phase_ref:
         #print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1, ms_tracked)
         stage1 = False
+        print "using loop_filter"
         loop_filter.retune(*stage2_loop_filter_params)
+        print "creating cn0_est"
         cn0_est = swiftnav.track.CN0Estimator(bw=1e3/stage2_coherent_ms,
                                               cn0_0=track_result.cn0[i-1],
                                               cutoff_freq=10,
@@ -221,16 +225,18 @@ def track(samples, channels,
       for j in range(coherent_ms):
         samples_ = samples[sample_index:]
 
+        print "creating correlator"
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
           samples_,
-          loop_filter.code_freq + chipping_rate, code_phase,
-          loop_filter.carr_freq + IF, carr_phase,
+          loop_filter.get_fields()['code_freq'] + chipping_rate, code_phase,
+          loop_filter.get_fields()['carr_freq'] + IF, carr_phase,
           ca_code,
           sampling_freq
         )
         sample_index += blksize
-        carr_phase_acc += loop_filter.carr_freq * blksize / sampling_freq
-        code_phase_acc += loop_filter.code_freq * blksize / sampling_freq
+        print "getting fields again"
+        carr_phase_acc += loop_filter.get_fields()['carr_freq'] * blksize / sampling_freq
+        code_phase_acc += loop_filter.get_fields()['code_freq'] * blksize / sampling_freq
 
         E += E_; P += P_; L += L_
 
@@ -245,11 +251,11 @@ def track(samples, channels,
 
       track_result.carr_phase[i] = carr_phase
       track_result.carr_phase_acc[i] = carr_phase_acc
-      track_result.carr_freq[i] = loop_filter.carr_freq + IF
+      track_result.carr_freq[i] = loop_filter.get_fields()['carr_freq'] + IF
 
       track_result.code_phase[i] = code_phase
       track_result.code_phase_acc[i] = code_phase_acc
-      track_result.code_freq[i] = loop_filter.code_freq + chipping_rate
+      track_result.code_freq[i] = loop_filter.get_fields()['code_freq'] + chipping_rate
 
       # Record stuff for postprocessing
       track_result.absolute_sample[i] = sample_index
