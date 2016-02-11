@@ -37,4 +37,7 @@ script:
   - cd $TRAVIS_BUILD_DIR
   - pip install -r requirements.txt
   - python setup.py develop
+  - cd tests/
+  - ./get_test_data.sh
+  - cd ..
   - py.test -v tests/
