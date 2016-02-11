@@ -551,6 +551,9 @@ class AcquisitionResult:
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()
 
+  def __eq__(self, other):
+    return self.__dict__ == other.__dict__
+
 
 def save_acq_results(filename, acq_results):
   """
