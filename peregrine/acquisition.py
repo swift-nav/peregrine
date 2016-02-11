@@ -552,8 +552,37 @@ class AcquisitionResult:
     return "<AcquisitionResult %s>" % self.__str__()
 
   def __eq__(self, other):
-    return self.__dict__ == other.__dict__
+    return self._equal(other)
 
+  def __ne__(self, other):
+    return not self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`AcquisitionResult` object.
+
+    Parameters
+    ----------
+    other : :class:`AcquisitionResult` object
+      The :class:`AcquisitionResult` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`AcquisitionResult` object is identical.
+    
+    """
+    if set(self.__dict__.keys()) != set(other.__dict__.keys()):
+      return False
+
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], float):
+        if abs(self.__dict__[k] - other.__dict__[k]) > 1e-6:
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
 
 def save_acq_results(filename, acq_results):
   """
