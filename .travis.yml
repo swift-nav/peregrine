@@ -40,4 +40,4 @@ script:
   - cd tests/
   - ./get_test_data.sh
   - cd ..
-  - py.test -v tests/
+  - py.test -vv tests/
