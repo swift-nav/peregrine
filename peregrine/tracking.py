@@ -1,4 +1,5 @@
-# Copyright (C) 2012 Swift Navigation Inc.
+# Copyright (C) 2012,2016 Swift Navigation Inc.
+# Contact: Adel Mamin <adelm@exafore.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -9,6 +10,7 @@
 
 import numpy as np
 from include.generateCAcode import caCodes
+from include.generateL2CMcode import L2CMCodes
 import gps_constants
 import progressbar
 import math
@@ -95,25 +97,22 @@ class TrackingLoop(object):
 
 
 def track(samples, channels,
+          signal, # L1C/A or L2C
+          stage1_loop_filter_params,
           ms_to_track=None,
           sampling_freq=defaults.sampling_freq,
           chipping_rate=defaults.chipping_rate,
           IF=defaults.IF,
           show_progress=True,
           loop_filter_class=swiftnav.track.AidedTrackingLoop,
-          stage1_loop_filter_params=\
-            default_stage1_loop_filter_params,
-          correlator=swiftnav.correlate.track_correlate_,
+          correlator=swiftnav.correlate.track_correlate,
           stage2_coherent_ms=None,
           stage2_loop_filter_params=None,
           multi=True):
 
   n_channels = len(channels)
 
-  # Add 22ms for safety, the corellator might try to access data a bit past
-  # just the number of milliseconds specified.
-  # TODO: Fix the correlator so this isn't an issue.
-  samples_length_ms = int(1e3 * len(samples) / sampling_freq - 22)
+  samples_length_ms = int(1e3 * len(samples) / sampling_freq)
 
   if ms_to_track is None:
     ms_to_track = samples_length_ms
@@ -162,37 +161,42 @@ def track(samples, channels,
     cn0_0 = 10 * np.log10(chan.snr)
     cn0_0 += 10 * np.log10(1000) # Channel bandwidth
     cn0_est = swiftnav.track.CN0Estimator(
-                                          bw=1e3,
-                                          cn0_0=cn0_0,
-                                          cutoff_freq=10,
-                                          loop_freq=1e3
-                                          )
+                                bw=1e3,
+                                cn0_0=cn0_0,
+                                cutoff_freq=10,
+                                loop_freq = stage1_loop_filter_params["loop_freq"]
+                                )
 
     # Estimate initial code freq via aiding from acq carrier freq
-    code_freq_init = (chan.carr_freq - IF) * \
-                     gps_constants.chip_rate / gps_constants.l1
+    if chan.signal == 'l1ca':
+      code_freq_init = (chan.carr_freq - IF) * \
+                       gps_constants.chip_rate / gps_constants.l1
+    else: # l2c clause
+      code_freq_init = (chan.carr_freq - IF) * \
+                       gps_constants.chip_rate / gps_constants.l2
+
     carr_freq_init = chan.carr_freq - IF
     loop_filter = loop_filter_class(
       loop_freq    = stage1_loop_filter_params['loop_freq'],
       code_freq    = code_freq_init,
-      code_bw      = stage1_loop_filter_params['code_loop_bw'],
-      code_zeta    = stage1_loop_filter_params['code_loop_zeta'],
-      code_k       = stage1_loop_filter_params['code_loop_k'],
+      code_bw      = stage1_loop_filter_params['code_bw'],
+      code_zeta    = stage1_loop_filter_params['code_zeta'],
+      code_k       = stage1_loop_filter_params['code_k'],
       carr_to_code = stage1_loop_filter_params['carr_to_code'],
-      carr_freq    = carr_freq_init, \
-      carr_bw      = stage1_loop_filter_params['carr_loop_bw'],
-      carr_zeta    = stage1_loop_filter_params['carr_loop_zeta'],
-      carr_k       = stage1_loop_filter_params['carr_loop_k'],
+      carr_freq    = carr_freq_init,
+      carr_bw      = stage1_loop_filter_params['carr_bw'],
+      carr_zeta    = stage1_loop_filter_params['carr_zeta'],
+      carr_k       = stage1_loop_filter_params['carr_k'],
       carr_freq_b1 = stage1_loop_filter_params['carr_freq_b1'],
     )
     code_phase = 0.0
     carr_phase = 0.0
 
-    # Get a vector with the C/A code sampled 1x/chip
-    ca_code = caCodes[chan.prn]
-
-    # Add wrapping to either end to be able to do early/late
-    ca_code = np.concatenate(([ca_code[1022]], ca_code, [ca_code[0]]))
+    # Get a vector with the C/A / L2C code sampled 1x/chip
+    if chan.signal == "l1ca":
+      prn_code = caCodes[chan.prn]
+    else:
+      prn_code = L2CMCodes[chan.prn]
 
     # Number of samples to seek ahead in file
     samples_per_chip = int(round(sampling_freq / chipping_rate))
@@ -228,14 +232,19 @@ def track(samples, channels,
       coherent_ms = 1 if stage1 else stage2_coherent_ms
 
       for j in range(coherent_ms):
+
+        if sample_index >= len(samples):
+          break;
+
         samples_ = samples[sample_index:]
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
           samples_,
           loop_filter.to_dict()['code_freq'] + chipping_rate, code_phase,
           loop_filter.to_dict()['carr_freq'] + IF, carr_phase,
-          ca_code,
-          sampling_freq
+          prn_code,
+          sampling_freq,
+          signal
         )
         sample_index += blksize
         carr_phase_acc += loop_filter.to_dict()['carr_freq'] * blksize / sampling_freq
@@ -271,7 +280,10 @@ def track(samples, channels,
       track_result.cn0[i] = cn0_est.update(P.real, P.imag)
 
       i += 1
-      ms_tracked += coherent_ms
+      if signal == "l1ca":
+        ms_tracked += coherent_ms
+      else: # L2C clause
+        ms_tracked += 20
 
       if q_progress and (i % 200 == 0):
         p = 1.0 * ms_tracked / ms_to_track
