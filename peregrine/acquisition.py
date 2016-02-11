@@ -531,22 +531,26 @@ class AcquisitionResult:
       * `'A'` : The satellite has been successfully acquired.
       * `'-'` : The acquisition was not successful, the SNR was below the
                 acquisition threshold.
-
+  signal : {'l1ca', 'l2c'}
+    The type of the signal: L1C/A or L2C
   """
 
-  __slots__ = ('prn', 'carr_freq', 'doppler', 'code_phase', 'snr', 'status')
+  __slots__ = ('prn', 'carr_freq', 'doppler', \
+               'code_phase', 'snr', 'status', 'signal')
 
-  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status):
+  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal):
     self.prn = prn
     self.snr = snr
     self.carr_freq = carr_freq
     self.doppler = doppler
     self.code_phase = code_phase
     self.status = status
+    self.signal = signal
 
   def __str__(self):
-    return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
-        (self.prn + 1, self.snr, self.code_phase, self.doppler, self.status)
+    return "PRN %2d (%s) SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
+        (self.prn + 1, self.signal, self.snr, self.code_phase, \
+         self.doppler, self.status)
 
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()

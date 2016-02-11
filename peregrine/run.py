@@ -70,6 +70,8 @@ def main():
     acq = Acquisition(acq_samples)
     acq_results = acq.acquisition()
 
+    print "Acquisition is over!"
+
     try:
       save_acq_results(acq_results_file, acq_results)
       logging.debug("Saving acquisition results as '%s'" % acq_results_file)
