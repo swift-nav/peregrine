@@ -321,6 +321,37 @@ class TrackResults:
       if isinstance(v, np.ndarray):
         v.resize(n_points, refcheck=False)
 
+  def __eq__(self, other):
+    return self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`TrackResults` object.
+
+    Parameters
+    ----------
+    other : :class:`TrackResults` object
+      The :class:`TrackResults` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`TrackResults` object is identical.
+
+    """
+    if self.__dict__.keys() != other.__dict__.keys():
+      return False
+    
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], np.ndarray):
+        # If np.ndarray, elements might be floats, so compare accordingly.
+        if any(np.greater((self.__dict__[k]-other.__dict__[k]), np.ones(len(self.__dict__[k]))*10e-6)):
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
+
 
 class NavBitSync:
   def __init__(self):
@@ -347,6 +378,40 @@ class NavBitSync:
 
   def bitstring(self):
     return ''.join(map(str, self.bits))
+
+  def __eq__(self, other):
+    return self._equal(other)
+
+  def __ne__(self, other):
+    return not self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`NavBitSync` object.
+
+    Parameters
+    ----------
+    other : :class:`NavBitSync` object
+      The :class:`NavBitSync` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`NavBitSync` object is identical.
+
+    """
+    if self.__dict__.keys() != other.__dict__.keys():
+      return False
+    
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], np.ndarray):
+        # If np.ndarray, elements might be floats, so compare accordingly.
+        if any((self.__dict__[k]-other.__dict__[k]) > 10e-6):
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
 
 class NavBitSyncSBAS:
   def __init__(self):
