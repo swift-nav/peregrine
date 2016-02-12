@@ -11,7 +11,8 @@ Update the test data files with the following steps::
 
     $ tar -czf peregrine_ci_test_data.tar.gz test_data/
 
-- Upload this tarball to downloads.swiftnav.com on Amazon S3:
+- Upload this tarball to downloads.swiftnav.com on Amazon S3.
+  Please archive the old tarball before overwriting it.
 
     http://downloads.swiftnav.com.s3-us-west-1.amazonaws.com/baseband_samples/peregrine_ci_test_data.tar.gz
 
