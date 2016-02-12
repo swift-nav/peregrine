@@ -310,7 +310,7 @@ class TrackResults:
     self.cn0 = np.zeros(n_points)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
-    self.nav_bit_sync = NBSMatchBit() if prn < 30 else NBSSBAS()
+    self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()
     self.tow = np.empty(n_points)
     self.tow[:] = np.NAN
     self.coherent_ms = np.zeros(n_points)
