@@ -13,6 +13,115 @@ import numpy as np
 
 __all__ = ['load_samples', 'save_samples']
 
+def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup):
+  '''
+  Helper method to load two-bit samples from a file.
+
+  Parameters
+  ----------
+  filename : string
+    Filename of sample data file.
+  num_samples : int
+    Number of samples to read, ``-1`` means the whole file.
+  num_skip : int
+    Number of samples to discard from the beginning of the file.
+  n_rx : int
+    Number of interleaved streams in the source file
+  n_bits : int
+    Number of bits per sample
+  lookup : array-like
+    Array to map values
+
+  Returns
+  -------
+  out : :class:`numpy.ndarray`, shape(`n_rx`, `num_samples`,)
+    The sample data as a two-dimensional numpy array. The first dimension
+    separates codes (bands). The second dimention contains samples indexed
+    with the `lookup` table.
+  '''
+  sample_block_size = n_bits * n_rx
+  byte_offset = num_skip / (8 / sample_block_size)
+  sample_offset = num_skip % (8 / sample_block_size)
+  s_file = np.memmap(filename, offset=byte_offset, dtype=np.uint8, mode='r')
+
+  if num_samples > 0:
+    # Number of samples is defined: trim the source from start and end
+    s_file = s_file[sample_offset * sample_block_size:
+                    (num_samples * sample_block_size + 7) / 8]
+  else:
+    # Number of samples is not defined: trim the source from start only
+    # compute actual number of samples
+    s_file = s_file[sample_offset * sample_block_size:]
+    num_samples = len(s_file) * 8 / sample_block_size
+
+  # Compute total data block size to ignore bits in the tail.
+  rounded_len = num_samples * sample_block_size
+
+  bits = np.unpackbits(s_file)
+  samples = np.empty((n_rx, num_samples), dtype=lookup.dtype)
+
+  for rx in range(n_rx):
+    # Construct multi-bit sample values
+    tmp = bits[rx * n_bits:rounded_len:sample_block_size]
+    for bit in range(1, n_bits):
+      tmp <<= 1
+      tmp += bits[rx * n_bits + bit:rounded_len:sample_block_size]
+    # Generate sample values using lookup table
+    samples[rx][:] = lookup[tmp]
+  return samples
+
+def __load_samples_one_bit(filename, num_samples, num_skip, n_rx):
+  '''
+  Helper method to load single-bit samples from a file.
+
+  Parameters
+  ----------
+  filename : string
+    Filename of sample data file.
+  num_samples : int
+    Number of samples to read, ``-1`` means the whole file.
+  num_skip : int
+    Number of samples to discard from the beginning of the file.
+  n_rx : int
+    Number of interleaved streams in the source file
+
+  Returns
+  -------
+  out : :class:`numpy.ndarray`, shape(`n_rx`, `num_samples`,)
+    The sample data as a two-dimensional numpy array. The first dimension
+    separates codes (bands). The second dimention contains samples with one
+    of the values: -1, 1
+  '''
+  lookup = np.asarray((1, -1), dtype=np.int8)
+  return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 1, lookup)
+
+def __load_samples_two_bits(filename, num_samples, num_skip, n_rx):
+  '''
+  Helper method to load two-bit samples from a file.
+
+  Parameters
+  ----------
+  filename : string
+    Filename of sample data file.
+  num_samples : int
+    Number of samples to read, ``-1`` means the whole file.
+  num_skip : int
+    Number of samples to discard from the beginning of the file.
+  n_rx : int
+    Number of interleaved streams in the source file
+
+  Returns
+  -------
+  out : :class:`numpy.ndarray`, shape(`n_rx`, `num_samples`,)
+    The sample data as a two-dimensional numpy array. The first dimension
+    separates codes (bands). The second dimention contains samples with one
+    of the values: -3, -1, 1, 3
+  '''
+  # Interleaved two bit samples from two receivers. First bit is a sign of the
+  # sample, and the second bit is the amplitude value: 1 or 3.
+  lookup = np.asarray((-1, -3, 1, 3), dtype=np.int8)
+  return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 2, lookup)
+
 def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
   """
   Load sample data from a file.
@@ -160,19 +269,14 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
     samples = tmp
 
   elif file_format == '1bit_x2':
-    # Interleaved single bit samples from two receivers
-    s_file = np.memmap(filename, offset=num_skip, dtype=np.uint8, mode='r')
-    n_rx = 2
-    print "Num samples", num_samples
-    if num_samples > 0:
-      print "Trimming file to ", num_samples, (num_samples * n_rx + 7) / 8, "from", len(s_file)
-      s_file = s_file[:(num_samples * n_rx + 7) / 8]
-    bits = np.unpackbits(s_file)
-    print "Unpacked: ", len(bits), len(bits) / n_rx
-    samples = np.empty((n_rx, num_samples), dtype=np.int8)
-    lookup = np.asarray((1, -1), dtype=np.int8)
-    for rx in range(n_rx):
-      samples[rx][:] = lookup[bits[rx:n_rx * (num_samples + 1):n_rx]]
+    # Interleaved single bit samples from two receivers: -1, +1
+    samples = __load_samples_one_bit(filename, num_samples, num_skip, 2)
+  elif file_format == '2bits':
+    # Two bit samples from one receiver: -3, -1, +1, +3
+    samples = __load_samples_two_bits(filename, num_samples, num_skip, 1)
+  elif file_format == '2bits_x2':
+    # Interleaved two bit samples from two receivers: -3, -1, +1, +3
+    samples = __load_samples_two_bits(filename, num_samples, num_skip, 2)
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 
