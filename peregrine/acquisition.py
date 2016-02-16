@@ -471,7 +471,8 @@ class Acquisition:
                                      carr_freq - self.IF,
                                      code_phase,
                                      snr,
-                                     status)
+                                     status,
+                                     'l1ca')
 
       # If the acquisition was successful, log it
       if (snr > threshold):
