@@ -98,7 +98,6 @@ class TrackingLoop(object):
 
 def track(samples, channels,
           signal, # L1C/A or L2C
-          stage1_loop_filter_params,
           ms_to_track=None,
           sampling_freq=defaults.sampling_freq,
           chipping_rate=defaults.chipping_rate,
@@ -160,11 +159,17 @@ def track(samples, channels,
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
     cn0_0 += 10 * np.log10(1000) # Channel bandwidth
+
+    if chan.signal == "l1ca":
+      loop_filter_params = defaults.l1ca_stage1_loop_filter_params
+    else: # L2C signal clause
+      loop_filter_params = defaults.l2c_loop_filter_params
+
     cn0_est = swiftnav.track.CN0Estimator(
                                 bw=1e3,
                                 cn0_0=cn0_0,
                                 cutoff_freq=10,
-                                loop_freq = stage1_loop_filter_params["loop_freq"]
+                                loop_freq = loop_filter_params["loop_freq"]
                                 )
 
     # Estimate initial code freq via aiding from acq carrier freq
@@ -177,17 +182,17 @@ def track(samples, channels,
 
     carr_freq_init = chan.carr_freq - IF
     loop_filter = loop_filter_class(
-      loop_freq    = stage1_loop_filter_params['loop_freq'],
+      loop_freq    = loop_filter_params['loop_freq'],
       code_freq    = code_freq_init,
-      code_bw      = stage1_loop_filter_params['code_bw'],
-      code_zeta    = stage1_loop_filter_params['code_zeta'],
-      code_k       = stage1_loop_filter_params['code_k'],
-      carr_to_code = stage1_loop_filter_params['carr_to_code'],
+      code_bw      = loop_filter_parpams['code_bw'],
+      code_zeta    = loop_filter_params['code_zeta'],
+      code_k       = loop_filter_params['code_k'],
+      carr_to_code = loop_filter_params['carr_to_code'],
       carr_freq    = carr_freq_init,
-      carr_bw      = stage1_loop_filter_params['carr_bw'],
-      carr_zeta    = stage1_loop_filter_params['carr_zeta'],
-      carr_k       = stage1_loop_filter_params['carr_k'],
-      carr_freq_b1 = stage1_loop_filter_params['carr_freq_b1'],
+      carr_bw      = loop_filter_params['carr_bw'],
+      carr_zeta    = loop_filter_params['carr_zeta'],
+      carr_k       = loop_filter_params['carr_k'],
+      carr_freq_b1 = loop_filter_params['carr_freq_b1'],
     )
     code_phase = 0.0
     carr_phase = 0.0
