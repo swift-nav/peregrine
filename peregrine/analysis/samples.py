@@ -59,7 +59,7 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX
 
   """
   if max_len is not None and len(samples) > max_len:
-    logger.debug( "Truncating to %d samples." % max_len)
+    logger.debug("Truncating to %d samples." % max_len)
     samples = samples[:max_len]
 
   if ax is None:
@@ -72,8 +72,8 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX
     max_val = np.max(samples)
     min_val = np.min(samples)
 
-  n_bins =  1 + np.round(float(max_val) - float(min_val) / bin_width)
-  bins = np.linspace(min_val-bin_width/2.0, max_val+bin_width/2.0, n_bins+1)
+  n_bins = 1 + np.round(float(max_val) - float(min_val) / bin_width)
+  bins = np.linspace(min_val - bin_width / 2.0, max_val + bin_width / 2.0, n_bins + 1)
 
   ticks = np.linspace(min_val, max_val, n_bins)
 
@@ -83,11 +83,11 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX
   ax.set_xlabel('Sample value')
   if len(ticks) < 22:
     ax.set_xticks(ticks)
-  ax.set_xbound(min_val-bin_width, max_val+bin_width)
+  ax.set_xbound(min_val - bin_width, max_val + bin_width)
   ax.set_ylabel('Count')
   y_min, y_max = ax.get_ybound()
-  ax.set_ybound(0, y_max*1.1)
-  ax.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+  ax.set_ybound(0, y_max * 1.1)
+  ax.ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
 
   return ax
 
@@ -118,7 +118,7 @@ def psd(samples, sampling_freq=None, ax=None, max_len=ANALYSIS_MAX_LEN):
 
   """
   if max_len is not None and len(samples) > max_len:
-    logger.debug( "Truncating to %d samples." % max_len)
+    logger.debug("Truncating to %d samples." % max_len)
     samples = samples[:max_len]
 
   if ax is None:
@@ -132,7 +132,7 @@ def psd(samples, sampling_freq=None, ax=None, max_len=ANALYSIS_MAX_LEN):
     ax.set_ylabel('Power Spectral Density ($f_s \cdot \mathrm{Hz}^{-1}$)')
     sampling_freq = 1.0
   else:
-    ax.ticklabel_format(style='sci', scilimits=(0,0), axis='x')
+    ax.ticklabel_format(style='sci', scilimits=(0, 0), axis='x')
     ax.set_xlabel('Frequency (Hz)')
     ax.set_ylabel('Power Spectral Density ($\mathrm{Hz}^{-1}$)')
 
@@ -143,7 +143,7 @@ def psd(samples, sampling_freq=None, ax=None, max_len=ANALYSIS_MAX_LEN):
                         noverlap=1024)
 
   ax.semilogy(freqs, Pxx, color='black')
-  ax.set_xbound(0, sampling_freq/2.0)
+  ax.set_xbound(0, sampling_freq / 2.0)
 
   return ax
 
@@ -172,8 +172,8 @@ def summary(samples, sampling_freq=None, max_len=ANALYSIS_MAX_LEN):
   ax1 = fig.add_subplot(121)
   ax2 = fig.add_subplot(122)
 
-  hist(samples, ax=ax1, max_len=max_len)
-  psd(samples, sampling_freq, ax=ax2, max_len=max_len)
+  hist(samples[0], ax=ax1, max_len=max_len)
+  psd(samples[0], sampling_freq, ax=ax2, max_len=max_len)
 
   fig.set_size_inches(10, 4, forward=True)
   fig.tight_layout()
@@ -193,7 +193,7 @@ def main():
                       + "'int8', '1bit', '1bitrev' or 'piksi' (default)")
   args = parser.parse_args()
 
-  samples = peregrine.samples.load_samples(args.file, args.num_samples, file_format = args.format)
+  samples = peregrine.samples.load_samples(args.file, args.num_samples, file_format=args.format)
   summary(samples)
 
   plt.show()

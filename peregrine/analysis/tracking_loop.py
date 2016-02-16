@@ -8,16 +8,14 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import sys
 import argparse
-import gps_constants
 from peregrine.samples import load_samples
 from peregrine.acquisition import AcquisitionResult
-import defaults
+from peregrine import defaults
 from peregrine.log import default_logging_config
 from peregrine.tracking import track
 
-from initSettings import initSettings
+from peregrine.initSettings import initSettings
 
 def main():
   default_logging_config()
@@ -56,6 +54,7 @@ def main():
                       "Default: %s" % "track.csv")
 
   parser.add_argument("-S", "--signal",
+                      choices=["l1ca", "l2c"],
                       help="Signal type (l1ca / l2c)")
 
   args = parser.parse_args()
@@ -70,7 +69,7 @@ def main():
   prn = int(args.prn) - 1
 
   ms_to_track = int(args.ms_to_track)
-  sampling_freq = float(args.sampling_freq) # [Hz]
+  sampling_freq = float(args.sampling_freq)  # [Hz]
 
   if args.signal == "l1ca":
     acq_result = AcquisitionResult(prn = prn,
@@ -103,18 +102,26 @@ def main():
   print "======================================================================"
 
   samples_num = int(args.sampling_freq) * 1e-3 * ms_to_track
-  signal = load_samples(args.file,
+  signals = load_samples(args.file,
                         int(samples_num),
-                        0, # skip samples
-                        file_format = args.file_format)
+                        0,  # skip samples
+                        file_format=args.file_format)
 
-  track_results = track(samples                   = signal,
-                        signal                    = args.signal,
-                        channels                  = [acq_result],
-                        ms_to_track               = ms_to_track,
-                        sampling_freq             = sampling_freq, # [Hz]
-                        chipping_rate             = defaults.chipping_rate,
-                        IF                        = IF)
+  index = 0
+  if len(signals) > 1:
+    if args.signal == 'l1ca':
+      index = 0
+    else:
+      index = 1
+    pass
+
+  track_results = track(samples=signals[index],
+                        signal=args.signal,
+                        channels=[acq_result],
+                        ms_to_track=ms_to_track,
+                        sampling_freq=sampling_freq,  # [Hz]
+                        chipping_rate=defaults.chipping_rate,
+                        IF=IF)
 
   with open(args.output_file, 'w') as f1:
     f1.write("doppler_phase,carr_doppler,code_phase,code_freq,CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q\n")

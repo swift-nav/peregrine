@@ -64,10 +64,10 @@ def main():
       sys.exit(1)
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
-    acq_samples = load_samples(args.file, 11*samplesPerCode,
+    acq_samples = load_samples(args.file, 11 * samplesPerCode,
                                settings.skipNumberOfBytes,
                                file_format=args.file_format)
-    acq = Acquisition(acq_samples)
+    acq = Acquisition(acq_samples[0])
     acq_results = acq.acquisition()
 
     print "Acquisition is over!"
@@ -101,10 +101,10 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq*1e-3*(settings.msToProcess+22)),
+                          int(settings.samplingFreq * 1e-3 * (settings.msToProcess + 22)),
                           settings.skipNumberOfBytes,
                           file_format=args.file_format)
-    track_results = track(signal, acq_results, settings.msToProcess)
+    track_results = track(signal[0], acq_results, settings.msToProcess)
     try:
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
@@ -127,7 +127,7 @@ def main():
         nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
       with open(nav_results_file, 'wb') as f:
         cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-      print "and %d more are cPickled in '%s'." % (len(nav_results)-1, nav_results_file)
+      print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
     else:
       print "No navigation results."
 
