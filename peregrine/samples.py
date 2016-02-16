@@ -42,8 +42,9 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
 
   Returns
   -------
-  out : :class:`numpy.ndarray`, shape(`num_samples`,)
-    The sample data as a numpy array.
+  out : :class:`numpy.ndarray`, shape(bands, `num_samples`,)
+    The sample data as a two-dimensional numpy array. The first dimension
+    separates codes (bands).
 
   Raises
   ------
@@ -58,37 +59,38 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
   if file_format == 'int8':
     with open(filename, 'rb') as f:
       f.seek(num_skip)
-      samples = np.fromfile(f, dtype=np.int8, count=num_samples)
+      samples = np.zeros((1, num_samples), dtype=np.int8)
+      samples[:] = np.fromfile(f, dtype=np.int8, count=num_samples)
   elif file_format == 'c8c8':
     # Interleaved complex samples from two receivers, i.e. first four bytes are
     # I0 Q0 I1 Q1
     s_file = np.memmap(filename, offset=num_skip, dtype=np.int8, mode='r')
     n_rx = 2
     if num_samples > 0:
-      s_file = s_file[:num_samples*2*n_rx]
-    samples = np.empty([n_rx, len(s_file)/(2 * n_rx)], dtype=np.complex64)
+      s_file = s_file[:num_samples * 2 * n_rx]
+    samples = np.empty([n_rx, len(s_file) / (2 * n_rx)], dtype=np.complex64)
     for rx in range(n_rx):
-      samples[rx] = s_file[2 * rx : : 2 * n_rx] + s_file[2*rx + 1 :: 2 * n_rx]*1j
+      samples[rx] = s_file[2 * rx : : 2 * n_rx] + s_file[2 * rx + 1 :: 2 * n_rx] * 1j
   elif file_format == 'c8c8_tayloe':
     # Interleaved complex samples from two receivers, i.e. first four bytes are
     # I0 Q0 I1 Q1.  Tayloe-upconverted to become purely real with fs=4fs0, fi=fs0
     s_file = np.memmap(filename, offset=num_skip, dtype=np.int8, mode='r')
     n_rx = 2
     if num_samples > 0:
-      s_file = s_file[:num_samples*2*n_rx]
-    samples = np.empty([n_rx, 4*len(s_file)/(2 * n_rx)], dtype=np.int8)
+      s_file = s_file[:num_samples * 2 * n_rx]
+    samples = np.empty([n_rx, 4 * len(s_file) / (2 * n_rx)], dtype=np.int8)
     for rx in range(n_rx):
-      samples[rx][0::4] =  s_file[2 * rx     : : 2 * n_rx]
+      samples[rx][0::4] = s_file[2 * rx     : : 2 * n_rx]
       samples[rx][1::4] = -s_file[2 * rx + 1 : : 2 * n_rx]
       samples[rx][2::4] = -s_file[2 * rx     : : 2 * n_rx]
-      samples[rx][3::4] =  s_file[2 * rx + 1 : : 2 * n_rx]
+      samples[rx][3::4] = s_file[2 * rx + 1 : : 2 * n_rx]
 
   elif file_format == 'piksinew':
     packed = np.memmap(filename, offset=num_skip, dtype=np.uint8, mode='r')
     if num_samples > 0:
       packed = packed[:num_samples]
-    samples = np.empty(len(packed), dtype=np.int8)
-    samples[:] = (packed >> 6) - 1
+    samples = np.empty((1, len(packed)), dtype=np.int8)
+    samples[0][:] = (packed >> 6) - 1
 
   elif file_format == 'piksi':
     """
@@ -105,7 +107,7 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
     if num_samples > 0:
       num_skip_bytes = num_skip / 2
       num_skip_samples = num_skip % 2
-      num_bytes = num_samples/2 + 1
+      num_bytes = num_samples / 2 + 1
     else:
       # Read whole file
       num_skip_bytes = 0
@@ -122,17 +124,20 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
     samples[::2] = (packed >> 5)
     samples[1::2] = (packed >> 2) & 7
     # Sign-magnitude to two's complement mapping
-    samples = (1-2*(samples>>2)) * (2*(samples&3)+1)
+    samples = (1 - 2 * (samples >> 2)) * (2 * (samples & 3) + 1)
 
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
+    tmp = np.ndarray((1, len(samples)), dtype=np.int8)
+    tmp[0][:] = samples
+    samples = tmp
 
   elif file_format == '1bit' or file_format == '1bitrev':
     if num_samples > 0:
       num_skip_bytes = num_skip / 8
       num_skip_samples = num_skip % 8
-      num_bytes = num_samples/8 + 1
+      num_bytes = num_samples / 8 + 1
     else:
       # Read whole file
       num_skip_bytes = 0
@@ -146,11 +151,28 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
     samples *= 2
     samples -= 1
     if file_format == '1bitrev':
-        samples = np.reshape(samples,(-1,8))[:,::-1].flatten();
+        samples = np.reshape(samples, (-1, 8))[:, ::-1].flatten();
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
+    tmp = np.ndarray((1, len(samples)), dtype=np.int8)
+    tmp[0][:] = samples
+    samples = tmp
 
+  elif file_format == '1bit_x2':
+    # Interleaved single bit samples from two receivers
+    s_file = np.memmap(filename, offset=num_skip, dtype=np.uint8, mode='r')
+    n_rx = 2
+    print "Num samples", num_samples
+    if num_samples > 0:
+      print "Trimming file to ", num_samples, (num_samples * n_rx + 7) / 8, "from", len(s_file)
+      s_file = s_file[:(num_samples * n_rx + 7) / 8]
+    bits = np.unpackbits(s_file)
+    print "Unpacked: ", len(bits), len(bits) / n_rx
+    samples = np.empty((n_rx, num_samples), dtype=np.int8)
+    lookup = np.asarray((1, -1), dtype=np.int8)
+    for rx in range(n_rx):
+      samples[rx][:] = lookup[bits[rx:n_rx * (num_samples + 1):n_rx]]
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 
