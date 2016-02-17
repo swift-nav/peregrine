@@ -14,7 +14,7 @@ from peregrine.acquisition import AcquisitionResult
 from peregrine import defaults
 from peregrine.log import default_logging_config
 from peregrine.tracking import track
-
+from peregrine.gps_constants import L1CA, L2C
 from peregrine.initSettings import initSettings
 
 def main():
@@ -25,37 +25,37 @@ def main():
 
   parser = argparse.ArgumentParser()
   parser.add_argument("file",
-                      help="the sample data file to process")
+                      help = "the sample data file to process")
 
   parser.add_argument("-f", "--file-format",
-                      help="the format of the sample data file "
+                      help = "the format of the sample data file "
                       "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
 
   parser.add_argument("-t", "--ms-to-track",
-                      help="the number of milliseconds to process. ")
+                      help = "the number of milliseconds to process. ")
 
   parser.add_argument("-I", "--IF",
-                      help="intermediate frequency [Hz]. ")
+                      help = "intermediate frequency [Hz]. ")
 
   parser.add_argument("-s", "--sampling-freq",
-                      help="sampling frequency [Hz]. ");
+                      help = "sampling frequency [Hz]. ");
 
   parser.add_argument("-P", "--prn",
-                      help="PRN to track. ")
+                      help = "PRN to track. ")
 
   parser.add_argument("-p", "--code-phase",
-                      help="code phase [chips]. ")
+                      help = "code phase [chips]. ")
 
   parser.add_argument("-d", "--carr-doppler",
-                      help="carrier Doppler frequency [Hz]. ")
+                      help = "carrier Doppler frequency [Hz]. ")
 
-  parser.add_argument("-o", "--output-file", default="track.csv",
-                      help="Track results file name. "
+  parser.add_argument("-o", "--output-file", default = "track.csv",
+                      help = "Track results file name. "
                       "Default: %s" % "track.csv")
 
   parser.add_argument("-S", "--signal",
-                      choices=["l1ca", "l2c"],
-                      help="Signal type (l1ca / l2c)")
+                      choices = [L1CA, L2C],
+                      help = "Signal type (l1ca / l2c)")
 
   args = parser.parse_args()
   settings.fileName = args.file
@@ -105,7 +105,7 @@ def main():
   signals = load_samples(args.file,
                         int(samples_num),
                         0,  # skip samples
-                        file_format=args.file_format)
+                        file_format = args.file_format)
 
   index = 0
   if len(signals) > 1:
@@ -115,12 +115,12 @@ def main():
       index = 1
     pass
 
-  track_results = track(samples=signals[index],
-                        channels=[acq_result],
-                        ms_to_track=ms_to_track,
-                        sampling_freq=sampling_freq,  # [Hz]
-                        chipping_rate=defaults.chipping_rate,
-                        IF=IF)
+  track_results = track(samples = signals[index],
+                        channels = [acq_result],
+                        ms_to_track = ms_to_track,
+                        sampling_freq = sampling_freq,  # [Hz]
+                        chipping_rate = defaults.chipping_rate,
+                        IF = IF)
 
   with open(args.output_file, 'w') as f1:
     f1.write("doppler_phase,carr_doppler,code_phase,code_freq,CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,lock_detect_outp,lock_detect_outo\n")
