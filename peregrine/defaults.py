@@ -35,7 +35,7 @@ l2c_loop_filter_params = {
     "code_zeta"    : 0.707,     # Code loop zeta
     "code_k"       : 1,         # Code loop k
     "carr_to_code" : 0,         # Carrier-to-code freq ratio (carrier aiding)
-    "carr_bw"      : 20,        # Carrier loop NBW
+    "carr_bw"      : 13,        # Carrier loop NBW
     "carr_zeta"    : 0.707,     # Carrier loop zeta
     "carr_k"       : 1,         # Carrier loop k
     "carr_freq_b1" : 5}         # Carrier loop aiding_igain
