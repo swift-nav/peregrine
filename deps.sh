@@ -17,7 +17,8 @@ function install_deps_ubuntu_maybe () {
          python-numpy \
          python-dev \
          cython \
-         python-dev
+         python-dev \
+         python-matplotlib
     sudo pip install -U cython
     git submodule update --init
     # Build libswiftnav
