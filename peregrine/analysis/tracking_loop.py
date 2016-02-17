@@ -123,7 +123,7 @@ def main():
                         IF=IF)
 
   with open(args.output_file, 'w') as f1:
-    f1.write("doppler_phase,carr_doppler,code_phase,code_freq,CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q\n")
+    f1.write("doppler_phase,carr_doppler,code_phase,code_freq,CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,lock_detect_outp,lock_detect_outo\n")
     for i in range(len(track_results[0].carr_phase)):
       f1.write("%s," % track_results[0].carr_phase[i])
       f1.write("%s," % (track_results[0].carr_freq[i] - IF))
@@ -135,7 +135,9 @@ def main():
       f1.write("%s," % track_results[0].P[i].real)
       f1.write("%s," % track_results[0].P[i].imag)
       f1.write("%s," % track_results[0].L[i].real)
-      f1.write("%s\n" % track_results[0].L[i].imag)
+      f1.write("%s," % track_results[0].L[i].imag)
+      f1.write("%s," % track_results[0].lock_detect_outp[i])
+      f1.write("%s\n" % track_results[0].lock_detect_outo[i])
 
 if __name__ == '__main__':
   main()
