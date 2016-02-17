@@ -40,3 +40,22 @@ l2c_loop_filter_params = {
     "carr_k"       : 1,         # Carrier loop k
     "carr_freq_b1" : 5}         # Carrier loop aiding_igain
 
+# pessimistic set
+l1ca_lock_detect_params_pess     = {"k1" : 0.10, "k2" : 1.4, "lp" : 200, "lo" : 50 }
+l2c_lock_detect_params_pess      = {"k1" : 0.10, "k2" : 1.4, "lp" : 200, "lo" : 50 }
+
+# normal set
+l1ca_lock_detect_params_normal   = {"k1" : 0.05, "k2" : 1.4, "lp" : 150, "lo" : 50 }
+l2c_lock_detect_params_normal    = {"k1" : 0.05, "k2" : 1.4, "lp" : 150, "lo" : 50 }
+
+# optimal set
+l1ca_lock_detect_params_opt      = {"k1" : 0.02, "k2" : 1.1, "lp" : 150, "lo" : 50 }
+l2c_lock_detect_params_opt       = {"k1" : 0.02, "k2" : 1.1, "lp" : 150, "lo" : 50 }
+
+# extra optimal set
+l1ca_lock_detect_params_extraopt = {"k1" : 0.02, "k2" : 0.8, "lp" : 150, "lo" : 50 }
+l2c_lock_detect_params_extraopt  = {"k1" : 0.02, "k2" : 0.8, "lp" : 150, "lo" : 50 }
+
+# disable lock detect
+l1ca_lock_detect_params_disable  = {"k1" : 0.02, "k2" : 1e-6, "lp" : 1, "lo" : 1 }
+l2c_lock_detect_params_disable   = {"k1" : 0.02, "k2" : 1e-6, "lp" : 1, "lo" : 1 }

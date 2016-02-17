@@ -161,8 +161,14 @@ def track(samples, channels,
 
     if chan.signal == "l1ca":
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
+      lock_detect_params = defaults.l1ca_lock_detect_params_opt
+      prn_code = caCodes[chan.prn]
+      coherent_ms = 1
     else: # L2C signal clause
       loop_filter_params = defaults.l2c_loop_filter_params
+      lock_detect_params = defaults.l2c_lock_detect_params_opt
+      prn_code = L2CMCodes[chan.prn]
+      coherent_ms = 20
 
     cn0_est = swiftnav.track.CN0Estimator(
                                 bw=1e3,
@@ -170,6 +176,12 @@ def track(samples, channels,
                                 cutoff_freq=10,
                                 loop_freq = loop_filter_params["loop_freq"]
                                 )
+
+    lock_detect = swiftnav.track.LockDetector(
+                     k1 = lock_detect_params["k1"] * coherent_ms,
+                     k2 = lock_detect_params["k2"],
+                     lp = lock_detect_params["lp"],
+                     lo = lock_detect_params["lo"]);
 
     # Estimate initial code freq via aiding from acq carrier freq
     if chan.signal == 'l1ca':
@@ -196,12 +208,6 @@ def track(samples, channels,
     code_phase = 0.0
     carr_phase = 0.0
 
-    # Get a vector with the C/A / L2C code sampled 1x/chip
-    if chan.signal == "l1ca":
-      prn_code = caCodes[chan.prn]
-    else:
-      prn_code = L2CMCodes[chan.prn]
-
     # Number of samples to seek ahead in file
     samples_per_chip = int(round(sampling_freq / chipping_rate))
 
@@ -224,18 +230,21 @@ def track(samples, channels,
 
       E = 0+0.j; P = 0+0.j; L = 0+0.j
 
-      if stage1 and stage2_coherent_ms and track_result.nav_msg.bit_phase == track_result.nav_msg.bit_phase_ref:
+      if stage1 and \
+         chan.signal == 'l1ca' and \
+         stage2_coherent_ms and \
+         track_result.nav_msg.bit_phase == track_result.nav_msg.bit_phase_ref:
+
         #print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1, ms_tracked)
         stage1 = False
+        coherent_ms = stage2_coherent_ms
         loop_filter.retune(*stage2_loop_filter_params)
         cn0_est = swiftnav.track.CN0Estimator(bw=1e3/stage2_coherent_ms,
                                               cn0_0=track_result.cn0[i-1],
                                               cutoff_freq=10,
                                               loop_freq=1e3/stage2_coherent_ms)
 
-      coherent_ms = 1 if stage1 else stage2_coherent_ms
-
-      for j in range(coherent_ms):
+      for _ in range(coherent_ms):
 
         if sample_index >= len(samples):
           break;
@@ -255,6 +264,13 @@ def track(samples, channels,
         code_phase_acc += loop_filter.to_dict()['code_freq'] * blksize / sampling_freq
 
         E += E_; P += P_; L += L_
+
+        if chan.signal == 'l2c': # only one 20 ms coherent integration time for L2C
+          break
+
+      # Update PLL lock detector
+      lock_detect_outo, lock_detect_outp = lock_detect.update(P.real, P.imag,
+                                                                coherent_ms)
 
       loop_filter.update(E, P, L)
       track_result.coherent_ms[i] = coherent_ms
@@ -282,12 +298,11 @@ def track(samples, channels,
       track_result.L[i] = L
 
       track_result.cn0[i] = cn0_est.update(P.real, P.imag)
+      track_result.lock_detect_outo[i] = lock_detect_outo
+      track_result.lock_detect_outp[i] = lock_detect_outp
 
       i += 1
-      if chan.signal == "l1ca":
-        ms_tracked += coherent_ms
-      else: # L2C clause
-        ms_tracked += 20
+      ms_tracked += coherent_ms
 
       if q_progress and (i % 200 == 0):
         p = 1.0 * ms_tracked / ms_to_track
@@ -332,6 +347,8 @@ class TrackResults:
     self.P = np.zeros(n_points, dtype=np.complex128)
     self.L = np.zeros(n_points, dtype=np.complex128)
     self.cn0 = np.zeros(n_points)
+    self.lock_detect_outp = np.zeros(n_points)
+    self.lock_detect_outo = np.zeros(n_points)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
     self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()
