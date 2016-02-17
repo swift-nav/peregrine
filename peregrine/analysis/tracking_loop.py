@@ -116,7 +116,6 @@ def main():
     pass
 
   track_results = track(samples=signals[index],
-                        signal=args.signal,
                         channels=[acq_result],
                         ms_to_track=ms_to_track,
                         sampling_freq=sampling_freq,  # [Hz]
