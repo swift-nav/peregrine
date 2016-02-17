@@ -19,6 +19,7 @@ import parallel_processing as pp
 import swiftnav.track
 import swiftnav.correlate
 import swiftnav.nav_msg
+import swiftnav.cnav_msg
 import defaults
 
 import logging
@@ -117,18 +118,18 @@ def track(samples, channels,
 
   if samples_length_ms < ms_to_track:
     logger.warning("Samples set too short for requested tracking length (%.4fs)"
-        % (ms_to_track * 1e-3))
+                   % (ms_to_track * 1e-3))
     ms_to_track = samples_length_ms
 
   logger.info("Tracking %.4fs of data (%d samples)" %
-      (ms_to_track * 1e-3, ms_to_track * 1e-3 * sampling_freq))
+              (ms_to_track * 1e-3, ms_to_track * 1e-3 * sampling_freq))
 
   # Make sure we have an integer number of points
   num_points = int(math.floor(ms_to_track))
 
   logger.info("Tracking starting")
   logger.debug("Tracking %d channels, PRNs %s" %
-      (n_channels, [chan.prn+1 for chan in channels]))
+               (n_channels, [chan.prn + 1 for chan in channels]))
 
   # If progressbar is not available, disable show_progress.
   if show_progress and not _progressbar_available:
@@ -145,7 +146,7 @@ def track(samples, channels,
                progressbar.ETA(), ' ',
                progressbar.Bar()]
     pbar = progressbar.ProgressBar(widgets=widgets,
-                                   maxval=n_channels*num_points,
+                                   maxval=n_channels * num_points,
                                    attr={'nchan': n_channels})
     pbar.start()
   else:
@@ -153,29 +154,42 @@ def track(samples, channels,
 
   # Run tracking for each channel
   def do_channel(chan, n=None, q_progress=None):
+    isL1CA = (chan.signal == gps_constants.L1CA)
+    isL2C = (chan.signal == gps_constants.L2C)
+
+    if not isL1CA and not isL2C:
+      NotImplementedError("Signal type '%s' is not supported" % chan.signal)
+
     track_result = TrackResults(num_points, chan.prn)
 
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
-    cn0_0 += 10 * np.log10(1000) # Channel bandwidth
+    cn0_0 += 10 * np.log10(1000)  # Channel bandwidth
 
-    if chan.signal == "l1ca":
+    if isL1CA:
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
       lock_detect_params = defaults.l1ca_lock_detect_params_opt
       prn_code = caCodes[chan.prn]
       coherent_ms = 1
-    else: # L2C signal clause
+      nav_msg = swiftnav.nav_msg.NavMsg()
+      nav_msg_bit_phase_ref = np.zeros(num_points)
+      nav_bit_sync = NBSMatchBit() if chan.prn < 30 else NBSSBAS()
+    elif isL2C:
       loop_filter_params = defaults.l2c_loop_filter_params
       lock_detect_params = defaults.l2c_lock_detect_params_opt
       prn_code = L2CMCodes[chan.prn]
       coherent_ms = 20
+      cnav_msg = swiftnav.cnav_msg.CNavMsg()
+      cnav_msg_decoder = swiftnav.cnav_msg.CNavMsgDecoder()
+    else:
+      raise NotImplementedError()
 
     cn0_est = swiftnav.track.CN0Estimator(
-                                bw=1e3,
-                                cn0_0=cn0_0,
-                                cutoff_freq=10,
-                                loop_freq = loop_filter_params["loop_freq"]
-                                )
+        bw=1e3,
+        cn0_0=cn0_0,
+        cutoff_freq=10,
+        loop_freq=loop_filter_params["loop_freq"]
+    )
 
     lock_detect = swiftnav.track.LockDetector(
                      k1 = lock_detect_params["k1"] * coherent_ms,
@@ -184,26 +198,28 @@ def track(samples, channels,
                      lo = lock_detect_params["lo"]);
 
     # Estimate initial code freq via aiding from acq carrier freq
-    if chan.signal == 'l1ca':
+    if isL1CA:
       code_freq_init = (chan.carr_freq - IF) * \
-                       gps_constants.chip_rate / gps_constants.l1
-    else: # l2c clause
+          gps_constants.chip_rate / gps_constants.l1
+    elif isL2C:
       code_freq_init = (chan.carr_freq - IF) * \
-                       gps_constants.chip_rate / gps_constants.l2
+          gps_constants.chip_rate / gps_constants.l2
+    else:
+      raise NotImplementedError()
 
     carr_freq_init = chan.carr_freq - IF
     loop_filter = loop_filter_class(
-      loop_freq    = loop_filter_params['loop_freq'],
-      code_freq    = code_freq_init,
-      code_bw      = loop_filter_parpams['code_bw'],
-      code_zeta    = loop_filter_params['code_zeta'],
-      code_k       = loop_filter_params['code_k'],
-      carr_to_code = loop_filter_params['carr_to_code'],
-      carr_freq    = carr_freq_init,
-      carr_bw      = loop_filter_params['carr_bw'],
-      carr_zeta    = loop_filter_params['carr_zeta'],
-      carr_k       = loop_filter_params['carr_k'],
-      carr_freq_b1 = loop_filter_params['carr_freq_b1'],
+        loop_freq=loop_filter_params['loop_freq'],
+        code_freq=code_freq_init,
+        code_bw=loop_filter_params['code_bw'],
+        code_zeta=loop_filter_params['code_zeta'],
+        code_k=loop_filter_params['code_k'],
+        carr_to_code=loop_filter_params['carr_to_code'],
+        carr_freq=carr_freq_init,
+        carr_bw=loop_filter_params['carr_bw'],
+        carr_zeta=loop_filter_params['carr_zeta'],
+        carr_k=loop_filter_params['carr_k'],
+        carr_freq_b1=loop_filter_params['carr_freq_b1'],
     )
     code_phase = 0.0
     carr_phase = 0.0
@@ -226,44 +242,59 @@ def track(samples, channels,
     # Process the specified number of ms
     while ms_tracked < ms_to_track:
       if pbar:
-        pbar.update(ms_tracked + n * num_points, attr={'chan': n+1})
+        pbar.update(ms_tracked + n * num_points, attr={'chan': n + 1})
 
-      E = 0+0.j; P = 0+0.j; L = 0+0.j
+      if isL1CA:
+        # For L1 C/A there are coherent and non-coherent tracking options.
+        if stage1 and \
+           stage2_coherent_ms and \
+           nav_msg.bit_phase == nav_msg.bit_phase_ref:
+          # print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1,
+          # ms_tracked)
+          stage1 = False
+          coherent_ms = stage2_coherent_ms
+          loop_filter.retune(*stage2_loop_filter_params)
+          cn0_est = swiftnav.track.CN0Estimator(bw=1e3 / stage2_coherent_ms,
+                                                cn0_0=track_result.cn0[i - 1],
+                                                cutoff_freq=10,
+                                                loop_freq=1e3 / stage2_coherent_ms)
 
-      if stage1 and \
-         chan.signal == 'l1ca' and \
-         stage2_coherent_ms and \
-         track_result.nav_msg.bit_phase == track_result.nav_msg.bit_phase_ref:
+        coherent_iter = coherent_ms
+      elif isL2C:
+        # L2 C is always tracked coherently
+        coherent_ms = 20
+        coherent_iter = 1
+      else:
+        raise NotImplementedError()
 
-        #print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1, ms_tracked)
-        stage1 = False
-        coherent_ms = stage2_coherent_ms
-        loop_filter.retune(*stage2_loop_filter_params)
-        cn0_est = swiftnav.track.CN0Estimator(bw=1e3/stage2_coherent_ms,
-                                              cn0_0=track_result.cn0[i-1],
-                                              cutoff_freq=10,
-                                              loop_freq=1e3/stage2_coherent_ms)
+      E = 0 + 0.j
+      P = 0 + 0.j
+      L = 0 + 0.j
 
-      for _ in range(coherent_ms):
+      for _ in range(coherent_iter):
 
         if sample_index >= len(samples):
-          break;
+          break
 
         samples_ = samples[sample_index:]
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
-          samples_,
-          loop_filter.to_dict()['code_freq'] + chipping_rate, code_phase,
-          loop_filter.to_dict()['carr_freq'] + IF, carr_phase,
-          prn_code,
-          sampling_freq,
-          chan.signal
+            samples_,
+            loop_filter.to_dict()['code_freq'] + chipping_rate, code_phase,
+            loop_filter.to_dict()['carr_freq'] + IF, carr_phase,
+            prn_code,
+            sampling_freq,
+            chan.signal
         )
         sample_index += blksize
-        carr_phase_acc += loop_filter.to_dict()['carr_freq'] * blksize / sampling_freq
-        code_phase_acc += loop_filter.to_dict()['code_freq'] * blksize / sampling_freq
+        carr_phase_acc += loop_filter.to_dict()['carr_freq'] * \
+            blksize / sampling_freq
+        code_phase_acc += loop_filter.to_dict()['code_freq'] * \
+            blksize / sampling_freq
 
-        E += E_; P += P_; L += L_
+        E += E_
+        P += P_
+        L += L_
 
         if chan.signal == 'l2c': # only one 20 ms coherent integration time for L2C
           break
@@ -275,12 +306,30 @@ def track(samples, channels,
       loop_filter.update(E, P, L)
       track_result.coherent_ms[i] = coherent_ms
 
-      track_result.nav_bit_sync.update(np.real(P), coherent_ms)
+      if isL1CA:
+        nav_bit_sync.update(np.real(P), coherent_ms)
 
-      # TODO - Is this the correct way to call nav_msg.update?
-      tow = track_result.nav_msg.update(np.real(P) >= 0)
-      track_result.nav_msg_bit_phase_ref[i] = track_result.nav_msg.bit_phase_ref
-      track_result.tow[i] = tow or (track_result.tow[i-1] + coherent_ms)
+        # TODO - Is this the correct way to call nav_msg.update?
+        tow = nav_msg.update(np.real(P) >= 0)
+        nav_msg_bit_phase_ref[i] = nav_msg.bit_phase_ref
+        track_result.tow[i] = tow or (track_result.tow[i - 1] + coherent_ms)
+      elif isL2C:
+        symbol = 0xFF if np.real(P) >= 0 else 0x00
+        res, delay = cnav_msg_decoder.decode(symbol, cnav_msg)
+        if res:
+          logger.debug("CNAV message decoded: prn=%d msg_id=%d tow=%d alert=%d delay=%d" %
+                       (cnav_msg.getPrn(),
+                        cnav_msg.getMsgId(),
+                        cnav_msg.getTow(),
+                        cnav_msg.getAlert(),
+                        delay))
+          tow = cnav_msg.getTow() * 6000 + delay * 20
+          logger.debug("Current L2C ToW %d", tow)
+          track_result.tow[i] = tow
+        else:
+          track_result.tow[i] = track_result.tow[i - 1] + coherent_ms
+      else:
+        raise NotImplementedError()
 
       track_result.carr_phase[i] = carr_phase
       track_result.carr_phase_acc[i] = carr_phase_acc
@@ -288,7 +337,8 @@ def track(samples, channels,
 
       track_result.code_phase[i] = code_phase
       track_result.code_phase_acc[i] = code_phase_acc
-      track_result.code_freq[i] = loop_filter.to_dict()['code_freq'] + chipping_rate
+      track_result.code_freq[
+          i] = loop_filter.to_dict()['code_freq'] + chipping_rate
 
       # Record stuff for postprocessing
       track_result.absolute_sample[i] = sample_index
@@ -302,7 +352,10 @@ def track(samples, channels,
       track_result.lock_detect_outp[i] = lock_detect_outp
 
       i += 1
-      ms_tracked += coherent_ms
+      if isL1CA or isL2C:
+        ms_tracked += coherent_ms
+      else:
+        raise NotImplementedError()
 
       if q_progress and (i % 200 == 0):
         p = 1.0 * ms_tracked / ms_to_track
@@ -319,10 +372,11 @@ def track(samples, channels,
     return track_result
 
   if multi:
-    track_results=pp.parmap(do_channel, channels,
-                            show_progress=show_progress, func_progress=show_progress)
+    track_results = pp.parmap(do_channel, channels,
+                              show_progress=show_progress, func_progress=show_progress)
   else:
-    track_results=map(lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
+    track_results = map(
+        lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
 
   if pbar:
     pbar.finish()
@@ -333,6 +387,7 @@ def track(samples, channels,
 
 
 class TrackResults:
+
   def __init__(self, n_points, prn):
     self.status = '-'
     self.prn = prn
@@ -355,6 +410,8 @@ class TrackResults:
     self.tow = np.empty(n_points)
     self.tow[:] = np.NAN
     self.coherent_ms = np.zeros(n_points)
+    # self.cnav_msg = swiftnav.cnav_msg.CNavMsg()
+    # self.cnav_msg_decoder = swiftnav.cnav_msg.CNavMsgDecoder()
 
   def resize(self, n_points):
     for k in dir(self):
@@ -395,14 +452,15 @@ class TrackResults:
 
 
 class NavBitSync:
+
   def __init__(self):
     self.bit_phase = 0
     self.bit_integrate = 0
-    self.synced=False
-    self.bits=[]
-    self.bit_phase_ref=-1 # A new bit begins when bit_phase == bit_phase_ref
+    self.synced = False
+    self.bits = []
+    self.bit_phase_ref = -1  # A new bit begins when bit_phase == bit_phase_ref
     self.count = 0
-    
+
   def update(self, corr, ms):
     self.bit_phase += ms
     self.bit_phase %= 20
@@ -455,12 +513,13 @@ class NavBitSync:
     return True
 
 class NavBitSyncSBAS:
+
   def __init__(self):
     self.bit_phase = 0
     self.bit_integrate = 0
-    self.synced=False
-    self.bits=[]
-    self.bit_phase_ref=-1 # A new bit begins when bit_phase == bit_phase_ref
+    self.synced = False
+    self.bits = []
+    self.bit_phase_ref = -1  # A new bit begins when bit_phase == bit_phase_ref
     self.count = 0
 
   def update(self, corr, ms):
@@ -482,6 +541,7 @@ class NavBitSyncSBAS:
 
 
 class NBSSBAS(NavBitSyncSBAS):
+
   def __init__(self, thres=200):
     NavBitSyncSBAS.__init__(self)
     self.hist = np.zeros(2)
@@ -505,7 +565,9 @@ class NBSSBAS(NavBitSyncSBAS):
           self.synced = True
           self.bit_phase_ref = np.argmax(self.hist)
 
+
 class NBSLibSwiftNav(NavBitSync):
+
   def __init__(self):
     NavBitSync.__init__(self)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
@@ -515,7 +577,9 @@ class NBSLibSwiftNav(NavBitSync):
     self.bit_phase_ref = self.nav_msg.bit_phase_ref
     self.synced = self.bit_phase_ref >= 0
 
+
 class NBSMatchBit(NavBitSync):
+
   def __init__(self, thres=22):
     NavBitSync.__init__(self)
     self.hist = np.zeros(20)
@@ -539,7 +603,9 @@ class NBSMatchBit(NavBitSync):
           self.synced = True
           self.bit_phase_ref = np.argmax(self.hist)
 
+
 class NBSHistogram(NavBitSync):
+
   def __init__(self, thres=10):
     NavBitSync.__init__(self)
     self.bit_phase_count = 0
@@ -559,8 +625,11 @@ class NBSHistogram(NavBitSync):
         self.hist = np.zeros(20)
         self.bit_phase_count = 0
 
+
 class NBSMatchEdge(NavBitSync):
-  # TODO: This isn't quite right - might get wrong answer with long leading run of same bits, depending on initial phase
+  # TODO: This isn't quite right - might get wrong answer with long leading
+  # run of same bits, depending on initial phase
+
   def __init__(self, thres=100000):
     NavBitSync.__init__(self)
     self.hist = np.zeros(20)
@@ -570,7 +639,7 @@ class NBSMatchEdge(NavBitSync):
 
   def update_bit_sync(self, corr, ms):
     bp40 = self.bit_phase % 40
-    self.acc += corr - 2*self.prev[(bp40 - 20) % 40] + self.prev[bp40]
+    self.acc += corr - 2 * self.prev[(bp40 - 20) % 40] + self.prev[bp40]
     self.prev[bp40] = corr
     if self.bit_phase >= 40:
       # Accumulator valid

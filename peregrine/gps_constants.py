@@ -19,3 +19,6 @@ nominal_range = 26000e3 # m
 # Useful derived quantities:
 code_period = chips_per_code / chip_rate
 code_wavelength = code_period * c
+
+L1CA = 'l1ca'
+L2C = 'l2c'
