@@ -2,27 +2,24 @@
 Updating test data
 ****************************************
 
+To update the test data tarball and upload to AWS S3
+(requires AWS Command Line Interface):
 
-Update the test data files with the following steps::
+- Add new test data files to `test_data/`.
 
-- Add new test data files to tests/test_data
+- Ensure AWS credentials are filled out in `aws_creds.sh`.
+  If not, ask an AWS knowledgable team member for help.
 
-- Create a new test data tarball
+- Run `update_test_data.sh`. This will commit a new
+  SHA in `test_data_common.sh`.
 
-    $ tar -czf peregrine_ci_test_data.tar.gz test_data/
+    $ ./update_test_data.sh
 
-- Upload this tarball to downloads.swiftnav.com on Amazon S3.
-  Please archive the old tarball before overwriting it.
+- Test it.
 
-    http://downloads.swiftnav.com.s3-us-west-1.amazonaws.com/baseband_samples/peregrine_ci_test_data.tar.gz
+    $ ./get_test_data.sh
+    $ py.test ./
 
-- Update the test data tarball SHA sum in `get_test_data.sh`
-
-    $ sed -i -e "s/\(TEST_DATA_SHA=\).*/\1$(shasum -a 1 peregrine_ci_test_data.tar.gz | head -c 40)/g" get_test_data.sh
-
-- Commit `get_test_data.sh` and push
-
-    $ git add get_test_data.sh
-    $ git commit -m "New test data"
-    $ git push origin my_branch
+- Create a Pull Request ASAP so test data is not
+  out of date for Travis or other developers.
 
