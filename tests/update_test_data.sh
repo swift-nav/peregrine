@@ -9,7 +9,7 @@ source $COMMON
 
 # Create new tarball
 rm -f $TEST_DATA_TAR
-tar -czf $TEST_DATA_TAR test_data/
+tar -cvzf $TEST_DATA_TAR test_data/
 
 # Upload new tarball to S3
 aws s3 cp $TEST_DATA_TAR s3://$TEST_DATA_URL_PATH
