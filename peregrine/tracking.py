@@ -177,7 +177,7 @@ def track(samples, channels,
       nav_bit_sync = NBSMatchBit() if chan.prn < 30 else NBSSBAS()
     elif isL2C:
       loop_filter_params = defaults.l2c_loop_filter_params
-      lock_detect_params = defaults.l2c_lock_detect_params_opt
+      lock_detect_params = defaults.l2c_lock_detect_params_20ms
       prn_code = L2CMCodes[chan.prn]
       coherent_ms = 20
       cnav_msg = swiftnav.cnav_msg.CNavMsg()

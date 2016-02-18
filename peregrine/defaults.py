@@ -1,4 +1,5 @@
 # Copyright (C) 2014 Swift Navigation Inc.
+# Contact: Adel Mamin <adelm@exafore.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -7,55 +8,62 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-ms_to_track = 37*1e3
+ms_to_track = 37 * 1e3
 skip_samples = 1000
 file_format = 'piksi'
-IF = 4.092e6 # Hz
-sampling_freq = 16.368e6 # Hz
-chipping_rate = 1.023e6 # Hz
-code_length = 1023 # chips
+IF = 4.092e6  # Hz
+sampling_freq = 16.368e6  # Hz
+chipping_rate = 1.023e6  # Hz
+code_length = 1023  # chips
 
 code_period = code_length / chipping_rate
 samples_per_code = code_period * sampling_freq
 
 l1ca_stage1_loop_filter_params = {
-    "loop_freq"    : 1e3,       # loop frequency [Hz]
-    "code_bw"      : 1,         # Code loop NBW
-    "code_zeta"    : 0.707,     # Code loop zeta
-    "code_k"       : 1,         # Code loop k
-    "carr_to_code" : 0,         # Carrier-to-code freq ratio (carrier aiding)
-    "carr_bw"      : 25,        # Carrier loop NBW
-    "carr_zeta"    : 0.707,     # Carrier loop zeta
-    "carr_k"       : 1,         # Carrier loop k
-    "carr_freq_b1" : 5}         # Carrier loop aiding_igain
+    "loop_freq": 1e3,    # loop frequency [Hz]
+    "code_bw": 1,        # Code loop NBW
+    "code_zeta": 0.707,  # Code loop zeta
+    "code_k": 1,         # Code loop k
+    "carr_to_code": 0,   # Carrier-to-code freq ratio (carrier aiding)
+    "carr_bw": 25,       # Carrier loop NBW
+    "carr_zeta": 0.707,  # Carrier loop zeta
+    "carr_k": 1,         # Carrier loop k
+    "carr_freq_b1": 5}   # Carrier loop aiding_igain
 
 l2c_loop_filter_params = {
-    "loop_freq"    : 50,        # loop frequency [Hz]
-    "code_bw"      : 1,         # Code loop NBW
-    "code_zeta"    : 0.707,     # Code loop zeta
-    "code_k"       : 1,         # Code loop k
-    "carr_to_code" : 0,         # Carrier-to-code freq ratio (carrier aiding)
-    "carr_bw"      : 13,        # Carrier loop NBW
-    "carr_zeta"    : 0.707,     # Carrier loop zeta
-    "carr_k"       : 1,         # Carrier loop k
-    "carr_freq_b1" : 5}         # Carrier loop aiding_igain
+    "loop_freq": 50,     # loop frequency [Hz]
+    "code_bw": 1,        # Code loop NBW
+    "code_zeta": 0.707,  # Code loop zeta
+    "code_k": 1,         # Code loop k
+    "carr_to_code": 0,   # Carrier-to-code freq ratio (carrier aiding)
+    "carr_bw": 13,       # Carrier loop NBW
+    "carr_zeta": 0.707,  # Carrier loop zeta
+    "carr_k": 1,         # Carrier loop k
+    "carr_freq_b1": 5}   # Carrier loop aiding_igain
 
 # pessimistic set
-l1ca_lock_detect_params_pess     = {"k1" : 0.10, "k2" : 1.4, "lp" : 200, "lo" : 50 }
-l2c_lock_detect_params_pess      = {"k1" : 0.10, "k2" : 1.4, "lp" : 200, "lo" : 50 }
+l1ca_lock_detect_params_pess = {"k1": 0.10, "k2": 1.4, "lp": 200, "lo": 50}
 
 # normal set
-l1ca_lock_detect_params_normal   = {"k1" : 0.05, "k2" : 1.4, "lp" : 150, "lo" : 50 }
-l2c_lock_detect_params_normal    = {"k1" : 0.05, "k2" : 1.4, "lp" : 150, "lo" : 50 }
+l1ca_lock_detect_params_normal = {"k1": 0.05, "k2": 1.4, "lp": 150, "lo": 50}
 
 # optimal set
-l1ca_lock_detect_params_opt      = {"k1" : 0.02, "k2" : 1.1, "lp" : 150, "lo" : 50 }
-l2c_lock_detect_params_opt       = {"k1" : 0.02, "k2" : 1.1, "lp" : 150, "lo" : 50 }
+l1ca_lock_detect_params_opt = {"k1": 0.02, "k2": 1.1, "lp": 150, "lo": 50}
 
 # extra optimal set
-l1ca_lock_detect_params_extraopt = {"k1" : 0.02, "k2" : 0.8, "lp" : 150, "lo" : 50 }
-l2c_lock_detect_params_extraopt  = {"k1" : 0.02, "k2" : 0.8, "lp" : 150, "lo" : 50 }
+l1ca_lock_detect_params_extraopt = {"k1": 0.02, "k2": 0.8, "lp": 150, "lo": 50}
 
 # disable lock detect
-l1ca_lock_detect_params_disable  = {"k1" : 0.02, "k2" : 1e-6, "lp" : 1, "lo" : 1 }
-l2c_lock_detect_params_disable   = {"k1" : 0.02, "k2" : 1e-6, "lp" : 1, "lo" : 1 }
+l1ca_lock_detect_params_disable = {"k1": 0.02, "k2": 1e-6, "lp": 1, "lo": 1}
+
+
+# L2C 20ms lock detect profile
+# References:
+# - Understanding GPS: Principles and Applications.
+#   Elliott D. Kaplan. Artech House, 2006. 2nd edition
+#   p.235
+l2c_lock_detect_params_20ms = {
+    'k1': 0.0247,  # LPF with -3dB at ~0.4 Hz
+    'k2': 1.5,     # use ~26 degrees I/Q phase angle as a threshold
+    'lp': 50,      # 1000ms worth of I/Q samples to reach pessimistic lock
+    'lo': 240}     # 4800ms worth of I/Q samples to lower optimistic lock
