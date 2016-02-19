@@ -30,16 +30,12 @@ except ImportError:
   _progressbar_available = False
 
 default_stage1_loop_filter_params = {
-  'code_loop': {
-    'bw': 1,
-    'zeta': 0.7,
-    'k': 1,
-  },
-  'carr_loop': {
-    'bw': 25,
-    'zeta': 0.7,
-    'k': 1,
-  },
+  'code_loop_bw': 1,
+  'code_loop_zeta': 0.7,
+  'code_loop_k': 1,
+  'carr_loop_bw': 25,
+  'carr_loop_zeta': 0.7,
+  'carr_loop_k': 1,
   'loop_freq': 1e3,
   'carr_freq_b1': 5,
   'carr_to_code': 1540,
