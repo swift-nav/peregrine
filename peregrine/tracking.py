@@ -29,6 +29,22 @@ try:
 except ImportError:
   _progressbar_available = False
 
+default_stage1_loop_filter_params = {
+  'code_loop': {
+    'bw': 1,
+    'zeta': 0.7,
+    'k': 1,
+  },
+  'carr_loop': {
+    'bw': 25,
+    'zeta': 0.7,
+    'k': 1,
+  },
+  'loop_freq': 1e3,
+  'carr_freq_b1': 5,
+  'carr_to_code': 1540,
+}
+
 
 class TrackingLoop(object):
   """
@@ -81,6 +97,7 @@ class TrackingLoop(object):
     """
     raise NotImplementedError()
 
+
 def track(samples, channels,
           ms_to_track=None,
           sampling_freq=defaults.sampling_freq,
@@ -88,13 +105,8 @@ def track(samples, channels,
           IF=defaults.IF,
           show_progress=True,
           loop_filter_class=swiftnav.track.AidedTrackingLoop,
-          stage1_loop_filter_params=(
-            (1, 0.7, 1),     # Code loop NBW, zeta, k
-            (25, 0.7, 1),    # Carrier loop NBW, zeta, k
-            1e3,             # Loop frequency
-            5,               # Carrier loop aiding_igain
-            1540
-          ),
+          stage1_loop_filter_params=\
+            default_stage1_loop_filter_params,
           correlator=swiftnav.correlate.track_correlate_,
           stage2_coherent_ms=None,
           stage2_loop_filter_params=None,
@@ -165,17 +177,17 @@ def track(samples, channels,
                      gps_constants.chip_rate / gps_constants.l1
     carr_freq_init = chan.carr_freq - IF
     loop_filter = loop_filter_class(
-      loop_freq = stage1_loop_filter_params[2], \
-      code_freq = code_freq_init, \
-      code_bw = stage1_loop_filter_params[0][0],
-      code_zeta = stage1_loop_filter_params[0][1],
-      code_k = stage1_loop_filter_params[0][2],
-      carr_to_code = stage1_loop_filter_params[4],
-      carr_freq = carr_freq_init, \
-      carr_bw = stage1_loop_filter_params[1][0],
-      carr_zeta = stage1_loop_filter_params[1][1],
-      carr_k = stage1_loop_filter_params[1][2],
-      carr_freq_b1 = stage1_loop_filter_params[3],
+      loop_freq    = stage1_loop_filter_params['loop_freq'],
+      code_freq    = code_freq_init,
+      code_bw      = stage1_loop_filter_params['code_loop_bw'],
+      code_zeta    = stage1_loop_filter_params['code_loop_zeta'],
+      code_k       = stage1_loop_filter_params['code_loop_k'],
+      carr_to_code = stage1_loop_filter_params['carr_to_code'],
+      carr_freq    = carr_freq_init, \
+      carr_bw      = stage1_loop_filter_params['carr_loop_bw'],
+      carr_zeta    = stage1_loop_filter_params['carr_loop_zeta'],
+      carr_k       = stage1_loop_filter_params['carr_loop_k'],
+      carr_freq_b1 = stage1_loop_filter_params['carr_freq_b1'],
     )
     code_phase = 0.0
     carr_phase = 0.0
