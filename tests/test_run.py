@@ -8,11 +8,13 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import peregrine.run
-from peregrine.acquisition import load_acq_results
-from mock import patch
 import sys
 import cPickle
 import os
+
+from peregrine.acquisition import load_acq_results
+from mock import patch
+from shutil import copyfile
 
 SAMPLES_PATH = 'tests/test_data/'
 RES_PATH = SAMPLES_PATH + '/results/'
@@ -55,8 +57,8 @@ def test_tracking():
   # Replace argv with args to skip acquisition and navigation.
   with patch.object(sys, 'argv', ['peregrine', SAMPLES, '-a', '-n']):
 
-    # Copy reference acq results to use to skip acquisition.
-    os.system('cp ' + OLD_ACQ_RES + ' ' + NEW_ACQ_RES)
+    # Copy reference acq results to use in order to skip acquisition.
+    copyfile(OLD_ACQ_RES, NEW_ACQ_RES)
 
     try:
       peregrine.run.main()
@@ -76,10 +78,3 @@ def test_tracking():
     os.remove(NEW_ACQ_RES)
     os.remove(NEW_TRK_RES)
 
-# TODO
-#def test_navigation():
-#  with patch.object(sys, 'argv', ['peregrine', SAMPLES, '-a', '-t']):
-#    peregrine.run.main()
-#    os.remove(ACQ_RES)
-#    os.remove(TRK_RES)
-#    os.remove(NAV_RES)
