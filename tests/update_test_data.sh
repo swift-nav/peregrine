@@ -15,7 +15,7 @@ tar -cvzf $TEST_DATA_TAR test_data/
 aws s3 cp $TEST_DATA_TAR s3://$TEST_DATA_URL_PATH --region us-west-1
 
 # Update tarball SHA
-sed -i -e "s/\(TEST_DATA_SHA=\).*/\1$(shawesome $TEST_DATA_TAR)/g" $COMMON
+sed -i -e "s/\(TEST_DATA_SHA=\).*/\1$(shasum-abridged $TEST_DATA_TAR)/g" $COMMON
 
 # Commit new tarball SHA
 git add $COMMON

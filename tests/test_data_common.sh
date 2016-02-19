@@ -6,7 +6,7 @@ export TEST_DATA_URL_PATH=downloads.swiftnav.com/baseband_samples/$TEST_DATA_TAR
 export TEST_DATA_URL=http://downloads.swiftnav.com.s3-us-west-1.amazonaws.com/baseband_samples/$TEST_DATA_TAR
 
 # Remove filename from shasum
-function shawesome()
+function shasum-abridged()
 {
   echo "$(sum=($(shasum -a 1 $1)); echo $sum)"
 }

@@ -10,7 +10,7 @@ mv test_data test_data_old_$(date +%Y-%m-%d:%H:%M:%S) 2>/dev/null || true
 curl -O $TEST_DATA_URL
 
 # Extract tarball if SHA checks out
-if [ $(shawesome $TEST_DATA_TAR) != $TEST_DATA_SHA ]; then
+if [ $(shasum-abridged $TEST_DATA_TAR) != $TEST_DATA_SHA ]; then
   echo "Error: test data has unknown SHA"
   exit 1
 else
