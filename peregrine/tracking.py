@@ -22,6 +22,7 @@ import swiftnav.nav_msg
 import swiftnav.cnav_msg
 import swiftnav.ephemeris
 import defaults
+from peregrine.acquisition import AcquisitionResult
 
 import logging
 logger = logging.getLogger(__name__)
@@ -162,6 +163,11 @@ def track(samples, channels,
       NotImplementedError("Signal type '%s' is not supported" % chan.signal)
 
     track_result = TrackResults(num_points, chan.prn)
+    l2c_handover_chan = AcquisitionResult(chan.prn, 0,0,0,0,'-','l2c')
+
+    # Do not track if acquisition or handover failed
+    if chan.status == '-':
+      return track_result, l2c_handover_chan
 
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
@@ -250,6 +256,17 @@ def track(samples, channels,
     progress = 0
     ms_tracked = 0
     i = 0
+    # For L2C, proceed in steps of full milliseconds up to the ms when
+    # handover succeeded. Do not set sample_index := chan.sample_index
+    # since the sub ms part of sample_index presents code phase.
+    # Therefore, skip just full ms steps to preserve code phase.
+    if chan.signal == 'l2c':
+      samples_per_ms = defaults.sampling_freq * defaults.code_period
+      skip_ms = int((chan.sample_index - sample_index)/samples_per_ms)
+      skip_samples = skip_ms * samples_per_ms
+      sample_index += skip_samples
+      ms_tracked   += skip_ms
+
     # Process the specified number of ms
     while ms_tracked < ms_to_track:
       if pbar:
@@ -399,6 +416,19 @@ def track(samples, channels,
 
       track_result.alias_detect_err_hz[i] = alias_detect_err_hz
 
+      # Handover to L2C if possible
+      if chan.signal == "l1ca" and l2c_handover_chan.status == '-' and nav_bit_sync.bit_phase_ref != -1:
+        chan_snr = track_result.cn0[i]
+        chan_snr -= 10 * np.log10(1000) # Channel bandwidth
+        chan_snr = np.power(10, chan_snr / 10)
+        l2c_handover_chan = AcquisitionResult(track_result.prn,
+                                              track_result.carr_freq[i],
+                                              chan.doppler,
+                                              track_result.code_phase[i],
+                                              chan_snr, 
+                                              'A',
+                                              'l2c',
+                                              track_result.absolute_sample[i])
       i += 1
       if isL1CA or isL2C:
         ms_tracked += coherent_ms
@@ -417,21 +447,34 @@ def track(samples, channels,
     if q_progress:
       q_progress.put(1.0 - progress)
 
-    return track_result
+    return track_result, l2c_handover_chan
 
+  # Run L1CA
   if multi:
-    track_results = pp.parmap(do_channel, channels,
-                              show_progress=show_progress, func_progress=show_progress)
+    track_handover_results=pp.parmap(do_channel, channels,
+                                     show_progress=show_progress, func_progress=show_progress)
   else:
-    track_results = map(
-        lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
+    track_handover_results=map(lambda (n, chan): do_channel(chan, n=n), enumerate(channels))
+  # Extract track and handover results
+  l1ca_track_results    = map(lambda x : x[0], track_handover_results)
+  l2c_handover_channels = map(lambda x : x[1], track_handover_results)
+ 
+  # Run L2C
+  logger.info("Start L2C tracking")
+  if multi:
+    track_handover_results=pp.parmap(do_channel, l2c_handover_channels,
+                                     show_progress=show_progress, func_progress=show_progress)
+  else:
+    track_handover_results=map(lambda (n, chan): do_channel(chan, n=n), enumerate(l2c_handover_channels))
+  # Extract track results, handover results are unused 
+  l2c_track_results = map(lambda x : x[0], track_handover_results)
 
   if pbar:
     pbar.finish()
 
   logger.info("Tracking finished")
 
-  return track_results
+  return l1ca_track_results, l2c_track_results
 
 
 class TrackResults:
