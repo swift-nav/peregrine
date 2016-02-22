@@ -170,6 +170,11 @@ def track(samples, channels,
     if isL1CA:
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
       lock_detect_params = defaults.l1ca_lock_detect_params_opt
+      lock_detect = swiftnav.track.LockDetector(
+                       k1 = lock_detect_params["k1"],
+                       k2 = lock_detect_params["k2"],
+                       lp = lock_detect_params["lp"],
+                       lo = lock_detect_params["lo"])
       prn_code = caCodes[chan.prn]
       coherent_ms = 1
       nav_msg = swiftnav.nav_msg.NavMsg()
@@ -178,6 +183,11 @@ def track(samples, channels,
     elif isL2C:
       loop_filter_params = defaults.l2c_loop_filter_params
       lock_detect_params = defaults.l2c_lock_detect_params_20ms
+      lock_detect = swiftnav.track.LockDetector(
+                       k1 = lock_detect_params["k1"],
+                       k2 = lock_detect_params["k2"],
+                       lp = lock_detect_params["lp"],
+                       lo = lock_detect_params["lo"])
       prn_code = L2CMCodes[chan.prn]
       coherent_ms = 20
       cnav_msg = swiftnav.cnav_msg.CNavMsg()
@@ -185,18 +195,18 @@ def track(samples, channels,
     else:
       raise NotImplementedError()
 
+    alias_detect_init = 1 # require alias_detect_first() call
+                          # or alias_detect.reinit() call or both
+    alias_detect = swiftnav.track.AliasDetector(
+                     acc_len = defaults.alias_detect_interval_ms / coherent_ms,
+                     time_diff = 1)
+
     cn0_est = swiftnav.track.CN0Estimator(
         bw=1e3,
         cn0_0=cn0_0,
         cutoff_freq=10,
         loop_freq=loop_filter_params["loop_freq"]
     )
-
-    lock_detect = swiftnav.track.LockDetector(
-        k1=lock_detect_params["k1"] * coherent_ms,
-        k2=lock_detect_params["k2"],
-        lp=lock_detect_params["lp"],
-        lo=lock_detect_params["lo"])
 
     # Estimate initial code freq via aiding from acq carrier freq
     if isL1CA:
@@ -215,7 +225,7 @@ def track(samples, channels,
         code_bw=loop_filter_params['code_bw'],
         code_zeta=loop_filter_params['code_zeta'],
         code_k=loop_filter_params['code_k'],
-        carr_to_code=loop_filter_params['carr_to_code'],
+        carr_to_code=0, # the provided code frequency accounts for Doppler
         carr_freq=carr_freq_init,
         carr_bw=loop_filter_params['carr_bw'],
         carr_zeta=loop_filter_params['carr_zeta'],
@@ -254,6 +264,11 @@ def track(samples, channels,
           stage1 = False
           coherent_ms = stage2_coherent_ms
           loop_filter.retune(*stage2_loop_filter_params)
+          lock_detect.reinit(
+                       k1 = lock_detect_params["k1"] * coherent_ms,
+                       k2 = lock_detect_params["k2"],
+                       lp = lock_detect_params["lp"],
+                       lo = lock_detect_params["lo"]);
           cn0_est = swiftnav.track.CN0Estimator(bw=1e3 / stage2_coherent_ms,
                                                 cn0_0=track_result.cn0[i - 1],
                                                 cutoff_freq=10,
@@ -296,13 +311,24 @@ def track(samples, channels,
         P += P_
         L += L_
 
-        # only one 20 ms coherent integration time for L2C
-        if chan.signal == 'l2c':
-          break
-
       # Update PLL lock detector
-      lock_detect_outo, lock_detect_outp = lock_detect.update(P.real, P.imag,
+      lock_detect_outo, lock_detect_outp, \
+      lock_detect_pcount1, lock_detect_pcount2, \
+      lock_detect_lpfi, lock_detect_lpfq = lock_detect.update(P.real, P.imag,
                                                               coherent_ms)
+
+      if lock_detect_outo:
+        if alias_detect_init:
+          alias_detect_init = 0
+          alias_detect.reinit(defaults.alias_detect_interval_ms / coherent_ms,
+                              time_diff = 1)
+          alias_detect.first(P.real, P.imag)
+        alias_detect_err_hz = alias_detect.second(P.real, P.imag) * np.pi * \
+                              (1e3 / defaults.alias_detect_interval_ms)
+        alias_detect.first(P.real, P.imag)
+      else:
+        alias_detect_init = 1
+        alias_detect_err_hz = 0
 
       loop_filter.update(E, P, L)
       track_result.coherent_ms[i] = coherent_ms
@@ -363,8 +389,15 @@ def track(samples, channels,
       track_result.L[i] = L
 
       track_result.cn0[i] = cn0_est.update(P.real, P.imag)
+
       track_result.lock_detect_outo[i] = lock_detect_outo
       track_result.lock_detect_outp[i] = lock_detect_outp
+      track_result.lock_detect_pcount1[i] = lock_detect_pcount1
+      track_result.lock_detect_pcount2[i] = lock_detect_pcount2
+      track_result.lock_detect_lpfi[i] = lock_detect_lpfi
+      track_result.lock_detect_lpfq[i] = lock_detect_lpfq
+
+      track_result.alias_detect_err_hz[i] = alias_detect_err_hz
 
       i += 1
       if isL1CA or isL2C:
@@ -419,6 +452,11 @@ class TrackResults:
     self.cn0 = np.zeros(n_points)
     self.lock_detect_outp = np.zeros(n_points)
     self.lock_detect_outo = np.zeros(n_points)
+    self.lock_detect_pcount1 = np.zeros(n_points)
+    self.lock_detect_pcount2 = np.zeros(n_points)
+    self.lock_detect_lpfi = np.zeros(n_points)
+    self.lock_detect_lpfq = np.zeros(n_points)
+    self.alias_detect_err_hz = np.zeros(n_points)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
     self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()

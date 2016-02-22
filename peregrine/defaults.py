@@ -20,26 +20,26 @@ code_period = code_length / chipping_rate
 samples_per_code = code_period * sampling_freq
 
 l1ca_stage1_loop_filter_params = {
-    "loop_freq": 1e3,    # loop frequency [Hz]
-    "code_bw": 1,        # Code loop NBW
-    "code_zeta": 0.707,  # Code loop zeta
-    "code_k": 1,         # Code loop k
-    "carr_to_code": 0,   # Carrier-to-code freq ratio (carrier aiding)
-    "carr_bw": 25,       # Carrier loop NBW
-    "carr_zeta": 0.707,  # Carrier loop zeta
-    "carr_k": 1,         # Carrier loop k
-    "carr_freq_b1": 5}   # Carrier loop aiding_igain
+    "loop_freq": 1e3,     # loop frequency [Hz]
+    "code_bw": 1,         # Code loop NBW
+    "code_zeta": 0.7,     # Code loop zeta
+    "code_k": 1,          # Code loop k
+    "carr_to_code": 1540, # Carrier-to-code freq ratio (carrier aiding)
+    "carr_bw": 10,        # Carrier loop NBW
+    "carr_zeta": 0.7,     # Carrier loop zeta
+    "carr_k": 1,          # Carrier loop k
+    "carr_freq_b1": 5}    # Carrier loop aiding_igain
 
 l2c_loop_filter_params = {
-    "loop_freq": 50,     # loop frequency [Hz]
-    "code_bw": 1,        # Code loop NBW
-    "code_zeta": 0.707,  # Code loop zeta
-    "code_k": 1,         # Code loop k
-    "carr_to_code": 0,   # Carrier-to-code freq ratio (carrier aiding)
-    "carr_bw": 13,       # Carrier loop NBW
-    "carr_zeta": 0.707,  # Carrier loop zeta
-    "carr_k": 1,         # Carrier loop k
-    "carr_freq_b1": 5}   # Carrier loop aiding_igain
+    "loop_freq": 50,      # loop frequency [Hz]
+    "code_bw": 1,         # Code loop NBW
+    "code_zeta": 0.707,   # Code loop zeta
+    "code_k": 1,          # Code loop k
+    "carr_to_code": 1200, # Carrier-to-code freq ratio (carrier aiding)
+    "carr_bw": 13,        # Carrier loop NBW
+    "carr_zeta": 0.707,   # Carrier loop zeta
+    "carr_k": 1,          # Carrier loop k
+    "carr_freq_b1": 5}    # Carrier loop aiding_igain
 
 # pessimistic set
 l1ca_lock_detect_params_pess = {"k1": 0.10, "k2": 1.4, "lp": 200, "lo": 50}
@@ -67,3 +67,5 @@ l2c_lock_detect_params_20ms = {
     'k2': 1.5,     # use ~26 degrees I/Q phase angle as a threshold
     'lp': 50,      # 1000ms worth of I/Q samples to reach pessimistic lock
     'lo': 240}     # 4800ms worth of I/Q samples to lower optimistic lock
+
+alias_detect_interval_ms = 500
