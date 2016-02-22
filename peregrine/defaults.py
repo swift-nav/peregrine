@@ -19,6 +19,9 @@ code_length = 1023  # chips
 code_period = code_length / chipping_rate
 samples_per_code = code_period * sampling_freq
 
+L1CA_CHANNEL_BANDWIDTH_HZ=1000
+L2C_CHANNEL_BANDWIDTH_HZ=1000
+
 l1ca_stage1_loop_filter_params = {
     "loop_freq": 1e3,     # loop frequency [Hz]
     "code_bw": 1,         # Code loop NBW
