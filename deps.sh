@@ -37,6 +37,7 @@ function install_deps_ubuntu_maybe () {
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
+    cd .git/hooks; ln -sf ../../git-hooks/* ./; rm README.rst; cd ../..
 }
 
 function install_deps_debian_jessie_or_stretch () {
@@ -70,6 +71,7 @@ function install_deps_debian_jessie_or_stretch () {
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
+    cd .git/hooks; ln -sf ../../git-hooks/* ./; rm README.rst; cd ../..
 }
 
 function install_deps_osx () {
@@ -97,6 +99,7 @@ function install_deps_osx () {
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
+    cd .git/hooks; ln -sf ../../git-hooks/* ./; rm README.rst; cd ../..
 }
 
 if [[ "$OSTYPE" == "linux-"* ]]; then
