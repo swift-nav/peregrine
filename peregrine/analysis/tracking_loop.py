@@ -79,7 +79,8 @@ def main():
                       doppler = carr_doppler,
                       code_phase = code_phase,
                       status = 'A',
-                      signal = 'l1ca')
+                      signal = 'l1ca',
+                      sample_index = 0)
   else: # L2C signal clause
     acq_result = AcquisitionResult(prn = prn,
                       snr = 25, # dB
@@ -87,7 +88,8 @@ def main():
                       doppler = carr_doppler,
                       code_phase = code_phase,
                       status = 'A',
-                      signal = 'l2c')
+                      signal = 'l2c',
+                      sample_index = 0)
 
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
