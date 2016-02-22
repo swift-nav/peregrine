@@ -29,7 +29,8 @@ def main():
 
   parser.add_argument("-f", "--file-format",
                       help = "the format of the sample data file "
-                      "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
+                      "('piksi', 'int8', '1bit', '1bitrev', "
+                      "'1bit_x2', '2bits', '2bits_x2')")
 
   parser.add_argument("-t", "--ms-to-track",
                       help = "the number of milliseconds to process. ")
@@ -123,7 +124,11 @@ def main():
                         IF = IF)
 
   with open(args.output_file, 'w') as f1:
-    f1.write("doppler_phase,carr_doppler,code_phase,code_freq,CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,lock_detect_outp,lock_detect_outo\n")
+    f1.write("doppler_phase,carr_doppler,code_phase,code_freq,"
+             "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
+             "lock_detect_outp,lock_detect_outo,"
+             "lock_detect_pcount1,lock_detect_pcount2,"
+             "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz\n")
     for i in range(len(track_results[0].carr_phase)):
       f1.write("%s," % track_results[0].carr_phase[i])
       f1.write("%s," % (track_results[0].carr_freq[i] - IF))
@@ -137,7 +142,12 @@ def main():
       f1.write("%s," % track_results[0].L[i].real)
       f1.write("%s," % track_results[0].L[i].imag)
       f1.write("%s," % track_results[0].lock_detect_outp[i])
-      f1.write("%s\n" % track_results[0].lock_detect_outo[i])
+      f1.write("%s," % track_results[0].lock_detect_outo[i])
+      f1.write("%s," % track_results[0].lock_detect_pcount1[i])
+      f1.write("%s," % track_results[0].lock_detect_pcount2[i])
+      f1.write("%s," % track_results[0].lock_detect_lpfi[i])
+      f1.write("%s," % track_results[0].lock_detect_lpfq[i])
+      f1.write("%s\n" % track_results[0].alias_detect_err_hz[i])
 
 if __name__ == '__main__':
   main()
