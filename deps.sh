@@ -32,6 +32,7 @@ function install_deps_ubuntu_maybe () {
     pip uninstall swiftnav -y 2>/dev/null || true
     # Install libswiftnav bindings
     cd ../python
+    sudo pip install -r requirements.txt
     sudo python setup.py build
     sudo python setup.py install
     cd ../../
@@ -66,6 +67,7 @@ function install_deps_debian_jessie_or_stretch () {
     pip uninstall swiftnav -y 2>/dev/null || true
     # Install libswiftnav bindings
     cd ../python
+    sudo pip install -r requirements.txt
     sudo python setup.py build
     sudo python setup.py install
     cd ../../
@@ -94,6 +96,7 @@ function install_deps_osx () {
     pip uninstall swiftnav -y 2>/dev/null || true
     # Install libswiftnav bindings
     cd ../python
+    sudo pip install -r requirements.txt
     sudo python setup.py build
     sudo python setup.py install
     cd ../../
