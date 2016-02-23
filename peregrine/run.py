@@ -43,11 +43,16 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
+  parser.add_argument("--ms-to-process",
+                      help="milliseconds to process",
+                      default = settings.msToProcess)
   parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
-                      "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
+                      "('piksi', 'int8', '1bit', '1bitrev', "
+                      "'1bit_x2', '2bits', '2bits_x2')")
   args = parser.parse_args()
   settings.fileName = args.file
+  settings.msToProcess = int(args.ms_to_process) - 22
 
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
