@@ -280,7 +280,7 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 
-  if len(samples.T) < num_samples:
+  if len(samples[0]) < num_samples:
     raise EOFError("Failed to read %d samples from file '%s'" %
                    (num_samples, filename))
 
