@@ -534,13 +534,16 @@ class AcquisitionResult:
                 acquisition threshold.
   signal : {'l1ca', 'l2c'}
     The type of the signal: L1C/A or L2C
+  sample_channel : IQ channel index
   sample_index : Index of sample when acquisition succeeded
   """
 
   __slots__ = ('prn', 'carr_freq', 'doppler', \
                'code_phase', 'snr', 'status', 'signal')
 
-  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal, sample_index=None):
+  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal,
+               sample_channel = 0,
+               sample_index = None):
     self.prn = prn
     self.snr = snr
     self.carr_freq = carr_freq
@@ -548,6 +551,7 @@ class AcquisitionResult:
     self.code_phase = code_phase
     self.status = status
     self.signal = signal
+    self.sample_channel = sample_channel
     self.sample_index = sample_index
 
   def __str__(self):
