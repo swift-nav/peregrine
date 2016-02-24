@@ -179,7 +179,7 @@ def track(samples, channels,
       coherent_ms = 1
       nav_msg = swiftnav.nav_msg.NavMsg()
       nav_msg_bit_phase_ref = np.zeros(num_points)
-      nav_bit_sync = NBSMatchBit() if chan.prn < 30 else NBSSBAS()
+      nav_bit_sync = NBSMatchBit() if chan.prn < 32 else NBSSBAS()
     elif isL2C:
       loop_filter_params = defaults.l2c_loop_filter_params
       lock_detect_params = defaults.l2c_lock_detect_params_20ms
