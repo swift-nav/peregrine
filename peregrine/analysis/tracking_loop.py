@@ -8,6 +8,7 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+import os
 import argparse
 from peregrine.samples import load_samples
 from peregrine.acquisition import AcquisitionResult
@@ -16,6 +17,38 @@ from peregrine.log import default_logging_config
 from peregrine.tracking import track
 from peregrine.gps_constants import L1CA, L2C
 from peregrine.initSettings import initSettings
+
+def dump_tracking_results_for_analysis(output_file, track_results):
+  output_filename, output_file_extension = os.path.splitext(output_file)
+
+  for j in range(len(track_results)):
+    filename = output_filename + (".index-%s" % j) + output_file_extension
+    with open(filename, 'w') as f1:
+      f1.write("doppler_phase,carr_doppler,code_phase,code_freq,"
+               "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
+               "lock_detect_outp,lock_detect_outo,"
+               "lock_detect_pcount1,lock_detect_pcount2,"
+               "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz\n")
+      for i in range(len(track_results[j].carr_phase)):
+        f1.write("%s," % track_results[j].carr_phase[i])
+        f1.write("%s," % (track_results[j].carr_freq[i] -
+                          track_results[j].IF))
+        f1.write("%s," % track_results[j].code_phase[i])
+        f1.write("%s," % track_results[j].code_freq[i])
+        f1.write("%s," % track_results[j].cn0[i])
+        f1.write("%s," % track_results[j].E[i].real)
+        f1.write("%s," % track_results[j].E[i].imag)
+        f1.write("%s," % track_results[j].P[i].real)
+        f1.write("%s," % track_results[j].P[i].imag)
+        f1.write("%s," % track_results[j].L[i].real)
+        f1.write("%s," % track_results[j].L[i].imag)
+        f1.write("%s," % track_results[j].lock_detect_outp[i])
+        f1.write("%s," % track_results[j].lock_detect_outo[i])
+        f1.write("%s," % track_results[j].lock_detect_pcount1[i])
+        f1.write("%s," % track_results[j].lock_detect_pcount2[i])
+        f1.write("%s," % track_results[j].lock_detect_lpfi[i])
+        f1.write("%s," % track_results[j].lock_detect_lpfq[i])
+        f1.write("%s\n" % track_results[j].alias_detect_err_hz[i])
 
 def main():
   default_logging_config()
@@ -125,31 +158,7 @@ def main():
                         chipping_rate = defaults.chipping_rate,
                         IF = IF)
 
-  with open(args.output_file, 'w') as f1:
-    f1.write("doppler_phase,carr_doppler,code_phase,code_freq,"
-             "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
-             "lock_detect_outp,lock_detect_outo,"
-             "lock_detect_pcount1,lock_detect_pcount2,"
-             "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz\n")
-    for i in range(len(track_results[0].carr_phase)):
-      f1.write("%s," % track_results[0].carr_phase[i])
-      f1.write("%s," % (track_results[0].carr_freq[i] - IF))
-      f1.write("%s," % track_results[0].code_phase[i])
-      f1.write("%s," % track_results[0].code_freq[i])
-      f1.write("%s," % track_results[0].cn0[i])
-      f1.write("%s," % track_results[0].E[i].real)
-      f1.write("%s," % track_results[0].E[i].imag)
-      f1.write("%s," % track_results[0].P[i].real)
-      f1.write("%s," % track_results[0].P[i].imag)
-      f1.write("%s," % track_results[0].L[i].real)
-      f1.write("%s," % track_results[0].L[i].imag)
-      f1.write("%s," % track_results[0].lock_detect_outp[i])
-      f1.write("%s," % track_results[0].lock_detect_outo[i])
-      f1.write("%s," % track_results[0].lock_detect_pcount1[i])
-      f1.write("%s," % track_results[0].lock_detect_pcount2[i])
-      f1.write("%s," % track_results[0].lock_detect_lpfi[i])
-      f1.write("%s," % track_results[0].lock_detect_lpfq[i])
-      f1.write("%s\n" % track_results[0].alias_detect_err_hz[i])
+  dump_tracking_results_for_analysis(args.output_file, track_results)
 
 if __name__ == '__main__':
   main()
