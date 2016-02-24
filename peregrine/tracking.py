@@ -442,9 +442,10 @@ def track(samples, channels,
         chan_snr = track_result.cn0[i]
         chan_snr -= 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
         chan_snr = np.power(10, chan_snr / 10)
+        l2c_doppler = loop_filter.to_dict()['carr_freq'] * gps_constants.l2 / gps_constants.l1
         l2c_handover_chan = AcquisitionResult(track_result.prn,
-                                              track_result.carr_freq[i], # IF + carrier doppler
-                                              loop_filter.to_dict()['carr_freq'], # carrier doppler
+                                              IF + l2c_doppler,
+                                              l2c_doppler, # carrier doppler
                                               track_result.code_phase[i],
                                               chan_snr,
                                               'A',
