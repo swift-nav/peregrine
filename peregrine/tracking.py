@@ -400,6 +400,11 @@ def track(samples, channels,
       else:
         raise NotImplementedError()
 
+      track_result.IF = IF # IF is not going to change from channel to channel,
+                           # but it is easier to propagate the actual IF to
+                           # the tracking results file for further analysis
+                           # this way as IF might be different from defaults.IF,
+                           # if tracking loop is run via tracking_loop.py entry
       track_result.carr_phase[i] = carr_phase
       track_result.carr_phase_acc[i] = carr_phase_acc
       track_result.carr_freq[i] = loop_filter.to_dict()['carr_freq'] + IF
@@ -495,6 +500,7 @@ class TrackResults:
   def __init__(self, n_points, prn, signal):
     self.status = '-'
     self.prn = prn
+    self.IF = defaults.IF
     self.absolute_sample = np.zeros(n_points)
     self.code_phase = np.zeros(n_points)
     self.code_phase_acc = np.zeros(n_points)

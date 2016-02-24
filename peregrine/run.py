@@ -21,6 +21,7 @@ from peregrine.acquisition import Acquisition, load_acq_results, save_acq_result
 from peregrine.navigation import navigation
 from peregrine.tracking import track
 from peregrine.log import default_logging_config
+from peregrine.analysis.tracking_loop import dump_tracking_results_for_analysis
 import defaults
 
 from initSettings import initSettings
@@ -114,6 +115,8 @@ def main():
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
       logging.debug("Saving tracking results as '%s'" % track_results_file)
+      logging.debug("Saving tracking results for analysis")
+      dump_tracking_results_for_analysis(track_results_file, track_results)
     except IOError:
       logging.error("Couldn't save tracking results file '%s'.",
                     track_results_file)
