@@ -76,9 +76,9 @@ class Acquisition:
 
   def __init__(self,
                samples,
-               sampling_freq=defaults.sampling_freq,
-               IF=defaults.IF,
-               samples_per_code=defaults.samples_per_code,
+               sampling_freq,
+               IF,
+               samples_per_code,
                code_length=defaults.code_length,
                n_codes_integrate=4,
                offsets = None,
