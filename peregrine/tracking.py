@@ -169,6 +169,9 @@ def track(samples, channels,
     if chan.status == '-':
       return track_result, l2c_handover_chan
 
+    logger.info("[PRN: %d (%s)] Tracking is started" %
+                (chan.prn + 1, chan.signal))
+
     if isL1CA:
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
       lock_detect_params = defaults.l1ca_lock_detect_params_opt
@@ -357,14 +360,17 @@ def track(samples, channels,
         if sync:
           tow = nav_msg.update(bit)
           if tow >= 0:
-            logger.info("L1 C/A ToW %d" % tow)
+            logger.info("[PRN: %d (%s)] ToW %d" %
+                        (chan.prn + 1, chan.signal, tow))
           if nav_msg.subframe_ready():
             eph = swiftnav.ephemeris.Ephemeris()
             res = nav_msg.process_subframe(eph)
             if res < 0:
-              logger.error("Subframe decoding error %d", res)
+              logger.error("[PRN: %d (%s)] Subframe decoding error %d" %
+                           (chan.prn + 1, chan.signal, res))
             elif res > 0:
-              logger.info("Subframe decoded")
+              logger.info("[PRN: %d (%s)] Subframe decoded" %
+                          (chan.prn + 1, chan.signal) )
             else:
               # Subframe decoding is in progress
               pass
@@ -377,14 +383,17 @@ def track(samples, channels,
         symbol = 0xFF if np.real(P) >= 0 else 0x00
         res, delay = cnav_msg_decoder.decode(symbol, cnav_msg)
         if res:
-          logger.debug("CNAV message decoded: prn=%d msg_id=%d tow=%d alert=%d delay=%d" %
-                       (cnav_msg.getPrn(),
+          logger.debug("[PRN: %d (%s)] CNAV message decoded: "
+                       "prn=%d msg_id=%d tow=%d alert=%d delay=%d" %
+                       (chan.prn + 1,
+                        chan.signal,
+                        cnav_msg.getPrn(),
                         cnav_msg.getMsgId(),
                         cnav_msg.getTow(),
                         cnav_msg.getAlert(),
                         delay))
           tow = cnav_msg.getTow() * 6000 + delay * 20
-          logger.debug("L2C ToW %d", tow)
+          logger.debug("[PRN: %d (%s)] ToW %d", (chan.prn + 1, chan.signal, tow))
           track_result.tow[i] = tow
         else:
           track_result.tow[i] = track_result.tow[i - 1] + coherent_ms
