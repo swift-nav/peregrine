@@ -398,7 +398,7 @@ def track(samples, channels,
                         cnav_msg.getAlert(),
                         delay))
           tow = cnav_msg.getTow() * 6000 + delay * 20
-          logger.debug("[PRN: %d (%s)] ToW %d", (chan.prn + 1, chan.signal, tow))
+          logger.debug("[PRN: %d (%s)] ToW %d" % (chan.prn + 1, chan.signal, tow))
           track_result.tow[i] = tow
         else:
           track_result.tow[i] = track_result.tow[i - 1] + coherent_ms
@@ -438,13 +438,13 @@ def track(samples, channels,
       track_result.alias_detect_err_hz[i] = alias_detect_err_hz
 
       # Handover to L2C if possible
-      if isL1CA and l2c_handover_chan.status == '-' and nav_bit_sync.bit_phase_ref != -1:
+      if isL1CA and l2c_handover_chan.status == '-' and sync:
         chan_snr = track_result.cn0[i]
         chan_snr -= 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
         chan_snr = np.power(10, chan_snr / 10)
         l2c_handover_chan = AcquisitionResult(track_result.prn,
-                                              track_result.carr_freq[i],
-                                              loop_filter.to_dict()['carr_freq'],
+                                              track_result.carr_freq[i], # IF + carrier doppler
+                                              loop_filter.to_dict()['carr_freq'], # carrier doppler
                                               track_result.code_phase[i],
                                               chan_snr,
                                               'A',
