@@ -100,10 +100,9 @@ class TrackingLoop(object):
 
 
 def track(samples, channels,
-          ms_to_track=None,
-          sampling_freq=defaults.sampling_freq,
+          ms_to_track,
+          sampling_freq,
           chipping_rate=defaults.chipping_rate,
-          IF=defaults.IF,
           show_progress=True,
           loop_filter_class=swiftnav.track.AidedTrackingLoop,
           correlator=swiftnav.correlate.track_correlate,
@@ -113,7 +112,7 @@ def track(samples, channels,
 
   n_channels = len(channels)
 
-  samples_length_ms = int(1e3 * len(samples[0]) / sampling_freq)
+  samples_length_ms = int(1e3 * len(samples[0]['data']) / sampling_freq)
 
   if ms_to_track is None:
     ms_to_track = samples_length_ms
@@ -169,11 +168,13 @@ def track(samples, channels,
     if chan.status == '-':
       return track_result, l2c_handover_chan
 
+    IF = samples[chan.sample_channel]['IF']
+
     logger.info("[PRN: %d (%s)] Tracking is started."
-                "Doppler: %f, code phase: %f, "
+                "IF: %f, Doppler: %f, code phase: %f, "
                 "sample channel: %d sample index: %d" %
                 (chan.prn + 1, chan.signal,
-                 chan.doppler, chan.code_phase,
+                 IF, chan.doppler, chan.code_phase,
                  chan.sample_channel,
                  chan.sample_index if chan.sample_index else 0))
 
@@ -315,10 +316,10 @@ def track(samples, channels,
 
       for _ in range(coherent_iter):
 
-        if sample_index >= len(samples[chan.sample_channel]):
+        if sample_index >= len(samples[chan.sample_channel]['data']):
           break
 
-        samples_ = samples[chan.sample_channel][sample_index:]
+        samples_ = samples[chan.sample_channel]['data'][sample_index:]
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
             samples_,
@@ -405,11 +406,7 @@ def track(samples, channels,
       else:
         raise NotImplementedError()
 
-      track_result.IF = IF # IF is not going to change from channel to channel,
-                           # but it is easier to propagate the actual IF to
-                           # the tracking results file for further analysis
-                           # this way as IF might be different from defaults.IF,
-                           # if tracking loop is run via tracking_loop.py entry
+      track_result.IF = IF
       track_result.carr_phase[i] = carr_phase
       track_result.carr_phase_acc[i] = carr_phase_acc
       track_result.carr_freq[i] = loop_filter.to_dict()['carr_freq'] + IF
@@ -444,7 +441,7 @@ def track(samples, channels,
         chan_snr = np.power(10, chan_snr / 10)
         l2c_doppler = loop_filter.to_dict()['carr_freq'] * gps_constants.l2 / gps_constants.l1
         l2c_handover_chan = AcquisitionResult(track_result.prn,
-                                              IF + l2c_doppler,
+                                              samples[chan.sample_channel]['IF'] + l2c_doppler,
                                               l2c_doppler, # carrier doppler
                                               track_result.code_phase[i],
                                               chan_snr,
@@ -507,7 +504,7 @@ class TrackResults:
   def __init__(self, n_points, prn, signal):
     self.status = '-'
     self.prn = prn
-    self.IF = defaults.IF
+    self.IF = 0
     self.absolute_sample = np.zeros(n_points)
     self.code_phase = np.zeros(n_points)
     self.code_phase_acc = np.zeros(n_points)
