@@ -113,7 +113,7 @@ def track(samples, channels,
 
   n_channels = len(channels)
 
-  samples_length_ms = int(1e3 * len(samples) / sampling_freq)
+  samples_length_ms = int(1e3 * len(samples[0]) / sampling_freq)
 
   if ms_to_track is None:
     ms_to_track = samples_length_ms
@@ -169,8 +169,13 @@ def track(samples, channels,
     if chan.status == '-':
       return track_result, l2c_handover_chan
 
-    logger.info("[PRN: %d (%s)] Tracking is started" %
-                (chan.prn + 1, chan.signal))
+    logger.info("[PRN: %d (%s)] Tracking is started."
+                "Doppler: %f, code phase: %f, "
+                "sample channel: %d sample index: %d" %
+                (chan.prn + 1, chan.signal,
+                 chan.doppler, chan.code_phase,
+                 chan.sample_channel,
+                 chan.sample_index if chan.sample_index else 0))
 
     if isL1CA:
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
@@ -310,10 +315,10 @@ def track(samples, channels,
 
       for _ in range(coherent_iter):
 
-        if sample_index >= len(samples):
+        if sample_index >= len(samples[chan.sample_channel]):
           break
 
-        samples_ = samples[sample_index:]
+        samples_ = samples[chan.sample_channel][sample_index:]
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
             samples_,
@@ -439,11 +444,12 @@ def track(samples, channels,
         chan_snr = np.power(10, chan_snr / 10)
         l2c_handover_chan = AcquisitionResult(track_result.prn,
                                               track_result.carr_freq[i],
-                                              chan.doppler,
+                                              loop_filter.to_dict()['carr_freq'],
                                               track_result.code_phase[i],
                                               chan_snr,
                                               'A',
                                               'l2c',
+                                              1, # samples' channel index
                                               track_result.absolute_sample[i])
       i += 1
       if isL1CA or isL2C:

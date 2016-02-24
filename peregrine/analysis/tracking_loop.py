@@ -22,7 +22,14 @@ def dump_tracking_results_for_analysis(output_file, track_results):
   output_filename, output_file_extension = os.path.splitext(output_file)
 
   for j in range(len(track_results)):
-    filename = output_filename + (".index-%s" % j) + output_file_extension
+
+    if len(track_results) > 1:
+      # mangle the result file name with the tracked signal name
+      filename = output_filename + (".%s" % track_results[j].signal) + \
+                 output_file_extension
+    else:
+      pass
+
     with open(filename, 'w') as f1:
       f1.write("doppler_phase,carr_doppler,code_phase,code_freq,"
                "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
@@ -105,25 +112,6 @@ def main():
   ms_to_track = int(args.ms_to_track)
   sampling_freq = float(args.sampling_freq)  # [Hz]
 
-  if args.signal == "l1ca":
-    acq_result = AcquisitionResult(prn = prn,
-                      snr = 25, # dB
-                      carr_freq = IF + carr_doppler,
-                      doppler = carr_doppler,
-                      code_phase = code_phase,
-                      status = 'A',
-                      signal = 'l1ca',
-                      sample_index = 0)
-  else: # L2C signal clause
-    acq_result = AcquisitionResult(prn = prn,
-                      snr = 25, # dB
-                      carr_freq = IF + carr_doppler,
-                      doppler = carr_doppler,
-                      code_phase = code_phase,
-                      status = 'A',
-                      signal = 'l2c',
-                      sample_index = 0)
-
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
   print "File format:                            %s" % args.file_format
@@ -143,22 +131,43 @@ def main():
                         0,  # skip samples
                         file_format = args.file_format)
 
-  index = 0
+  channel = 0
   if len(signals) > 1:
     if args.signal == 'l1ca':
-      index = 0
+      channel = 0
     else:
-      index = 1
+      channel = 1
     pass
 
-  track_results = track(samples = signals[index],
+  if args.signal == "l1ca":
+    acq_result = AcquisitionResult(prn = prn,
+                      snr = 25, # dB
+                      carr_freq = IF + carr_doppler,
+                      doppler = carr_doppler,
+                      code_phase = code_phase,
+                      status = 'A',
+                      signal = 'l1ca',
+                      sample_channel = channel,
+                      sample_index = 0)
+  else: # L2C signal clause
+    acq_result = AcquisitionResult(prn = prn,
+                      snr = 25, # dB
+                      carr_freq = IF + carr_doppler,
+                      doppler = carr_doppler,
+                      code_phase = code_phase,
+                      status = 'A',
+                      signal = 'l2c',
+                      sample_channel = channel,
+                      sample_index = 0)
+
+  track_results = track(samples = signals,
                         channels = [acq_result],
                         ms_to_track = ms_to_track,
                         sampling_freq = sampling_freq,  # [Hz]
                         chipping_rate = defaults.chipping_rate,
                         IF = IF)
 
-  dump_tracking_results_for_analysis(args.output_file, track_results)
+  dump_tracking_results_for_analysis(args.output_file, track_results[0])
 
 if __name__ == '__main__':
   main()
