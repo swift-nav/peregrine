@@ -75,11 +75,10 @@ def main():
   parser.add_argument("-t", "--ms-to-track",
                       help = "the number of milliseconds to process. ")
 
-  parser.add_argument("-I", "--IF",
-                      help = "intermediate frequency [Hz]. ")
-
-  parser.add_argument("-s", "--sampling-freq",
-                      help = "sampling frequency [Hz]. ");
+  parser.add_argument("--profile",
+                      help="L1C/A & L2C IF + sampling frequency profile"
+                      "('peregrine', 'low_rate')",
+                      default = defaults.frequencies_profile)
 
   parser.add_argument("-P", "--prn",
                       help = "PRN to track. ")
@@ -99,12 +98,31 @@ def main():
                       help = "Signal type (l1ca / l2c)")
 
   args = parser.parse_args()
+
+  if args.profile == 'peregrine':
+    freq_profile = defaults.freq_profile_peregrine
+  elif args.profile == 'low_rate':
+    freq_profile = defaults.freq_profile_low
+  else:
+    raise NotImplementedError()
+
+  isL1CA = (args.signal == L1CA)
+  isL2C = (args.signal == L2C)
+
+  if isL1CA:
+    signal = L1CA
+    IF = freq_profile['L1_IF']
+  elif isL2C:
+    signal = L2C
+    IF = freq_profile['L2_IF']
+  else:
+    raise NotImplementedError()
+
   settings.fileName = args.file
 
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
 
-  IF = float(args.IF)
   carr_doppler = float(args.carr_doppler)
   code_phase = float(args.code_phase)
   prn = int(args.prn) - 1
@@ -117,8 +135,8 @@ def main():
   print "File format:                            %s" % args.file_format
   print "PRN to track [1-32]:                    %s" % args.prn
   print "Time to process [ms]:                   %s" % args.ms_to_track
-  print "IF [Hz]:                                %s" % args.IF
-  print "Sampling frequency [Hz]:                %s" % args.sampling_freq
+  print "IF [Hz]:                                %f" % IF
+  print "Sampling frequency [Hz]:                %f" % freq_profile['sampling_freq']
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
   print "Initial code phase [chips]:             %s" % code_phase
   print "Track results file name:                %s" % args.output_file
@@ -127,45 +145,33 @@ def main():
 
   samples_num = int(args.sampling_freq) * 1e-3 * ms_to_track
   signals = load_samples(args.file,
-                        int(samples_num),
-                        0,  # skip samples
-                        file_format = args.file_format)
+                         int(samples_num),
+                         0,  # skip samples
+                         file_format = args.file_format)
 
   channel = 0
   if len(signals) > 1:
-    if args.signal == 'l1ca':
+    if isL1CA:
       channel = 0
     else:
       channel = 1
     pass
 
-  if args.signal == "l1ca":
-    acq_result = AcquisitionResult(prn = prn,
-                      snr = 25, # dB
-                      carr_freq = IF + carr_doppler,
-                      doppler = carr_doppler,
-                      code_phase = code_phase,
-                      status = 'A',
-                      signal = 'l1ca',
-                      sample_channel = channel,
-                      sample_index = 0)
-  else: # L2C signal clause
-    acq_result = AcquisitionResult(prn = prn,
-                      snr = 25, # dB
-                      carr_freq = IF + carr_doppler,
-                      doppler = carr_doppler,
-                      code_phase = code_phase,
-                      status = 'A',
-                      signal = 'l2c',
-                      sample_channel = channel,
-                      sample_index = 0)
+  acq_result = AcquisitionResult(prn = prn,
+                    snr = 25, # dB
+                    carr_freq = IF + carr_doppler,
+                    doppler = carr_doppler,
+                    code_phase = code_phase,
+                    status = 'A',
+                    signal = L2C,
+                    sample_channel = channel,
+                    sample_index = 0)
 
-  track_results = track(samples = signals,
+  track_results = track(samples = [ {'data': signals[channel], 'IF': IF} ],
                         channels = [acq_result],
                         ms_to_track = ms_to_track,
-                        sampling_freq = sampling_freq,  # [Hz]
-                        chipping_rate = defaults.chipping_rate,
-                        IF = IF)
+                        sampling_freq = freq_profile['sampling_freq'],  # [Hz]
+                        chipping_rate = defaults.chipping_rate)
 
   dump_tracking_results_for_analysis(args.output_file, track_results[0])
 

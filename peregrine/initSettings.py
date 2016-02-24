@@ -10,12 +10,13 @@
 import defaults
 
 class initSettings:
-  def __init__(self):
+  def __init__(self, freq_profile):
 
     self.msToProcess          = 39000
     self.skipNumberOfBytes    = 0
-    self.IF                   = defaults.IF
-    self.samplingFreq         = defaults.sampling_freq
+    self.L1_IF                = freq_profile['L1_IF']
+    self.L2_IF                = freq_profile['L2_IF']
+    self.samplingFreq         = freq_profile['sampling_freq']
     self.codeFreqBasis        = defaults.chipping_rate
     self.codeLength           = defaults.code_length
     self.acqThreshold         = 21.0    # SNR (unitless)
