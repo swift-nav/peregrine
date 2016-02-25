@@ -103,6 +103,7 @@ def track(samples, channels,
           ms_to_track,
           sampling_freq,
           chipping_rate=defaults.chipping_rate,
+          l2c_handover = True,
           show_progress=True,
           loop_filter_class=swiftnav.track.AidedTrackingLoop,
           correlator=swiftnav.correlate.track_correlate,
@@ -170,8 +171,8 @@ def track(samples, channels,
 
     IF = samples[chan.sample_channel]['IF']
 
-    logger.info("[PRN: %d (%s)] Tracking is started."
-                "IF: %f, Doppler: %f, code phase: %f, "
+    logger.info("[PRN: %d (%s)] Tracking is started. "
+                "IF: %.1f, Doppler: %.1f, code phase: %.1f, "
                 "sample channel: %d sample index: %d" %
                 (chan.prn + 1, chan.signal,
                  IF, chan.doppler, chan.code_phase,
@@ -481,15 +482,17 @@ def track(samples, channels,
   l2c_handover_channels = map(lambda x: x[1], track_handover_results)
 
   # Run L2C
-  logger.info("Start L2C tracking")
-  if multi:
-    track_handover_results = pp.parmap(do_channel, l2c_handover_channels,
-                                       show_progress=show_progress, func_progress=show_progress)
+  if l2c_handover:
+    if multi:
+      track_handover_results = pp.parmap(do_channel, l2c_handover_channels,
+                                         show_progress=show_progress, func_progress=show_progress)
+    else:
+      track_handover_results = map(lambda (n, chan): do_channel(
+          chan, n=n), enumerate(l2c_handover_channels))
+    # Extract track results, handover results are unused
+    l2c_track_results = map(lambda x: x[0], track_handover_results)
   else:
-    track_handover_results = map(lambda (n, chan): do_channel(
-        chan, n=n), enumerate(l2c_handover_channels))
-  # Extract track results, handover results are unused
-  l2c_track_results = map(lambda x: x[0], track_handover_results)
+    l2c_track_results = []
 
   if pbar:
     pbar.finish()
