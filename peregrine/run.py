@@ -42,8 +42,9 @@ def main():
                       help="use previously saved navigation results",
                       action="store_true")
   parser.add_argument("--ms-to-process",
-                      help="milliseconds to process",
-                      required = True)
+                      help = "the number of milliseconds to process."
+                      "(-1: use all available data",
+                      default = "-1")
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
                       "('peregrine', 'low_rate')",
@@ -63,7 +64,12 @@ def main():
 
   settings = initSettings(freq_profile)
   settings.fileName = args.file
-  settings.msToProcess = int(args.ms_to_process) - 22
+
+  ms_to_process = int(args.ms_to_process)
+  if ms_to_process > 0:
+    samples_num = freq_profile['sampling_freq'] * 1e-3 * ms_to_process
+  else:
+    samples_num = -1 # all available samples
 
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
@@ -120,9 +126,14 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq * 1e-3 * (settings.msToProcess + 22)),
+                          int(samples_num),
                           settings.skipNumberOfBytes,
                           file_format=args.file_format)
+    if ms_to_process < 0:
+      ms_to_process = int(1e3 * len(signal[0]) / freq_profile['sampling_freq'])
+
+    settings.msToProcess = ms_to_process - 22
+
     if len(signal) > 1:
       samples = [ {'data': signal[0], 'IF': freq_profile['GPS_L1_IF']},
                   {'data': signal[1], 'IF': freq_profile['GPS_L2_IF']} ]
