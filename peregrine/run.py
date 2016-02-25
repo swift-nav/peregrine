@@ -47,18 +47,20 @@ def main():
                       default = "-1")
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
-                      "('peregrine', 'low_rate')",
+                      "('peregrine', 'low_rate', 'piksi_v3')",
                       default = 'peregrine')
   parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
                       "('piksi', 'int8', '1bit', '1bitrev', "
-                      "'1bit_x2', '2bits', '2bits_x2')")
+                      "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
   args = parser.parse_args()
 
   if args.profile == 'peregrine':
     freq_profile = defaults.freq_profile_peregrine
   elif args.profile == 'low_rate':
     freq_profile = defaults.freq_profile_low_rate
+  elif args.profile == 'piksi_v3':
+    freq_profile = defaults.freq_profile_piksi_v3
   else:
     raise NotImplementedError()
 
