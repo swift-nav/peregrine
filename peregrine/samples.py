@@ -10,10 +10,12 @@
 """Functions for handling sample data and sample data files."""
 
 import numpy as np
+import defaults
 
 __all__ = ['load_samples', 'save_samples']
 
-def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup):
+def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits,
+                          value_lookup, channel_lookup = None):
   '''
   Helper method to load two-bit samples from a file.
 
@@ -29,7 +31,9 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup)
     Number of interleaved streams in the source file
   n_bits : int
     Number of bits per sample
-  lookup : array-like
+  channel_lookup : array-like
+    Array to map channels
+  value_lookup : array-like
     Array to map values
 
   Returns
@@ -37,8 +41,11 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup)
   out : :class:`numpy.ndarray`, shape(`n_rx`, `num_samples`,)
     The sample data as a two-dimensional numpy array. The first dimension
     separates codes (bands). The second dimention contains samples indexed
-    with the `lookup` table.
+    with the `value_lookup` table.
   '''
+  if not channel_lookup:
+    channel_lookup = range(n_rx)
+
   sample_block_size = n_bits * n_rx
   byte_offset = num_skip / (8 / sample_block_size)
   sample_offset = num_skip % (8 / sample_block_size)
@@ -58,7 +65,7 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup)
   rounded_len = num_samples * sample_block_size
 
   bits = np.unpackbits(s_file)
-  samples = np.empty((n_rx, num_samples), dtype=lookup.dtype)
+  samples = np.empty((n_rx, num_samples), dtype=value_lookup.dtype)
 
   for rx in range(n_rx):
     # Construct multi-bit sample values
@@ -66,8 +73,8 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup)
     for bit in range(1, n_bits):
       tmp <<= 1
       tmp += bits[rx * n_bits + bit:rounded_len:sample_block_size]
-    # Generate sample values using lookup table
-    samples[rx][:] = lookup[tmp]
+    # Generate sample values using value_lookup table
+    samples[channel_lookup[rx]][:] = value_lookup[tmp]
   return samples
 
 def __load_samples_one_bit(filename, num_samples, num_skip, n_rx):
@@ -95,7 +102,8 @@ def __load_samples_one_bit(filename, num_samples, num_skip, n_rx):
   lookup = np.asarray((1, -1), dtype=np.int8)
   return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 1, lookup)
 
-def __load_samples_two_bits(filename, num_samples, num_skip, n_rx):
+def __load_samples_two_bits(filename, num_samples, num_skip, n_rx,
+                            channel_lookup = None):
   '''
   Helper method to load two-bit samples from a file.
 
@@ -109,6 +117,8 @@ def __load_samples_two_bits(filename, num_samples, num_skip, n_rx):
     Number of samples to discard from the beginning of the file.
   n_rx : int
     Number of interleaved streams in the source file
+  channel_lookup : array-like
+    Array to map channels
 
   Returns
   -------
@@ -119,8 +129,9 @@ def __load_samples_two_bits(filename, num_samples, num_skip, n_rx):
   '''
   # Interleaved two bit samples from two receivers. First bit is a sign of the
   # sample, and the second bit is the amplitude value: 1 or 3.
-  lookup = np.asarray((-1, -3, 1, 3), dtype=np.int8)
-  return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 2, lookup)
+  value_lookup = np.asarray((-1, -3, 1, 3), dtype=np.int8)
+  return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 2,
+                               value_lookup, channel_lookup)
 
 def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
   """
@@ -277,6 +288,14 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
   elif file_format == '2bits_x2':
     # Interleaved two bit samples from two receivers: -3, -1, +1, +3
     samples = __load_samples_two_bits(filename, num_samples, num_skip, 2)
+  elif file_format == '2bits_x4':
+    # Interleaved two bit samples from four receivers: -3, -1, +1, +3
+    samples = __load_samples_two_bits(filename, num_samples, num_skip, 4,
+                                      [defaults.file_encoding_2bits_x4['GLO_L1'],
+                                       defaults.file_encoding_2bits_x4['GPS_L2'],
+                                       defaults.file_encoding_2bits_x4['GPS_L1'],
+                                       defaults.file_encoding_2bits_x4['GLO_L2']])
+
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 

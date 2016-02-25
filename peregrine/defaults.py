@@ -17,6 +17,27 @@ code_length = 1023  # chips
 
 code_period = code_length / chipping_rate
 
+file_encoding_1bit_x2 = {
+    'GPS_L1_IF': 0,
+    'GPS_L2_IF': 1 }
+
+file_encoding_2bits_x2 = {
+    'GPS_L1_IF': 0,
+    'GPS_L2_IF': 1 }
+
+# encoding is taken from here:
+# https://swiftnav.hackpad.com/Initial-Testing-NT1065-XKgGd5aVF6W
+file_encoding_2bits_x4 = {
+    'GPS_L1': 0,
+    'GPS_L2': 1,
+    'GLO_L1': 2,
+    'GLO_L2': 3 }
+
+file_encoding_profile = {
+    '1bit_x2': file_encoding_1bit_x2,
+    '2bits_x2': file_encoding_2bits_x2,
+    '2bits_x4': file_encoding_2bits_x4 }
+
 # 'peregrine' frequencies profile
 freq_profile_peregrine = {
     'GPS_L1_IF': 4.092e6,
