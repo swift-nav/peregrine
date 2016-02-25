@@ -28,7 +28,7 @@ def dump_tracking_results_for_analysis(output_file, track_results):
       filename = output_filename + (".%s" % track_results[j].signal) + \
                  output_file_extension
     else:
-      pass
+      filename = output_file
 
     with open(filename, 'w') as f1:
       f1.write("doppler_phase,carr_doppler,code_phase,code_freq,"
@@ -60,9 +60,6 @@ def dump_tracking_results_for_analysis(output_file, track_results):
 def main():
   default_logging_config()
 
-  # Initialize constants, settings
-  settings = initSettings()
-
   parser = argparse.ArgumentParser()
   parser.add_argument("file",
                       help = "the sample data file to process")
@@ -75,10 +72,16 @@ def main():
   parser.add_argument("-t", "--ms-to-track",
                       help = "the number of milliseconds to process. ")
 
+  parser.add_argument("-I", "--IF",
+                      help = "intermediate frequency [Hz]. ")
+
+  parser.add_argument("-s", "--sampling-freq",
+                      help = "sampling frequency [Hz]. ");
+
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
                       "('peregrine', 'low_rate')",
-                      default = defaults.frequencies_profile)
+                      default = 'peregrine')
 
   parser.add_argument("-P", "--prn",
                       help = "PRN to track. ")
@@ -118,9 +121,20 @@ def main():
   else:
     raise NotImplementedError()
 
+  if args.IF is not None:
+    IF = float(args.IF)
+
+  if args.sampling_freq is not None:
+    sampling_freq = float(args.sampling_freq)  # [Hz]
+  else:
+    sampling_freq = freq_profile['sampling_freq'] # [Hz]
+
+  # Initialize constants, settings
+  settings = initSettings(freq_profile)
+
   settings.fileName = args.file
 
-  samplesPerCode = int(round(settings.samplingFreq /
+  samplesPerCode = int(round(sampling_freq /
                              (settings.codeFreqBasis / settings.codeLength)))
 
   carr_doppler = float(args.carr_doppler)
@@ -128,7 +142,6 @@ def main():
   prn = int(args.prn) - 1
 
   ms_to_track = int(args.ms_to_track)
-  sampling_freq = float(args.sampling_freq)  # [Hz]
 
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
@@ -136,14 +149,14 @@ def main():
   print "PRN to track [1-32]:                    %s" % args.prn
   print "Time to process [ms]:                   %s" % args.ms_to_track
   print "IF [Hz]:                                %f" % IF
-  print "Sampling frequency [Hz]:                %f" % freq_profile['sampling_freq']
+  print "Sampling frequency [Hz]:                %f" % sampling_freq
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
   print "Initial code phase [chips]:             %s" % code_phase
   print "Track results file name:                %s" % args.output_file
   print "Signal:                                 %s" % args.signal
   print "======================================================================"
 
-  samples_num = int(args.sampling_freq) * 1e-3 * ms_to_track
+  samples_num = sampling_freq * 1e-3 * ms_to_track
   signals = load_samples(args.file,
                          int(samples_num),
                          0,  # skip samples
@@ -163,17 +176,18 @@ def main():
                     doppler = carr_doppler,
                     code_phase = code_phase,
                     status = 'A',
-                    signal = L2C,
+                    signal = signal,
                     sample_channel = channel,
                     sample_index = 0)
 
-  track_results = track(samples = [ {'data': signals[channel], 'IF': IF} ],
+  track_results = track(samples = [ {'data': signals[0], 'IF': IF},
+                                    {'data': signals[1], 'IF': IF} ],
                         channels = [acq_result],
                         ms_to_track = ms_to_track,
-                        sampling_freq = freq_profile['sampling_freq'],  # [Hz]
-                        chipping_rate = defaults.chipping_rate)
+                        sampling_freq = sampling_freq,  # [Hz]
+                        l2c_handover = False)
 
-  dump_tracking_results_for_analysis(args.output_file, track_results[0])
+  dump_tracking_results_for_analysis(args.output_file, track_results)
 
 if __name__ == '__main__':
   main()
