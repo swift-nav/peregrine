@@ -106,7 +106,7 @@ def main():
   if args.profile == 'peregrine':
     freq_profile = defaults.freq_profile_peregrine
   elif args.profile == 'low_rate':
-    freq_profile = defaults.freq_profile_low
+    freq_profile = defaults.freq_profile_low_rate
   else:
     raise NotImplementedError()
 
@@ -115,10 +115,10 @@ def main():
 
   if isL1CA:
     signal = L1CA
-    IF = freq_profile['L1_IF']
+    IF = freq_profile['GPS_L1_IF']
   elif isL2C:
     signal = L2C
-    IF = freq_profile['L2_IF']
+    IF = freq_profile['GPS_L2_IF']
   else:
     raise NotImplementedError()
 

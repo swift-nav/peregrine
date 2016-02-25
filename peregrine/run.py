@@ -57,7 +57,7 @@ def main():
   if args.profile == 'peregrine':
     freq_profile = defaults.freq_profile_peregrine
   elif args.profile == 'low_rate':
-    freq_profile = defaults.freq_profile_low
+    freq_profile = defaults.freq_profile_low_rate
   else:
     raise NotImplementedError()
 
@@ -85,8 +85,8 @@ def main():
                                file_format=args.file_format)
     acq = Acquisition(acq_samples[0],
                       freq_profile['sampling_freq'],
-                      freq_profile['L1_IF'],
-                      freq_profile['samples_per_l1ca_code'])
+                      freq_profile['GPS_L1_IF'],
+                      defaults.code_period * freq_profile['sampling_freq'])
     acq_results = acq.acquisition()
 
     print "Acquisition is over!"
@@ -124,10 +124,10 @@ def main():
                           settings.skipNumberOfBytes,
                           file_format=args.file_format)
     if len(signal) > 1:
-      samples = [ {'data': signal[0], 'IF': freq_profile['L1_IF']},
-                  {'data': signal[1], 'IF': freq_profile['L2_IF']} ]
+      samples = [ {'data': signal[0], 'IF': freq_profile['GPS_L1_IF']},
+                  {'data': signal[1], 'IF': freq_profile['GPS_L2_IF']} ]
     else:
-      samples = [ {data: signal[0], 'IF': freq_profile['L1_IF']} ]
+      samples = [ {data: signal[0], 'IF': freq_profile['GPS_L1_IF']} ]
 
     track_results = track( samples, acq_results,
                            settings.msToProcess, freq_profile['sampling_freq'])
