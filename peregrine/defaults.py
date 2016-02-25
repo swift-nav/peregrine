@@ -19,17 +19,21 @@ code_period = code_length / chipping_rate
 
 # 'peregrine' frequencies profile
 freq_profile_peregrine = {
-    'L1_IF': 4.092e6,
-    'L2_IF': 4.092e6,
-    'sampling_freq': 16.368e6,
-    'samples_per_l1ca_code': code_period * 16.368e6}
+    'GPS_L1_IF': 4.092e6,
+    'GPS_L2_IF': 4.092e6,
+    'sampling_freq': 16.368e6 }
 
 # 'low_rate' frequencies profile
-freq_profile_low = {
-    'L1_IF': 1450000.0,
-    'L2_IF': 750000.0,
-    'sampling_freq': 2484375.0,
-    'samples_per_l1ca_code': code_period * 2484375.0}
+freq_profile_low_rate = {
+    'GPS_L1_IF': 1450000.0,
+    'GPS_L2_IF': 750000.0,
+    'sampling_freq': 2484375.0 }
+
+# 'piksi_v3' frequencies profile
+freq_profile_piksi_v3 = {
+    'GPS_L1_IF': 14.58e6,
+    'GPS_L2_IF': 7.4e6,
+    'sampling_freq': 24.84375e6 }
 
 L1CA_CHANNEL_BANDWIDTH_HZ=1000
 L2C_CHANNEL_BANDWIDTH_HZ=1000
