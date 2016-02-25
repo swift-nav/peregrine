@@ -228,15 +228,12 @@ def track(samples, channels,
 
     # Estimate initial code freq via aiding from acq carrier freq
     if isL1CA:
-      code_freq_init = (chan.carr_freq - IF) * \
-          gps_constants.chip_rate / gps_constants.l1
+      code_freq_init = chan.doppler * gps_constants.chip_rate / gps_constants.l1
     elif isL2C:
-      code_freq_init = (chan.carr_freq - IF) * \
-          gps_constants.chip_rate / gps_constants.l2
+      code_freq_init = chan.doppler * gps_constants.chip_rate / gps_constants.l2
     else:
       raise NotImplementedError()
 
-    carr_freq_init = chan.carr_freq - IF
     loop_filter = loop_filter_class(
         loop_freq=loop_filter_params['loop_freq'],
         code_freq=code_freq_init,
@@ -244,7 +241,7 @@ def track(samples, channels,
         code_zeta=loop_filter_params['code_zeta'],
         code_k=loop_filter_params['code_k'],
         carr_to_code=0, # the provided code frequency accounts for Doppler
-        carr_freq=carr_freq_init,
+        carr_freq = chan.doppler,
         carr_bw=loop_filter_params['carr_bw'],
         carr_zeta=loop_filter_params['carr_zeta'],
         carr_k=loop_filter_params['carr_k'],
