@@ -35,8 +35,8 @@ freq_profile_piksi_v3 = {
     'GPS_L2_IF': 7.4e6,
     'sampling_freq': 24.84375e6 }
 
-L1CA_CHANNEL_BANDWIDTH_HZ=1000
-L2C_CHANNEL_BANDWIDTH_HZ=1000
+L1CA_CHANNEL_BANDWIDTH_HZ = 1000
+L2C_CHANNEL_BANDWIDTH_HZ = 1000
 
 l1ca_stage1_loop_filter_params = {
     "loop_freq": 1e3,     # loop frequency [Hz]

@@ -71,7 +71,9 @@ def main():
                       "'1bit_x2', '2bits', '2bits_x2')")
 
   parser.add_argument("-t", "--ms-to-track",
-                      help = "the number of milliseconds to process. ")
+                      help = "the number of milliseconds to track."
+                      "(-1: use all available data",
+                      default = "-1")
 
   parser.add_argument("-I", "--IF",
                       help = "intermediate frequency [Hz]. ")
@@ -144,11 +146,24 @@ def main():
 
   ms_to_track = int(args.ms_to_track)
 
+  if ms_to_track > 0:
+    samples_num = sampling_freq * 1e-3 * ms_to_track
+  else:
+    samples_num = -1 # all available samples
+  signals = load_samples(args.file,
+                         int(samples_num),
+                         0,  # skip samples
+                         file_format = args.file_format)
+
+  if ms_to_track < 0:
+    # use all available data
+    ms_to_track = int(1e3 * len(signals[0]) / sampling_freq)
+
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
   print "File format:                            %s" % args.file_format
   print "PRN to track [1-32]:                    %s" % args.prn
-  print "Time to process [ms]:                   %s" % args.ms_to_track
+  print "Time to process [ms]:                   %s" % ms_to_track
   print "IF [Hz]:                                %f" % IF
   print "Sampling frequency [Hz]:                %f" % sampling_freq
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
@@ -156,12 +171,6 @@ def main():
   print "Track results file name:                %s" % args.output_file
   print "Signal:                                 %s" % args.signal
   print "======================================================================"
-
-  samples_num = sampling_freq * 1e-3 * ms_to_track
-  signals = load_samples(args.file,
-                         int(samples_num),
-                         0,  # skip samples
-                         file_format = args.file_format)
 
   channel = 0
   if len(signals) > 1:
