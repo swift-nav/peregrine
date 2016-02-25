@@ -46,12 +46,12 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits, lookup)
 
   if num_samples > 0:
     # Number of samples is defined: trim the source from start and end
-    s_file = s_file[sample_offset * sample_block_size:
+    s_file = s_file[(sample_offset * sample_block_size + 7) / 8:
                     (num_samples * sample_block_size + 7) / 8]
   else:
     # Number of samples is not defined: trim the source from start only
     # compute actual number of samples
-    s_file = s_file[sample_offset * sample_block_size:]
+    s_file = s_file[(sample_offset * sample_block_size + 7) / 8:]
     num_samples = len(s_file) * 8 / sample_block_size
 
   # Compute total data block size to ignore bits in the tail.
