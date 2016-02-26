@@ -221,7 +221,7 @@ def track(samples, channels,
                      time_diff = 1)
 
     cn0_est = swiftnav.track.CN0Estimator(
-        bw=1e3,
+        bw=1e3/coherent_ms,
         cn0_0=cn0_0,
         cutoff_freq=10,
         loop_freq=loop_filter_params["loop_freq"]
