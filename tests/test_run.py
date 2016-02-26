@@ -77,8 +77,8 @@ def test_tracking():
     assert new_trk_results == old_trk_results
 
     # Clean-up.
-    os.remove(NEW_ACQ_RES)
-    os.remove(NEW_TRK_RES)
+    #os.remove(NEW_ACQ_RES)
+    #os.remove(NEW_TRK_RES)
 
 def test_blah():
 
