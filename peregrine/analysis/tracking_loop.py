@@ -192,12 +192,13 @@ def main():
                     sample_channel = channel,
                     sample_index = 0)
 
-  track_results = track(samples = [ {'data': signals[0], 'IF': IF},
-                                    {'data': signals[1], 'IF': IF} ],
-                        channels = [acq_result],
-                        ms_to_track = ms_to_track,
-                        sampling_freq = sampling_freq,  # [Hz]
-                        l2c_handover = False)
+  track_results = track(samples = [
+    {'data': signals[defaults.sample_channel_GPS_L1], 'IF': IF},
+    {'data': signals[defaults.sample_channel_GPS_L2], 'IF': IF} ],
+    channels = [acq_result],
+    ms_to_track = ms_to_track,
+    sampling_freq = sampling_freq,  # [Hz]
+    l2c_handover = False)
 
   dump_tracking_results_for_analysis(args.output_file, track_results)
 
