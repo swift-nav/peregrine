@@ -16,7 +16,7 @@ addons:
     - python-numpy
     - python-cython
     - python-dev
-  artifacts: true
+  artifacts:
     debug: true
     paths:
     - $HOME/tests/test_data/*_results
