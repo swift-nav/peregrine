@@ -91,7 +91,8 @@ def main():
     acq_samples = load_samples(args.file, 11 * samplesPerCode,
                                settings.skipNumberOfBytes,
                                file_format=args.file_format)
-    acq = Acquisition(acq_samples[0],
+
+    acq = Acquisition(acq_samples[defaults.sample_channel_GPS_L1],
                       freq_profile['sampling_freq'],
                       freq_profile['GPS_L1_IF'],
                       defaults.code_period * freq_profile['sampling_freq'])
@@ -137,10 +138,13 @@ def main():
     settings.msToProcess = ms_to_process - 22
 
     if len(signal) > 1:
-      samples = [ {'data': signal[0], 'IF': freq_profile['GPS_L1_IF']},
-                  {'data': signal[1], 'IF': freq_profile['GPS_L2_IF']} ]
+      samples = [ {'data': signal[defaults.sample_channel_GPS_L1],
+                   'IF': freq_profile['GPS_L1_IF']},
+                  {'data': signal[defaults.sample_channel_GPS_L2],
+                   'IF': freq_profile['GPS_L2_IF']} ]
     else:
-      samples = [ {data: signal[0], 'IF': freq_profile['GPS_L1_IF']} ]
+      samples = [ {'data': signal[defaults.sample_channel_GPS_L1],
+                   'IF': freq_profile['GPS_L1_IF']} ]
 
     track_results = track( samples, acq_results,
                            settings.msToProcess, freq_profile['sampling_freq'])

@@ -113,7 +113,9 @@ def track(samples, channels,
 
   n_channels = len(channels)
 
-  samples_length_ms = int(1e3 * len(samples[0]['data']) / sampling_freq)
+  samples_length_ms = int(1e3 *
+                          len(samples[defaults.sample_channel_GPS_L1]['data']) /
+                          sampling_freq)
 
   if ms_to_track is None:
     ms_to_track = samples_length_ms

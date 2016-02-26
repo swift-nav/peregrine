@@ -17,21 +17,45 @@ code_length = 1023  # chips
 
 code_period = code_length / chipping_rate
 
-file_encoding_1bit_x2 = {
-    'GPS_L1_IF': 0,
-    'GPS_L2_IF': 1 }
+sample_channel_GPS_L1 = 0
+sample_channel_GPS_L2 = 1
+sample_channel_GLO_L1 = 2
+sample_channel_GLO_L2 = 3
 
-file_encoding_2bits_x2 = {
-    'GPS_L1_IF': 0,
-    'GPS_L2_IF': 1 }
+file_encoding_1bit_x2 = [
+    sample_channel_GPS_L1,  # GPS L1
+    sample_channel_GPS_L2 ] # GPS L2
+
+file_encoding_2bits_x2 = file_encoding_1bit_x2
 
 # encoding is taken from here:
-# https://swiftnav.hackpad.com/Initial-Testing-NT1065-XKgGd5aVF6W
-file_encoding_2bits_x4 = {
-    'GPS_L1': 0,
-    'GPS_L2': 1,
-    'GLO_L1': 2,
-    'GLO_L2': 3 }
+# https://swiftnav.hackpad.com/MicroZed-Sample-Grabber-IFgt5DbAunD
+# 2 bits per frontend channel in every byte:
+#    RF4 RF3 RF2 RF1
+#    00  00  00  00
+#
+# RF 1:
+# GPS L1 @ 14.58MHz (1575.42MHz)
+# Galileo E1 @ 14.58MHz (1575.42MHz)
+# Beidou B1 @ 28.902 MHz (1561.098 MHz)
+#
+# RF 2:
+# GLONASS L1 @ 12MHz (1602MHz)
+#
+# RF 3:
+# GLONASS L2 @ 11MHz (1246MHz)
+# Beidou B3 @ 33.52MHz (1268.52MHz)
+# Galileo E6 @ 43.75 MHz(1278.75MHz)
+#
+# RF 4:
+# GPS L2 @ 7.4MHz (1227.6MHz)
+# Galileo E5b-I/Q @ 27.86MHz (1207.14MHz)
+# Beidou B2 @ 27.86MHz  (1207.14MHz)
+file_encoding_2bits_x4 = [
+    sample_channel_GPS_L2,  # RF4
+    sample_channel_GLO_L2,  # RF3
+    sample_channel_GLO_L1,  # RF2
+    sample_channel_GPS_L1]  # RF1
 
 file_encoding_profile = {
     '1bit_x2': file_encoding_1bit_x2,
