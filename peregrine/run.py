@@ -47,7 +47,8 @@ def main():
                       default = "-1")
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
-                      "('peregrine', 'low_rate', 'piksi_v3')",
+                      "('peregrine', 'low_rate', 'normal_rate' (piksi_v3)"
+                      "'high_rate')",
                       default = 'peregrine')
   parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
@@ -59,8 +60,10 @@ def main():
     freq_profile = defaults.freq_profile_peregrine
   elif args.profile == 'low_rate':
     freq_profile = defaults.freq_profile_low_rate
-  elif args.profile == 'piksi_v3':
-    freq_profile = defaults.freq_profile_piksi_v3
+  elif args.profile == 'normal_rate':
+    freq_profile = defaults.freq_profile_normal_rate
+  elif args.profile == 'high_rate':
+    freq_profile = defaults.freq_profile_high_rate
   else:
     raise NotImplementedError()
 

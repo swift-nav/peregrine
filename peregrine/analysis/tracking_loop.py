@@ -25,7 +25,8 @@ def dump_tracking_results_for_analysis(output_file, track_results):
 
     if len(track_results) > 1:
       # mangle the result file name with the tracked signal name
-      filename = output_filename + (".%s" % track_results[j].signal) + \
+      filename = output_filename + \
+                 (".%s.%d" % (track_results[j].signal, track_results[j].prn + 1)) +\
                  output_file_extension
     else:
       filename = output_file
@@ -83,7 +84,8 @@ def main():
 
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
-                      "('peregrine', 'low_rate', 'piksi_v3')",
+                      "('peregrine', 'low_rate', 'normal_rate' (piksi_v3)"
+                      "'high_rate')",
                       default = 'peregrine')
 
   parser.add_argument("-P", "--prn",
@@ -109,8 +111,10 @@ def main():
     freq_profile = defaults.freq_profile_peregrine
   elif args.profile == 'low_rate':
     freq_profile = defaults.freq_profile_low_rate
-  elif args.profile == 'piksi_v3':
-    freq_profile = defaults.freq_profile_piksi_v3
+  elif args.profile == 'normal_rate':
+    freq_profile = defaults.freq_profile_normal_rate
+  elif args.profile == 'high_rate':
+    freq_profile = defaults.freq_profile_high_rate
   else:
     raise NotImplementedError()
 
