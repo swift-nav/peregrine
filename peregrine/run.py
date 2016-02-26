@@ -47,8 +47,8 @@ def main():
                       default = "-1")
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
-                      "('peregrine', 'low_rate', 'normal_rate' (piksi_v3)"
-                      "'high_rate')",
+                      "('peregrine'/'custom_rate', 'low_rate', "
+                      "'normal_rate' (piksi_v3), 'high_rate')",
                       default = 'peregrine')
   parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
@@ -56,7 +56,7 @@ def main():
                       "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
   args = parser.parse_args()
 
-  if args.profile == 'peregrine':
+  if args.profile == 'peregrine' or args.profile == 'custom_rate':
     freq_profile = defaults.freq_profile_peregrine
   elif args.profile == 'low_rate':
     freq_profile = defaults.freq_profile_low_rate
