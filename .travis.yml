@@ -2,7 +2,7 @@ sudo: false
 language: python
 cache:
   directories:
-    - $HOME/.cache/pip
+  - $HOME/.cache/pip
 addons:
   apt:
     sources:
@@ -16,25 +16,33 @@ addons:
     - python-numpy
     - python-cython
     - python-dev
-
+  artifacts:
+    debug: true
+    paths:
+    - $HOME/tests/test_data/*_results
+  s3_region: us-west-1
 install:
-  # Hack so python bindings can find locally installed library file
-  - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/libswiftnav/build/install/usr/local/lib
-  - git submodule update --init
-
+- export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/libswiftnav/build/install/usr/local/lib
+- git submodule update --init
 script:
-  # Build libswiftnav
-  - cd libswiftnav/
-  - mkdir build
-  - cd build/
-  - cmake ../
-  - make
-  # Install locally to avoid sudo
-  - make DESTDIR="./install" install
-  - cd ../python
-  - pip install cython
-  - python setup.py build && python setup.py install
-  - cd $TRAVIS_BUILD_DIR
-  - pip install -r requirements.txt
-  - python setup.py develop
-  - py.test -v tests/
+- cd libswiftnav/
+- mkdir build
+- cd build/
+- cmake ../
+- make
+- make DESTDIR="./install" install
+- cd ../python
+- pip install -r requirements.txt
+- python setup.py build && python setup.py install
+- cd $TRAVIS_BUILD_DIR
+- pip install -r requirements.txt
+- python setup.py develop
+- cd tests/
+- ./get_test_data.sh
+- cd ..
+- py.test -vv tests/
+env:
+  matrix:
+  - secure: YegWZRvjHeSAqTTHLAzfenXTGxqV3347BQ39AIanpL4BEgVkHZlEQqOwtPOx6VnedqZA9Jvz774J3bh3dekaKLLcE+GaS3acIZCxY7h2lTtiQOkL4VoliGJG7T20h1y0MqWdR43J2x9zBSwO5J1xiU2r39lahDyR+u2j/2YdLiEM5pQkqWrO46tPS8rC68QATtyi8mocsWDrDwUvERuhZsDGb0LsiabY5499amtvxhb8Jp+CVzbiOSR9yefrVIDqr1pP6RgzmaWQg4d664oI7LG6SI7ia3lr/hoxcdn4QYibr0QsxHz/lskcuNCIh4YTyqVP2NZ+d8yiLXzG2vU9Q7zjzD2pbVNrDLEcW6kuZqWqeW6BsK8ZACaYQgVj/buV/v+5KWkscAi3pXkAguqF0LyPonW/7ckYsHdqTncFTlZaRX+nrEV+XreeKxCz+8skZJEkZln20C6p5PdNx29jRZ1yXiOTSvaTJ86ugF5xR4kXFaU7oCCjjngryGbHi1AgfT3oTjG65g94jdNU+BeJ0s681zhjurS3XYzam5zdkVMyatPw83dszv6LP7/lWCg08t48nEIxYfH4JgiwqeFLu/S93mm3lny4s246dis5WXq4nWG48mTU9ozt4nUYMaOASxLKuEnpT94YV+J/A4GOwZy2XtdV9vBP5vwsqBwDSDc=
+  - secure: KnNldaaWN+4uYXms7SnAQ7ThYFV3WEpz9lhVvTjP6js4WG/5P9myCZr0kjkRH1PRD1Qcu4feBYQtMWTD9jdtvUGVJ8sW//PfqhsYiwtTsy5UVTUWvk3jFL3e1inek5/9zpUBxhyRBzlJswmv1pSAWxIuDbYcfaqdzwruFXj2ExEPFOtNnQKzA6iY6+lOJU2PH7M0H7Y9lVbFfnO2Co3EzhrJc9U4rOc7BG7EvU/83FyhHfkX/RnW2pyCFiztGB5CfDj5sRBnk6B//ydYnU0vKjZ+66+FSXa3m6AiGN6itgxVD1IgZziWR/71gGnkvf0rdXA3eCs4IEgqli+V/bCnO6iDiVLPqNL/MQ+rUX5O9n4EgyDhNav8VldC31aHrQFnn99oeIPKW5Q27BcUFpejwrd+CBfmUwa0h/F8XAQ0hfytGOS3QFM9tbzImgFIJ9NyOjcJxd1FOM6XcBMUDXegNHh+jYxMjZJatlWkmt0rHWuA0fu4cKvfd7f1CWCeiA68RTs0Hbb4ydyo31ZxEHu1LC1WHPO25Bq5ueg2E5b6woPPT07hc1n0b0kGLy/0sxeEZztYN8juiMZwvnMBIToXv2oJ+IwJ5+Wbrb3vkuMpM6CopGBffwMi2yYR8mFl8tCHSHwO2YdiAjZEIriZMgekWLIBlJLQye/ZVBOID01gunE=
+  - secure: ciYxihoBytMkZ237uTmr0QssHtzX6JLSxZVHe1aKsMKV31D7Kgjf14epmTgtd0RiLP065zpjCYvDroMz2RzQDkt1ALz25JbUc2m+/RTuY5fDlLxQGxqk2HExmbueOrTIrsK7EaBwKsOYxn41w4KI/pKG8XSku/OdhVravBh/R7Jg9AakE1jrqxTnI6nID6pPmAWKsBdYtelLtY3915T1EUgCQhRmw+EvbxK5GvzV33cm9XFd5ZgjIWh6cJMhO+fVWrr9JI58uGrPUkFneVB4tzmJquXglqY7kgmXBSaZxp2hEvZizxmIarCD9a87RwMR+GS3Gs7EQwi1MhWmrG6BFMSwenRej42Wv/tQ37kNmt4lGI7KEDmtM6/AtqmG8C0SI2qaTfO5rlo0xO98+yfeJ8FV3AMtTpu/QY2SxBlgey2TrEy8YcPmykjHGTj9aTsoCYnNLEl+UcJ5C7EwkAlH/ZtRGpOGs9zw7A2I+Gn5ffUGQeeODh2W0atnnxDxFho7z2IEng7BQOA3/f+Nwuuh+khQungLu7SifWK1KEHlyzYVaa0XppKaI2IyxSaf9jEuxKzw2NL6EFISfGJUr3HNbbqvz3XVb3KXfSYcR3d/ax5HpbVSq5uPsJFLKJZXS3Loo/+Bmm2BGTHjgX4xtYl8frbG5Uz2EM4r9UOGR51/qR8=

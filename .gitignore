@@ -45,3 +45,14 @@ build/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Test data
+tests/peregrine_ci_test_data.tar.gz
+tests/test_data/
+tests/test_data_old*
+
+# Eclipse project files
+.pydevproject
+.project
+.cproject
+.settings/

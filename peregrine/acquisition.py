@@ -76,9 +76,9 @@ class Acquisition:
 
   def __init__(self,
                samples,
-               sampling_freq=defaults.sampling_freq,
-               IF=defaults.IF,
-               samples_per_code=defaults.samples_per_code,
+               sampling_freq,
+               IF,
+               samples_per_code,
                code_length=defaults.code_length,
                n_codes_integrate=4,
                offsets = None,
@@ -287,8 +287,8 @@ class Acquisition:
 
       # Shift the signal in the frequency domain to remove the carrier
       # i.e. mix down to baseband.
-      shift = round(float(freq) * len(self.short_samples_ft[0]) /
-                  self.sampling_freq)
+      shift = int((float(freq) * len(self.short_samples_ft[0]) /
+                  self.sampling_freq) + 0.5)
 
       # Search over the possible nav bit offset intervals
       for offset_i in range(len(self.offsets)):
@@ -435,8 +435,8 @@ class Acquisition:
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
       pbar = progressbar.ProgressBar(widgets=widgets,
-                                     maxval=len(prns) *
-                                     (2 * doppler_search / doppler_step + 1))
+                                     maxval=int(len(prns) *
+                                     (2 * doppler_search / doppler_step + 1)))
       pbar.start()
     else:
       pbar = None
@@ -471,7 +471,8 @@ class Acquisition:
                                      carr_freq - self.IF,
                                      code_phase,
                                      snr,
-                                     status)
+                                     status,
+                                     'l1ca')
 
       # If the acquisition was successful, log it
       if (snr > threshold):
@@ -531,26 +532,68 @@ class AcquisitionResult:
       * `'A'` : The satellite has been successfully acquired.
       * `'-'` : The acquisition was not successful, the SNR was below the
                 acquisition threshold.
-
+  signal : {'l1ca', 'l2c'}
+    The type of the signal: L1C/A or L2C
+  sample_channel : IQ channel index
+  sample_index : Index of sample when acquisition succeeded
   """
 
-  __slots__ = ('prn', 'carr_freq', 'doppler', 'code_phase', 'snr', 'status')
+  __slots__ = ('prn', 'carr_freq', 'doppler', \
+               'code_phase', 'snr', 'status', 'signal')
 
-  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status):
+  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal,
+               sample_channel = 0,
+               sample_index = None):
     self.prn = prn
     self.snr = snr
     self.carr_freq = carr_freq
     self.doppler = doppler
     self.code_phase = code_phase
     self.status = status
+    self.signal = signal
+    self.sample_channel = sample_channel
+    self.sample_index = sample_index
 
   def __str__(self):
-    return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
-        (self.prn + 1, self.snr, self.code_phase, self.doppler, self.status)
+    return "PRN %2d (%s) SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
+        (self.prn + 1, self.signal, self.snr, self.code_phase, \
+         self.doppler, self.status)
 
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()
 
+  def __eq__(self, other):
+    return self._equal(other)
+
+  def __ne__(self, other):
+    return not self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`AcquisitionResult` object.
+
+    Parameters
+    ----------
+    other : :class:`AcquisitionResult` object
+      The :class:`AcquisitionResult` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`AcquisitionResult` object is identical.
+    
+    """
+    if set(self.__dict__.keys()) != set(other.__dict__.keys()):
+      return False
+
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], float):
+        if abs(self.__dict__[k] - other.__dict__[k]) > 1e-6:
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
 
 def save_acq_results(filename, acq_results):
   """

@@ -21,15 +21,13 @@ from peregrine.acquisition import Acquisition, load_acq_results, save_acq_result
 from peregrine.navigation import navigation
 from peregrine.tracking import track
 from peregrine.log import default_logging_config
+from peregrine.analysis.tracking_loop import dump_tracking_results_for_analysis
 import defaults
 
 from initSettings import initSettings
 
 def main():
   default_logging_config()
-
-  # Initialize constants, settings
-  settings = initSettings()
 
   parser = argparse.ArgumentParser()
   parser.add_argument("file",
@@ -43,11 +41,40 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
+  parser.add_argument("--ms-to-process",
+                      help = "the number of milliseconds to process."
+                      "(-1: use all available data",
+                      default = "-1")
+  parser.add_argument("--profile",
+                      help="L1C/A & L2C IF + sampling frequency profile"
+                      "('peregrine'/'custom_rate', 'low_rate', "
+                      "'normal_rate' (piksi_v3), 'high_rate')",
+                      default = 'peregrine')
   parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
-                      "(e.g. 'piksi', 'int8', '1bit', '1bitrev')")
+                      "('piksi', 'int8', '1bit', '1bitrev', "
+                      "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
   args = parser.parse_args()
+
+  if args.profile == 'peregrine' or args.profile == 'custom_rate':
+    freq_profile = defaults.freq_profile_peregrine
+  elif args.profile == 'low_rate':
+    freq_profile = defaults.freq_profile_low_rate
+  elif args.profile == 'normal_rate':
+    freq_profile = defaults.freq_profile_normal_rate
+  elif args.profile == 'high_rate':
+    freq_profile = defaults.freq_profile_high_rate
+  else:
+    raise NotImplementedError()
+
+  settings = initSettings(freq_profile)
   settings.fileName = args.file
+
+  ms_to_process = int(args.ms_to_process)
+  if ms_to_process > 0:
+    samples_num = freq_profile['sampling_freq'] * 1e-3 * ms_to_process
+  else:
+    samples_num = -1 # all available samples
 
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
@@ -64,11 +91,17 @@ def main():
       sys.exit(1)
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
-    acq_samples = load_samples(args.file, 11*samplesPerCode,
+    acq_samples = load_samples(args.file, 11 * samplesPerCode,
                                settings.skipNumberOfBytes,
                                file_format=args.file_format)
-    acq = Acquisition(acq_samples)
+
+    acq = Acquisition(acq_samples[defaults.sample_channel_GPS_L1],
+                      freq_profile['sampling_freq'],
+                      freq_profile['GPS_L1_IF'],
+                      defaults.code_period * freq_profile['sampling_freq'])
     acq_results = acq.acquisition()
+
+    print "Acquisition is over!"
 
     try:
       save_acq_results(acq_results_file, acq_results)
@@ -99,14 +132,31 @@ def main():
       sys.exit(1)
   else:
     signal = load_samples(args.file,
-                          int(settings.samplingFreq*1e-3*(settings.msToProcess+22)),
+                          int(samples_num),
                           settings.skipNumberOfBytes,
                           file_format=args.file_format)
-    track_results = track(signal, acq_results, settings.msToProcess)
+    if ms_to_process < 0:
+      ms_to_process = int(1e3 * len(signal[0]) / freq_profile['sampling_freq'])
+
+    settings.msToProcess = ms_to_process - 22
+
+    if len(signal) > 1:
+      samples = [ {'data': signal[defaults.sample_channel_GPS_L1],
+                   'IF': freq_profile['GPS_L1_IF']},
+                  {'data': signal[defaults.sample_channel_GPS_L2],
+                   'IF': freq_profile['GPS_L2_IF']} ]
+    else:
+      samples = [ {'data': signal[defaults.sample_channel_GPS_L1],
+                   'IF': freq_profile['GPS_L1_IF']} ]
+
+    track_results = track( samples, acq_results,
+                           settings.msToProcess, freq_profile['sampling_freq'])
     try:
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
       logging.debug("Saving tracking results as '%s'" % track_results_file)
+      logging.debug("Saving tracking results for analysis")
+      dump_tracking_results_for_analysis(track_results_file, track_results)
     except IOError:
       logging.error("Couldn't save tracking results file '%s'.",
                     track_results_file)
@@ -125,7 +175,7 @@ def main():
         nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
       with open(nav_results_file, 'wb') as f:
         cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-      print "and %d more are cPickled in '%s'." % (len(nav_results)-1, nav_results_file)
+      print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
     else:
       print "No navigation results."
 
