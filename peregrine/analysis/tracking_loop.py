@@ -76,9 +76,6 @@ def main():
                       "(-1: use all available data",
                       default = "-1")
 
-  parser.add_argument("-I", "--IF",
-                      help = "intermediate frequency [Hz]. ")
-
   parser.add_argument("-s", "--sampling-freq",
                       help = "sampling frequency [Hz]. ");
 
@@ -105,6 +102,10 @@ def main():
                       choices = [L1CA, L2C],
                       help = "Signal type (l1ca / l2c)")
 
+  parser.add_argument("--l2c-handover",
+                      action = 'store_true',
+                      help = "Perform L2C handover")
+
   args = parser.parse_args()
 
   if args.profile == 'peregrine' or args.profile == 'custom_rate':
@@ -130,8 +131,10 @@ def main():
   else:
     raise NotImplementedError()
 
-  if args.IF is not None:
-    IF = float(args.IF)
+  if args.l2c_handover is not None and not isL2C:
+    l2c_handover = True
+  else:
+    l2c_handover = False
 
   if args.sampling_freq is not None:
     sampling_freq = float(args.sampling_freq)  # [Hz]
@@ -170,7 +173,8 @@ def main():
   print "File format:                            %s" % args.file_format
   print "PRN to track [1-32]:                    %s" % args.prn
   print "Time to process [ms]:                   %s" % ms_to_track
-  print "IF [Hz]:                                %f" % IF
+  print "L1 IF [Hz]:                             %f" % freq_profile['GPS_L1_IF']
+  print "L2 IF [Hz]:                             %f" % freq_profile['GPS_L2_IF']
   print "Sampling frequency [Hz]:                %f" % sampling_freq
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
   print "Initial code phase [chips]:             %s" % code_phase
@@ -180,15 +184,18 @@ def main():
 
   channel = 0
   if len(signals) > 1:
-    samples = [ {'data': signals[defaults.sample_channel_GPS_L1], 'IF': IF},
-                {'data': signals[defaults.sample_channel_GPS_L2], 'IF': IF} ]
+    samples = [ {'data': signals[defaults.sample_channel_GPS_L1],
+                 'IF': freq_profile['GPS_L1_IF']},
+                {'data': signals[defaults.sample_channel_GPS_L2],
+                 'IF': freq_profile['GPS_L2_IF']} ]
     if isL1CA:
       channel = 0
     else:
       channel = 1
     pass
   else:
-    samples = [ {'data': signals[defaults.sample_channel_GPS_L1], 'IF': IF} ]
+    samples = [ {'data': signals[defaults.sample_channel_GPS_L1],
+                 'IF': freq_profile['GPS_L1_IF']} ]
 
   acq_result = AcquisitionResult(prn = prn,
                     snr = 25, # dB
@@ -204,7 +211,7 @@ def main():
                         channels = [acq_result],
                         ms_to_track = ms_to_track,
                         sampling_freq = sampling_freq,  # [Hz]
-                        l2c_handover = False)
+                        l2c_handover = l2c_handover)
 
   dump_tracking_results_for_analysis(args.output_file, track_results)
 
