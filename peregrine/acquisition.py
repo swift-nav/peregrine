@@ -543,7 +543,7 @@ class AcquisitionResult:
 
   def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal,
                sample_channel = 0,
-               sample_index = None):
+               sample_index = 0):
     self.prn = prn
     self.snr = snr
     self.carr_freq = carr_freq

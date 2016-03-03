@@ -103,7 +103,7 @@ l1ca_stage1_loop_filter_params = {
 
 l2c_loop_filter_params = {
     "loop_freq": 50,      # loop frequency [Hz]
-    "code_bw": 1,         # Code loop NBW
+    "code_bw": 1.4,       # Code loop NBW
     "code_zeta": 0.707,   # Code loop zeta
     "code_k": 1,          # Code loop k
     "carr_to_code": 1200, # Carrier-to-code freq ratio (carrier aiding)

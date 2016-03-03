@@ -36,7 +36,8 @@ def dump_tracking_results_for_analysis(output_file, track_results):
                "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
                "lock_detect_outp,lock_detect_outo,"
                "lock_detect_pcount1,lock_detect_pcount2,"
-               "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz\n")
+               "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
+               "code_phase_acc\n")
       for i in range(len(track_results[j].carr_phase)):
         f1.write("%s," % track_results[j].IF)
         f1.write("%s," % track_results[j].carr_phase[i])
@@ -57,7 +58,8 @@ def dump_tracking_results_for_analysis(output_file, track_results):
         f1.write("%s," % track_results[j].lock_detect_pcount2[i])
         f1.write("%s," % track_results[j].lock_detect_lpfi[i])
         f1.write("%s," % track_results[j].lock_detect_lpfq[i])
-        f1.write("%s\n" % track_results[j].alias_detect_err_hz[i])
+        f1.write("%s," % track_results[j].alias_detect_err_hz[i])
+        f1.write("%s\n" % track_results[j].code_phase_acc[i])
 
 def main():
   default_logging_config()
@@ -106,7 +108,12 @@ def main():
                       action = 'store_true',
                       help = "Perform L2C handover")
 
+  parser.add_argument("--skip-samples", default = 0,
+                      help = "How many samples to skip")
+
   args = parser.parse_args()
+
+  skip_samples = int(args.skip_samples)
 
   if args.profile == 'peregrine' or args.profile == 'custom_rate':
     freq_profile = defaults.freq_profile_peregrine
@@ -161,7 +168,7 @@ def main():
     samples_num = -1 # all available samples
   signals = load_samples(args.file,
                          int(samples_num),
-                         0,  # skip samples
+                         skip_samples,
                          file_format = args.file_format)
 
   if ms_to_track < 0:
