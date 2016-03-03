@@ -113,9 +113,8 @@ def track(samples, channels,
 
   n_channels = len(channels)
 
-  samples_length_ms = int(1e3 *
-                          len(samples[defaults.sample_channel_GPS_L1]['data']) /
-                          sampling_freq)
+  total_samples_num = len(samples[defaults.sample_channel_GPS_L1]['data'])
+  samples_length_ms = int(1e3 * total_samples_num / sampling_freq)
 
   if ms_to_track is None:
     ms_to_track = samples_length_ms
@@ -179,7 +178,7 @@ def track(samples, channels,
                 (chan.prn + 1, chan.signal,
                  IF, chan.doppler, chan.code_phase,
                  chan.sample_channel,
-                 chan.sample_index if chan.sample_index else 0))
+                 chan.sample_index))
 
     if isL1CA:
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
@@ -256,7 +255,8 @@ def track(samples, channels,
     samples_per_chip = int(round(sampling_freq / chipping_rate))
 
     # Set sample_index to start on a code rollover
-    sample_index = chan.code_phase * samples_per_chip
+    sample_index = chan.sample_index
+    sample_index += chan.code_phase * samples_per_chip
 
     # Start in 1ms integration until we know the nav bit phase
     stage1 = True
@@ -267,19 +267,9 @@ def track(samples, channels,
     progress = 0
     ms_tracked = 0
     i = 0
-    # For L2C, proceed in steps of full milliseconds up to the ms when
-    # handover succeeded. Do not set sample_index := chan.sample_index
-    # since the sub ms part of sample_index presents code phase.
-    # Therefore, skip just full ms steps to preserve code phase.
-    if isL2C:
-      samples_per_ms = sampling_freq * defaults.code_period
-      skip_ms = int((chan.sample_index - sample_index) / samples_per_ms)
-      skip_samples = skip_ms * samples_per_ms
-      sample_index += skip_samples
-      ms_tracked += skip_ms
 
     # Process the specified number of ms
-    while ms_tracked < ms_to_track:
+    while ms_tracked < ms_to_track and sample_index < total_samples_num:
       if pbar:
         pbar.update(ms_tracked + n * num_points, attr={'chan': n + 1})
 
@@ -706,7 +696,7 @@ class NBSLibSwiftNav(NavBitSync):
 
 class NBSMatchBit(NavBitSync):
 
-  def __init__(self, thres=22):
+  def __init__(self, thres=25):
     NavBitSync.__init__(self)
     self.hist = np.zeros(20)
     self.acc = 0
