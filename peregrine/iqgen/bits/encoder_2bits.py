@@ -66,21 +66,15 @@ class BandTwoBitsEncoder(Encoder):
     totalPower = numpy.sum(power)
     totalPowerLimit = totalPower * 0.67
 
-    # Build histrogram to find 67% power
+    # Build histogram to find 67% power
+    totalBins = 30
     hist, edges = numpy.histogram(power,
-                                  bins=10,
-                                  density=True)
-    lastPower = 0.
-    powerLimit = 0.
-    for i in range(10):
-      # Approximate power of samples in the bin
-      entryPower = hist[i] * (edges[i] + edges[i + 1]) / 2.
-      newPower = lastPower + entryPower
-      if newPower > totalPowerLimit:
-        powerLimit = edges[i]
-        break
-      else:
-        lastPower = newPower
+                                  bins=totalBins,
+                                  density=False)
+    avg = (edges[:-1] + edges[1:]) * 0.5
+    powers = numpy.cumsum(hist * avg)
+    idx = numpy.searchsorted(powers, totalPowerLimit, side="right")
+    powerLimit = avg[idx]
 
     # Signal sign
     signs = band_samples > 0
