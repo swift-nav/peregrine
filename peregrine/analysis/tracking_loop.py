@@ -18,6 +18,7 @@ from peregrine.tracking import track
 from peregrine.gps_constants import L1CA, L2C
 from peregrine.initSettings import initSettings
 
+
 def dump_tracking_results_for_analysis(output_file, track_results):
   output_filename, output_file_extension = os.path.splitext(output_file)
 
@@ -26,8 +27,8 @@ def dump_tracking_results_for_analysis(output_file, track_results):
     if len(track_results) > 1:
       # mangle the result file name with the tracked signal name
       filename = output_filename + \
-                 (".%s.%d" % (track_results[j].signal, track_results[j].prn + 1)) +\
-                 output_file_extension
+          (".%s.%d" % (track_results[j].signal, track_results[j].prn + 1)) +\
+          output_file_extension
     else:
       filename = output_file
 
@@ -61,57 +62,66 @@ def dump_tracking_results_for_analysis(output_file, track_results):
         f1.write("%s," % track_results[j].alias_detect_err_hz[i])
         f1.write("%s\n" % track_results[j].code_phase_acc[i])
 
+
 def main():
   default_logging_config()
 
   parser = argparse.ArgumentParser()
   parser.add_argument("file",
-                      help = "the sample data file to process")
+                      help="the sample data file to process")
 
   parser.add_argument("-f", "--file-format",
-                      help = "the format of the sample data file "
+                      help="the format of the sample data file "
                       "('piksi', 'int8', '1bit', '1bitrev', "
                       "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
 
   parser.add_argument("-t", "--ms-to-track",
-                      help = "the number of milliseconds to track."
+                      help="the number of milliseconds to track."
                       "(-1: use all available data",
-                      default = "-1")
+                      default="-1")
 
   parser.add_argument("-s", "--sampling-freq",
-                      help = "sampling frequency [Hz]. ");
+                      help="sampling frequency [Hz]. ")
 
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
                       "('peregrine'/'custom_rate', 'low_rate', "
                       "'normal_rate' (piksi_v3), 'high_rate')",
-                      default = 'peregrine')
+                      default='peregrine')
 
   parser.add_argument("-P", "--prn",
-                      help = "PRN to track. ")
+                      help="PRN to track. ")
 
   parser.add_argument("-p", "--code-phase",
-                      help = "code phase [chips]. ")
+                      help="code phase [chips]. ")
 
   parser.add_argument("-d", "--carr-doppler",
-                      help = "carrier Doppler frequency [Hz]. ")
+                      help="carrier Doppler frequency [Hz]. ")
 
-  parser.add_argument("-o", "--output-file", default = "track.csv",
-                      help = "Track results file name. "
+  parser.add_argument("-o", "--output-file", default="track.csv",
+                      help="Track results file name. "
                       "Default: %s" % "track.csv")
 
   parser.add_argument("-S", "--signal",
-                      choices = [L1CA, L2C],
-                      help = "Signal type (l1ca / l2c)")
+                      choices=[L1CA, L2C],
+                      help="Signal type (l1ca / l2c)")
 
   parser.add_argument("--l2c-handover",
-                      action = 'store_true',
-                      help = "Perform L2C handover")
+                      action='store_true',
+                      help="Perform L2C handover")
 
-  parser.add_argument("--skip-samples", default = 0,
-                      help = "How many samples to skip")
+  parser.add_argument('--l1ca-profile',
+                      help='L1 C/A stage profile',
+                      choices=defaults.l1ca_stage_profiles.keys())
+
+  parser.add_argument("--skip-samples", default=0,
+                      help="How many samples to skip")
 
   args = parser.parse_args()
+
+  if args.file is None:
+    parser.print_help()
+    return
 
   skip_samples = int(args.skip_samples)
 
@@ -138,7 +148,7 @@ def main():
   else:
     raise NotImplementedError()
 
-  if args.l2c_handover is not None and not isL2C:
+  if args.l2c_handover and not isL2C:
     l2c_handover = True
   else:
     l2c_handover = False
@@ -146,15 +156,12 @@ def main():
   if args.sampling_freq is not None:
     sampling_freq = float(args.sampling_freq)  # [Hz]
   else:
-    sampling_freq = freq_profile['sampling_freq'] # [Hz]
+    sampling_freq = freq_profile['sampling_freq']  # [Hz]
 
   # Initialize constants, settings
   settings = initSettings(freq_profile)
 
   settings.fileName = args.file
-
-  samplesPerCode = int(round(sampling_freq /
-                             (settings.codeFreqBasis / settings.codeLength)))
 
   carr_doppler = float(args.carr_doppler)
   code_phase = float(args.code_phase)
@@ -165,11 +172,11 @@ def main():
   if ms_to_track > 0:
     samples_num = sampling_freq * 1e-3 * ms_to_track
   else:
-    samples_num = -1 # all available samples
+    samples_num = -1  # all available samples
   signals = load_samples(args.file,
                          int(samples_num),
                          skip_samples,
-                         file_format = args.file_format)
+                         file_format=args.file_format)
 
   if ms_to_track < 0:
     # use all available data
@@ -187,38 +194,50 @@ def main():
   print "Initial code phase [chips]:             %s" % code_phase
   print "Track results file name:                %s" % args.output_file
   print "Signal:                                 %s" % args.signal
+  print "L1 stage profile:                       %s" % args.l1ca_profile
   print "======================================================================"
 
   channel = 0
   if len(signals) > 1:
-    samples = [ {'data': signals[defaults.sample_channel_GPS_L1],
-                 'IF': freq_profile['GPS_L1_IF']},
-                {'data': signals[defaults.sample_channel_GPS_L2],
-                 'IF': freq_profile['GPS_L2_IF']} ]
+    samples = [{'data': signals[defaults.sample_channel_GPS_L1],
+                'IF': freq_profile['GPS_L1_IF']},
+               {'data': signals[defaults.sample_channel_GPS_L2],
+                'IF': freq_profile['GPS_L2_IF']}]
     if isL1CA:
       channel = 0
     else:
       channel = 1
     pass
   else:
-    samples = [ {'data': signals[defaults.sample_channel_GPS_L1],
-                 'IF': freq_profile['GPS_L1_IF']} ]
+    samples = [{'data': signals[defaults.sample_channel_GPS_L1],
+                'IF': freq_profile['GPS_L1_IF']}]
 
-  acq_result = AcquisitionResult(prn = prn,
-                    snr = 25, # dB
-                    carr_freq = IF + carr_doppler,
-                    doppler = carr_doppler,
-                    code_phase = code_phase,
-                    status = 'A',
-                    signal = signal,
-                    sample_channel = channel,
-                    sample_index = 0)
+  acq_result = AcquisitionResult(prn=prn,
+                                 snr=25,  # dB
+                                 carr_freq=IF + carr_doppler,
+                                 doppler=carr_doppler,
+                                 code_phase=code_phase,
+                                 status='A',
+                                 signal=signal,
+                                 sample_channel=channel,
+                                 sample_index=0)
 
-  track_results = track(samples = samples,
-                        channels = [acq_result],
-                        ms_to_track = ms_to_track,
-                        sampling_freq = sampling_freq,  # [Hz]
-                        l2c_handover = l2c_handover)
+  if args.l1ca_profile:
+    profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
+    stage2_coherent_ms = profile[1]['coherent_ms']
+    stage2_params = profile[1]['loop_filter_params']
+    print "S2=", stage2_params
+  else:
+    stage2_coherent_ms = None
+    stage2_params = None
+
+  track_results = track(samples=samples,
+                        channels=[acq_result],
+                        ms_to_track=ms_to_track,
+                        sampling_freq=sampling_freq,  # [Hz]
+                        l2c_handover=l2c_handover,
+                        stage2_coherent_ms=stage2_coherent_ms,
+                        stage2_loop_filter_params=stage2_params)
 
   dump_tracking_results_for_analysis(args.output_file, track_results)
 
