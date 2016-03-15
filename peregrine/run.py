@@ -22,9 +22,9 @@ from peregrine.navigation import navigation
 from peregrine.tracking import track
 from peregrine.log import default_logging_config
 from peregrine.analysis.tracking_loop import dump_tracking_results_for_analysis
-import defaults
+from peregrine import defaults
+from peregrine.initSettings import initSettings
 
-from initSettings import initSettings
 
 def main():
   default_logging_config()
@@ -42,19 +42,26 @@ def main():
                       help="use previously saved navigation results",
                       action="store_true")
   parser.add_argument("--ms-to-process",
-                      help = "the number of milliseconds to process."
+                      help="the number of milliseconds to process."
                       "(-1: use all available data",
-                      default = "-1")
+                      default="-1")
   parser.add_argument("--profile",
                       help="L1C/A & L2C IF + sampling frequency profile"
                       "('peregrine'/'custom_rate', 'low_rate', "
                       "'normal_rate' (piksi_v3), 'high_rate')",
-                      default = 'peregrine')
+                      default='peregrine')
   parser.add_argument("-f", "--file-format", default=defaults.file_format,
                       help="the format of the sample data file "
                       "('piksi', 'int8', '1bit', '1bitrev', "
                       "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
+  parser.add_argument('--l1ca-profile',
+                      help='L1 C/A stage profile',
+                      choices=defaults.l1ca_stage_profiles.keys())
   args = parser.parse_args()
+
+  if args.file is None:
+    parser.print_help()
+    return
 
   if args.profile == 'peregrine' or args.profile == 'custom_rate':
     freq_profile = defaults.freq_profile_peregrine
@@ -67,6 +74,14 @@ def main():
   else:
     raise NotImplementedError()
 
+  if args.l1ca_profile:
+    profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
+    stage2_coherent_ms = profile[1]['coherent_ms']
+    stage2_params = profile[1]['loop_filter_params']
+  else:
+    stage2_coherent_ms = None
+    stage2_params = None
+
   settings = initSettings(freq_profile)
   settings.fileName = args.file
 
@@ -74,7 +89,7 @@ def main():
   if ms_to_process > 0:
     samples_num = freq_profile['sampling_freq'] * 1e-3 * ms_to_process
   else:
-    samples_num = -1 # all available samples
+    samples_num = -1  # all available samples
 
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
@@ -141,16 +156,19 @@ def main():
     settings.msToProcess = ms_to_process - 22
 
     if len(signal) > 1:
-      samples = [ {'data': signal[defaults.sample_channel_GPS_L1],
-                   'IF': freq_profile['GPS_L1_IF']},
-                  {'data': signal[defaults.sample_channel_GPS_L2],
-                   'IF': freq_profile['GPS_L2_IF']} ]
+      samples = [{'data': signal[defaults.sample_channel_GPS_L1],
+                  'IF': freq_profile['GPS_L1_IF']},
+                 {'data': signal[defaults.sample_channel_GPS_L2],
+                  'IF': freq_profile['GPS_L2_IF']}]
     else:
-      samples = [ {'data': signal[defaults.sample_channel_GPS_L1],
-                   'IF': freq_profile['GPS_L1_IF']} ]
+      samples = [{'data': signal[defaults.sample_channel_GPS_L1],
+                  'IF': freq_profile['GPS_L1_IF']}]
 
-    track_results = track( samples, acq_results,
-                           settings.msToProcess, freq_profile['sampling_freq'])
+    track_results = track(samples, acq_results,
+                          settings.msToProcess,
+                          freq_profile['sampling_freq'],
+                          stage2_coherent_ms=stage2_coherent_ms,
+                          stage2_loop_filter_params=stage2_params)
     try:
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
@@ -170,9 +188,10 @@ def main():
       nav_results += [(t, s.pos_llh, s.vel_ned)]
     if len(nav_results):
       print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
-        nav_results[0][0],
-        np.degrees(nav_results[0][1][0]), np.degrees(nav_results[0][1][1]), nav_results[0][1][2],
-        nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
+          nav_results[0][0],
+          np.degrees(nav_results[0][1][0]), np.degrees(
+              nav_results[0][1][1]), nav_results[0][1][2],
+          nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
       with open(nav_results_file, 'wb') as f:
         cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
       print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)

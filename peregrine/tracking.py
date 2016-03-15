@@ -11,8 +11,7 @@
 import numpy as np
 from include.generateCAcode import caCodes
 from include.generateL2CMcode import L2CMCodes
-import gps_constants
-import progressbar
+from peregrine import gps_constants
 import math
 import parallel_processing as pp
 
@@ -21,7 +20,7 @@ import swiftnav.correlate
 import swiftnav.nav_msg
 import swiftnav.cnav_msg
 import swiftnav.ephemeris
-import defaults
+from peregrine import defaults
 from peregrine.acquisition import AcquisitionResult
 
 import logging
@@ -35,15 +34,15 @@ except ImportError:
   _progressbar_available = False
 
 default_stage1_loop_filter_params = {
-  'code_loop_bw': 1,
-  'code_loop_zeta': 0.7,
-  'code_loop_k': 1,
-  'carr_loop_bw': 25,
-  'carr_loop_zeta': 0.7,
-  'carr_loop_k': 1,
-  'loop_freq': 1e3,
-  'carr_freq_b1': 5,
-  'carr_to_code': 1540,
+    'code_loop_bw': 1,
+    'code_loop_zeta': 0.7,
+    'code_loop_k': 1,
+    'carr_loop_bw': 25,
+    'carr_loop_zeta': 0.7,
+    'carr_loop_k': 1,
+    'loop_freq': 1e3,
+    'carr_freq_b1': 5,
+    'carr_to_code': 1540,
 }
 
 
@@ -103,7 +102,7 @@ def track(samples, channels,
           ms_to_track,
           sampling_freq,
           chipping_rate=defaults.chipping_rate,
-          l2c_handover = True,
+          l2c_handover=True,
           show_progress=True,
           loop_filter_class=swiftnav.track.AidedTrackingLoop,
           correlator=swiftnav.correlate.track_correlate,
@@ -184,10 +183,10 @@ def track(samples, channels,
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
       lock_detect_params = defaults.l1ca_lock_detect_params_opt
       lock_detect = swiftnav.track.LockDetector(
-                       k1 = lock_detect_params["k1"],
-                       k2 = lock_detect_params["k2"],
-                       lp = lock_detect_params["lp"],
-                       lo = lock_detect_params["lo"])
+          k1=lock_detect_params["k1"],
+          k2=lock_detect_params["k2"],
+          lp=lock_detect_params["lp"],
+          lo=lock_detect_params["lo"])
       prn_code = caCodes[chan.prn]
       coherent_ms = 1
       nav_msg = swiftnav.nav_msg.NavMsg()
@@ -200,10 +199,10 @@ def track(samples, channels,
       loop_filter_params = defaults.l2c_loop_filter_params
       lock_detect_params = defaults.l2c_lock_detect_params_20ms
       lock_detect = swiftnav.track.LockDetector(
-                       k1 = lock_detect_params["k1"],
-                       k2 = lock_detect_params["k2"],
-                       lp = lock_detect_params["lp"],
-                       lo = lock_detect_params["lo"])
+          k1=lock_detect_params["k1"],
+          k2=lock_detect_params["k2"],
+          lp=lock_detect_params["lp"],
+          lo=lock_detect_params["lo"])
       prn_code = L2CMCodes[chan.prn]
       coherent_ms = 20
       cnav_msg = swiftnav.cnav_msg.CNavMsg()
@@ -214,14 +213,14 @@ def track(samples, channels,
     else:
       raise NotImplementedError()
 
-    alias_detect_init = 1 # require alias_detect_first() call
-                          # or alias_detect.reinit() call or both
+    alias_detect_init = 1  # require alias_detect_first() call
+    # or alias_detect.reinit() call or both
     alias_detect = swiftnav.track.AliasDetector(
-                     acc_len = defaults.alias_detect_interval_ms / coherent_ms,
-                     time_diff = 1)
+        acc_len=defaults.alias_detect_interval_ms / coherent_ms,
+        time_diff=1)
 
     cn0_est = swiftnav.track.CN0Estimator(
-        bw=1e3/coherent_ms,
+        bw=1e3 / coherent_ms,
         cn0_0=cn0_0,
         cutoff_freq=10,
         loop_freq=loop_filter_params["loop_freq"]
@@ -229,9 +228,11 @@ def track(samples, channels,
 
     # Estimate initial code freq via aiding from acq carrier freq
     if isL1CA:
-      code_freq_init = chan.doppler * gps_constants.chip_rate / gps_constants.l1
+      code_freq_init = chan.doppler * \
+          gps_constants.chip_rate / gps_constants.l1
     elif isL2C:
-      code_freq_init = chan.doppler * gps_constants.chip_rate / gps_constants.l2
+      code_freq_init = chan.doppler * \
+          gps_constants.chip_rate / gps_constants.l2
     else:
       raise NotImplementedError()
 
@@ -241,8 +242,8 @@ def track(samples, channels,
         code_bw=loop_filter_params['code_bw'],
         code_zeta=loop_filter_params['code_zeta'],
         code_k=loop_filter_params['code_k'],
-        carr_to_code=0, # the provided code frequency accounts for Doppler
-        carr_freq = chan.doppler,
+        carr_to_code=0,  # the provided code frequency accounts for Doppler
+        carr_freq=chan.doppler,
         carr_bw=loop_filter_params['carr_bw'],
         carr_zeta=loop_filter_params['carr_zeta'],
         carr_k=loop_filter_params['carr_k'],
@@ -279,14 +280,18 @@ def track(samples, channels,
            stage2_coherent_ms and \
            nav_bit_sync.bit_phase == nav_bit_sync.bit_phase_ref:
 
+          logger.info("[PRN: %d (%s)] switching to stage2, coherent_ms=%d" %
+                      (chan.prn + 1, chan.signal, stage2_coherent_ms))
+
           stage1 = False
           coherent_ms = stage2_coherent_ms
-          loop_filter.retune(*stage2_loop_filter_params)
+
+          loop_filter.retune(**stage2_loop_filter_params)
           lock_detect.reinit(
-                       k1 = lock_detect_params["k1"] * coherent_ms,
-                       k2 = lock_detect_params["k2"],
-                       lp = lock_detect_params["lp"],
-                       lo = lock_detect_params["lo"]);
+              k1=lock_detect_params["k1"] * coherent_ms,
+              k2=lock_detect_params["k2"],
+              lp=lock_detect_params["lp"],
+              lo=lock_detect_params["lo"])
           cn0_est = swiftnav.track.CN0Estimator(bw=1e3 / stage2_coherent_ms,
                                                 cn0_0=track_result.cn0[i - 1],
                                                 cutoff_freq=10,
@@ -331,18 +336,18 @@ def track(samples, channels,
 
       # Update PLL lock detector
       lock_detect_outo, lock_detect_outp, \
-      lock_detect_pcount1, lock_detect_pcount2, \
-      lock_detect_lpfi, lock_detect_lpfq = lock_detect.update(P.real, P.imag,
-                                                              coherent_ms)
+          lock_detect_pcount1, lock_detect_pcount2, \
+          lock_detect_lpfi, lock_detect_lpfq = lock_detect.update(P.real, P.imag,
+                                                                  coherent_ms)
 
       if lock_detect_outo:
         if alias_detect_init:
           alias_detect_init = 0
           alias_detect.reinit(defaults.alias_detect_interval_ms / coherent_ms,
-                              time_diff = 1)
+                              time_diff=1)
           alias_detect.first(P.real, P.imag)
         alias_detect_err_hz = alias_detect.second(P.real, P.imag) * np.pi * \
-                              (1e3 / defaults.alias_detect_interval_ms)
+            (1e3 / defaults.alias_detect_interval_ms)
         alias_detect.first(P.real, P.imag)
       else:
         alias_detect_init = 1
@@ -366,7 +371,7 @@ def track(samples, channels,
                            (chan.prn + 1, chan.signal, res))
             elif res > 0:
               logger.info("[PRN: %d (%s)] Subframe decoded" %
-                          (chan.prn + 1, chan.signal) )
+                          (chan.prn + 1, chan.signal))
             else:
               # Subframe decoding is in progress
               pass
@@ -389,7 +394,8 @@ def track(samples, channels,
                         cnav_msg.getAlert(),
                         delay))
           tow = cnav_msg.getTow() * 6000 + delay * 20
-          logger.debug("[PRN: %d (%s)] ToW %d" % (chan.prn + 1, chan.signal, tow))
+          logger.debug("[PRN: %d (%s)] ToW %d" %
+                       (chan.prn + 1, chan.signal, tow))
           track_result.tow[i] = tow
         else:
           track_result.tow[i] = track_result.tow[i - 1] + coherent_ms
@@ -403,8 +409,8 @@ def track(samples, channels,
 
       track_result.code_phase[i] = code_phase
       track_result.code_phase_acc[i] = code_phase_acc
-      track_result.code_freq[
-          i] = loop_filter.to_dict()['code_freq'] + chipping_rate
+      track_result.code_freq[i] = loop_filter.to_dict()['code_freq'] + \
+          chipping_rate
 
       # Record stuff for postprocessing
       track_result.absolute_sample[i] = sample_index
@@ -429,15 +435,17 @@ def track(samples, channels,
         chan_snr = track_result.cn0[i]
         chan_snr -= 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
         chan_snr = np.power(10, chan_snr / 10)
-        l2c_doppler = loop_filter.to_dict()['carr_freq'] * gps_constants.l2 / gps_constants.l1
+        l2c_doppler = loop_filter.to_dict(
+        )['carr_freq'] * gps_constants.l2 / gps_constants.l1
         l2c_handover_chan = AcquisitionResult(track_result.prn,
-                                              samples[chan.sample_channel]['IF'] + l2c_doppler,
-                                              l2c_doppler, # carrier doppler
+                                              samples[chan.sample_channel][
+                                                  'IF'] + l2c_doppler,
+                                              l2c_doppler,  # carrier doppler
                                               track_result.code_phase[i],
                                               chan_snr,
                                               'A',
                                               'l2c',
-                                              1, # samples' channel index
+                                              1,  # samples' channel index
                                               track_result.absolute_sample[i])
       i += 1
       if isL1CA or isL2C:
@@ -551,11 +559,11 @@ class TrackResults:
     """
     if self.__dict__.keys() != other.__dict__.keys():
       return False
-    
+
     for k in self.__dict__.keys():
       if isinstance(self.__dict__[k], np.ndarray):
         # If np.ndarray, elements might be floats, so compare accordingly.
-        if any(np.greater((self.__dict__[k]-other.__dict__[k]), np.ones(len(self.__dict__[k]))*10e-6)):
+        if any(np.greater((self.__dict__[k] - other.__dict__[k]), np.ones(len(self.__dict__[k])) * 10e-6)):
           return False
       elif self.__dict__[k] != other.__dict__[k]:
         return False
@@ -617,16 +625,17 @@ class NavBitSync:
     """
     if self.__dict__.keys() != other.__dict__.keys():
       return False
-    
+
     for k in self.__dict__.keys():
       if isinstance(self.__dict__[k], np.ndarray):
         # If np.ndarray, elements might be floats, so compare accordingly.
-        if any((self.__dict__[k]-other.__dict__[k]) > 10e-6):
+        if any((self.__dict__[k] - other.__dict__[k]) > 10e-6):
           return False
       elif self.__dict__[k] != other.__dict__[k]:
         return False
 
     return True
+
 
 class NavBitSyncSBAS:
 
