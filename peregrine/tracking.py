@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 _progressbar_available = True
 try:
   import progressbar
-  import progressbar.Attribute
 except ImportError:
   _progressbar_available = False
 
