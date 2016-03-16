@@ -9,27 +9,33 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
-from include.generateCAcode import caCodes
-from include.generateL2CMcode import L2CMCodes
-from peregrine import gps_constants
 import math
 import parallel_processing as pp
 
-import swiftnav.track
-import swiftnav.correlate
-import swiftnav.nav_msg
-import swiftnav.cnav_msg
-import swiftnav.ephemeris
+from swiftnav.track import LockDetector
+from swiftnav.track import CN0Estimator
+from swiftnav.track import AliasDetector
+from swiftnav.track import AidedTrackingLoop
+from swiftnav.correlate import track_correlate
+from swiftnav.nav_msg import NavMsg
+from swiftnav.cnav_msg import CNavMsg
+from swiftnav.cnav_msg import CNavMsgDecoder
+from swiftnav.ephemeris import Ephemeris
 from peregrine import defaults
+from peregrine import gps_constants
 from peregrine.acquisition import AcquisitionResult
+from peregrine.include.generateCAcode import caCodes
+from peregrine.include.generateL2CMcode import L2CMCodes
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 # Import progressbar if it is available.
 _progressbar_available = True
 try:
   import progressbar
+  import progressbar.Attribute
 except ImportError:
   _progressbar_available = False
 
@@ -104,11 +110,12 @@ def track(samples, channels,
           chipping_rate=defaults.chipping_rate,
           l2c_handover=True,
           show_progress=True,
-          loop_filter_class=swiftnav.track.AidedTrackingLoop,
-          correlator=swiftnav.correlate.track_correlate,
+          loop_filter_class=AidedTrackingLoop,
+          correlator=track_correlate,
           stage2_coherent_ms=None,
           stage2_loop_filter_params=None,
-          multi=True):
+          multi=True,
+          tracker_options=None):
 
   n_channels = len(channels)
 
@@ -182,14 +189,14 @@ def track(samples, channels,
     if isL1CA:
       loop_filter_params = defaults.l1ca_stage1_loop_filter_params
       lock_detect_params = defaults.l1ca_lock_detect_params_opt
-      lock_detect = swiftnav.track.LockDetector(
+      lock_detect = LockDetector(
           k1=lock_detect_params["k1"],
           k2=lock_detect_params["k2"],
           lp=lock_detect_params["lp"],
           lo=lock_detect_params["lo"])
       prn_code = caCodes[chan.prn]
       coherent_ms = 1
-      nav_msg = swiftnav.nav_msg.NavMsg()
+      nav_msg = NavMsg()
       nav_msg_bit_phase_ref = np.zeros(num_points)
       nav_bit_sync = NBSMatchBit() if chan.prn < 32 else NBSSBAS()
       # Convert acquisition SNR to C/N0
@@ -198,15 +205,15 @@ def track(samples, channels,
     elif isL2C:
       loop_filter_params = defaults.l2c_loop_filter_params
       lock_detect_params = defaults.l2c_lock_detect_params_20ms
-      lock_detect = swiftnav.track.LockDetector(
+      lock_detect = LockDetector(
           k1=lock_detect_params["k1"],
           k2=lock_detect_params["k2"],
           lp=lock_detect_params["lp"],
           lo=lock_detect_params["lo"])
       prn_code = L2CMCodes[chan.prn]
       coherent_ms = 20
-      cnav_msg = swiftnav.cnav_msg.CNavMsg()
-      cnav_msg_decoder = swiftnav.cnav_msg.CNavMsgDecoder()
+      cnav_msg = CNavMsg()
+      cnav_msg_decoder = CNavMsgDecoder()
       # Convert acquisition SNR to C/N0
       cn0_0 = 10 * np.log10(chan.snr)
       cn0_0 += 10 * np.log10(defaults.L2C_CHANNEL_BANDWIDTH_HZ)
@@ -215,11 +222,11 @@ def track(samples, channels,
 
     alias_detect_init = 1  # require alias_detect_first() call
     # or alias_detect.reinit() call or both
-    alias_detect = swiftnav.track.AliasDetector(
+    alias_detect = AliasDetector(
         acc_len=defaults.alias_detect_interval_ms / coherent_ms,
         time_diff=1)
 
-    cn0_est = swiftnav.track.CN0Estimator(
+    cn0_est = CN0Estimator(
         bw=1e3 / coherent_ms,
         cn0_0=cn0_0,
         cutoff_freq=10,
@@ -251,6 +258,8 @@ def track(samples, channels,
     )
     code_phase = 0.0
     carr_phase = 0.0
+    next_code_freq = loop_filter.to_dict()['code_freq']
+    next_carr_freq = loop_filter.to_dict()['carr_freq']
 
     # Number of samples to seek ahead in file
     samples_per_chip = int(round(sampling_freq / chipping_rate))
@@ -268,6 +277,16 @@ def track(samples, channels,
     progress = 0
     ms_tracked = 0
     i = 0
+
+    pipelining = False
+    pipelining_k = 0.
+    if tracker_options:
+      mode = tracker_options['mode']
+      if mode == 'pipelining':
+        pipelining = True
+        pipelining_k = tracker_options['k']
+      else:
+        raise ValueError("Invalid tracker mode %s" % str(mode))
 
     # Process the specified number of ms
     while ms_tracked < ms_to_track and sample_index < total_samples_num:
@@ -292,10 +311,10 @@ def track(samples, channels,
               k2=lock_detect_params["k2"],
               lp=lock_detect_params["lp"],
               lo=lock_detect_params["lo"])
-          cn0_est = swiftnav.track.CN0Estimator(bw=1e3 / stage2_coherent_ms,
-                                                cn0_0=track_result.cn0[i - 1],
-                                                cutoff_freq=10,
-                                                loop_freq=1e3 / stage2_coherent_ms)
+          cn0_est = CN0Estimator(bw=1e3 / stage2_coherent_ms,
+                                 cn0_0=track_result.cn0[i - 1],
+                                 cutoff_freq=10,
+                                 loop_freq=1e3 / stage2_coherent_ms)
 
         coherent_iter = coherent_ms
       elif isL2C:
@@ -305,9 +324,29 @@ def track(samples, channels,
       else:
         raise NotImplementedError()
 
-      E = 0 + 0.j
-      P = 0 + 0.j
-      L = 0 + 0.j
+      if pipelining:
+        # Pipelining and prediction
+        corr_code_freq, corr_carr_freq = next_code_freq, next_carr_freq
+
+        next_code_freq = loop_filter.to_dict()['code_freq']
+        next_carr_freq = loop_filter.to_dict()['carr_freq']
+
+        # There is an error between target frequency and actual one. Affect
+        # the target frequency according to the computed error
+        carr_freq_error = next_carr_freq - corr_carr_freq
+        next_carr_freq += carr_freq_error * pipelining_k
+
+        code_freq_error = next_code_freq - corr_code_freq
+        next_code_freq += code_freq_error * pipelining_k
+
+      else:
+        # Immediate correction simulation
+        next_code_freq = loop_filter.to_dict()['code_freq']
+        next_carr_freq = loop_filter.to_dict()['carr_freq']
+
+        corr_code_freq, corr_carr_freq = next_code_freq, next_carr_freq
+
+      E = P = L = 0.j
 
       for _ in range(coherent_iter):
 
@@ -318,17 +357,15 @@ def track(samples, channels,
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
             samples_,
-            loop_filter.to_dict()['code_freq'] + chipping_rate, code_phase,
-            loop_filter.to_dict()['carr_freq'] + IF, carr_phase,
+            corr_code_freq + chipping_rate, code_phase,
+            corr_carr_freq + IF, carr_phase,
             prn_code,
             sampling_freq,
             chan.signal
         )
         sample_index += blksize
-        carr_phase_acc += loop_filter.to_dict()['carr_freq'] * \
-            blksize / sampling_freq
-        code_phase_acc += loop_filter.to_dict()['code_freq'] * \
-            blksize / sampling_freq
+        carr_phase_acc += corr_carr_freq * blksize / sampling_freq
+        code_phase_acc += corr_code_freq * blksize / sampling_freq
 
         E += E_
         P += P_
@@ -364,7 +401,7 @@ def track(samples, channels,
             logger.info("[PRN: %d (%s)] ToW %d" %
                         (chan.prn + 1, chan.signal, tow))
           if nav_msg.subframe_ready():
-            eph = swiftnav.ephemeris.Ephemeris()
+            eph = Ephemeris()
             res = nav_msg.process_subframe(eph)
             if res < 0:
               logger.error("[PRN: %d (%s)] Subframe decoding error %d" %
@@ -465,6 +502,11 @@ def track(samples, channels,
     if q_progress:
       q_progress.put(1.0 - progress)
 
+    logger.info("[PRN: %d (%s)] Results: CN0_mean: %f, pipelining: %d, k: %f" %
+                (chan.prn + 1, chan.signal,
+                 np.mean(track_result.cn0),
+                 pipelining, pipelining_k))
+
     return track_result, l2c_handover_chan
 
   # Run L1CA
@@ -523,7 +565,7 @@ class TrackResults:
     self.lock_detect_lpfi = np.zeros(n_points)
     self.lock_detect_lpfq = np.zeros(n_points)
     self.alias_detect_err_hz = np.zeros(n_points)
-    self.nav_msg = swiftnav.nav_msg.NavMsg()
+    self.nav_msg = NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
     self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()
     self.tow = np.empty(n_points)
@@ -695,7 +737,7 @@ class NBSLibSwiftNav(NavBitSync):
 
   def __init__(self):
     NavBitSync.__init__(self)
-    self.nav_msg = swiftnav.nav_msg.NavMsg()
+    self.nav_msg = NavMsg()
 
   def update_bit_sync(self, corr, ms):
     self.nav_msg.update(corr, ms)

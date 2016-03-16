@@ -134,6 +134,25 @@ l1ca_stage_params_slow = \
       }
      )
 
+l1ca_stage_params_slow2 = \
+    ({'coherent_ms': 1,
+      'loop_filter_params': {'code_params': (1., 0.7, 1.),   # NBW, zeta, k
+                             'carr_params': (10., 0.7, 1.),  # NBW, zeta, k
+                             'loop_freq': 1000.,             # 1000/coherent_ms
+                             'carr_freq_igain': 5.,          # fll_aid
+                             'carr_to_code': 1540.           # carr_to_code
+                             }
+      },
+     {'coherent_ms': 10,
+      'loop_filter_params': {'code_params': (1., 0.7, 1.),   # NBW, zeta, k
+                             'carr_params': (12., 0.7, 1.),  # NBW, zeta, k
+                             'loop_freq': 1000. / 10,        # 1000/coherent_ms
+                             'carr_freq_igain': 0.,          # fll_aid
+                             'carr_to_code': 1540.           # carr_to_code
+                             }
+      }
+     )
+
 # 1;5 ms stages
 l1ca_stage_params_med = \
     ({'coherent_ms': 1,
@@ -197,6 +216,7 @@ l1ca_stage_params_extrafast = \
 
 # L1 C/A stage profiles
 l1ca_stage_profiles = {'slow': l1ca_stage_params_slow,
+                       'slow2': l1ca_stage_params_slow2,
                        'med': l1ca_stage_params_med,
                        'fast': l1ca_stage_params_fast,
                        'extrafast': l1ca_stage_params_extrafast}
@@ -229,3 +249,6 @@ l2c_lock_detect_params_20ms = {
     'lo': 240}     # 4800ms worth of I/Q samples to lower optimistic lock
 
 alias_detect_interval_ms = 500
+
+# Default pipelining prediction coefficient
+pipelining_k = .9549
