@@ -108,11 +108,19 @@ def main():
 
   parser.add_argument("--l2c-handover",
                       action='store_true',
-                      help="Perform L2C handover")
+                      help="Perform L2C handover",
+                      default=False)
 
   parser.add_argument('--l1ca-profile',
                       help='L1 C/A stage profile',
                       choices=defaults.l1ca_stage_profiles.keys())
+
+  parser.add_argument("--pipelining",
+                      type=float,
+                      nargs='?',
+                      help="FPGA pipelining coefficient",
+                      const=defaults.pipelining_k,
+                      default=None)
 
   parser.add_argument("--skip-samples", default=0,
                       help="How many samples to skip")
@@ -182,6 +190,11 @@ def main():
     # use all available data
     ms_to_track = int(1e3 * len(signals[0]) / sampling_freq)
 
+  if args.pipelining is not None:
+    tracker_options = {'mode': 'pipelining', 'k': args.pipelining}
+  else:
+    tracker_options = None
+
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
   print "File format:                            %s" % args.file_format
@@ -195,6 +208,7 @@ def main():
   print "Track results file name:                %s" % args.output_file
   print "Signal:                                 %s" % args.signal
   print "L1 stage profile:                       %s" % args.l1ca_profile
+  print "Tracker options:                        %s" % str(tracker_options)
   print "======================================================================"
 
   channel = 0
@@ -226,7 +240,6 @@ def main():
     profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
     stage2_coherent_ms = profile[1]['coherent_ms']
     stage2_params = profile[1]['loop_filter_params']
-    print "S2=", stage2_params
   else:
     stage2_coherent_ms = None
     stage2_params = None
@@ -237,7 +250,8 @@ def main():
                         sampling_freq=sampling_freq,  # [Hz]
                         l2c_handover=l2c_handover,
                         stage2_coherent_ms=stage2_coherent_ms,
-                        stage2_loop_filter_params=stage2_params)
+                        stage2_loop_filter_params=stage2_params,
+                        tracker_options=tracker_options)
 
   dump_tracking_results_for_analysis(args.output_file, track_results)
 

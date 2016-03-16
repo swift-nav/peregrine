@@ -57,6 +57,12 @@ def main():
   parser.add_argument('--l1ca-profile',
                       help='L1 C/A stage profile',
                       choices=defaults.l1ca_stage_profiles.keys())
+  parser.add_argument("--pipelining",
+                      type=float,
+                      nargs='?',
+                      help="FPGA pipelining coefficient",
+                      const=defaults.pipelining_k,
+                      default=None)
   args = parser.parse_args()
 
   if args.file is None:
@@ -81,6 +87,11 @@ def main():
   else:
     stage2_coherent_ms = None
     stage2_params = None
+
+  if args.pipelining is not None:
+    tracker_options = {'mode': 'pipelining', 'k': args.pipelining}
+  else:
+    tracker_options = None
 
   settings = initSettings(freq_profile)
   settings.fileName = args.file
@@ -168,7 +179,8 @@ def main():
                           settings.msToProcess,
                           freq_profile['sampling_freq'],
                           stage2_coherent_ms=stage2_coherent_ms,
-                          stage2_loop_filter_params=stage2_params)
+                          stage2_loop_filter_params=stage2_params,
+                          tracker_options=tracker_options)
     try:
       with open(track_results_file, 'wb') as f:
         cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
