@@ -19,12 +19,11 @@ import numpy as np
 from peregrine.samples import load_samples
 from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
 from peregrine.navigation import navigation
-from peregrine.tracking import track
+import peregrine.tracking as tracking
 from peregrine.log import default_logging_config
-from peregrine.analysis.tracking_loop import dump_tracking_results_for_analysis
 from peregrine import defaults
 from peregrine.initSettings import initSettings
-
+from peregrine.gps_constants import L1CA, L2C
 
 def main():
   default_logging_config()
@@ -105,6 +104,11 @@ def main():
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
 
+  samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
+              L2C: {'IF': freq_profile['GPS_L2_IF']},
+             'samples_total': -1,
+             'sample_index': 0}
+
   # Do acquisition
   acq_results_file = args.file + ".acq_results"
   if args.skip_acquisition:
@@ -117,11 +121,13 @@ def main():
       sys.exit(1)
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
-    acq_samples = load_samples(args.file, 11 * samplesPerCode,
-                               settings.skipNumberOfBytes,
-                               file_format=args.file_format)
+    acq_samples = load_samples(samples = samples,
+                               sample_index = settings.skipNumberOfBytes,
+                               num_samples = 11 * samplesPerCode,
+                               filename = args.file,
+                               file_format = args.file_format)
 
-    acq = Acquisition(acq_samples[defaults.sample_channel_GPS_L1],
+    acq = Acquisition(acq_samples[L1CA]['samples'],
                       freq_profile['sampling_freq'],
                       freq_profile['GPS_L1_IF'],
                       defaults.code_period * freq_profile['sampling_freq'])
@@ -157,39 +163,42 @@ def main():
                        track_results_file)
       sys.exit(1)
   else:
-    signal = load_samples(args.file,
-                          int(samples_num),
-                          settings.skipNumberOfBytes,
-                          file_format=args.file_format)
+    samples = load_samples(samples = samples,
+                           sample_index = 0,
+                           filename = args.file,
+                           file_format = args.file_format)
+
     if ms_to_process < 0:
-      ms_to_process = int(1e3 * len(signal[0]) / freq_profile['sampling_freq'])
+      ms_to_process = int(1e3 * samples['samples_total'] / freq_profile['sampling_freq'])
 
-    settings.msToProcess = ms_to_process - 22
+    tracker = tracking.Tracker(samples = samples,
+                      channels = acq_results,
+                      ms_to_track = ms_to_process,
+                      sampling_freq = freq_profile['sampling_freq'],  # [Hz]
+                      stage2_coherent_ms = stage2_coherent_ms,
+                      stage2_loop_filter_params = stage2_params,
+                      tracker_options = tracker_options,
+                      output_file = args.file)
+    tracker.start()
+    condition = True
+    while condition:
+      sample_index = tracker.run_channels(samples)
+      if sample_index == samples['sample_index']:
+        condition = False
+      else:
+        samples = load_samples(samples = samples,
+                               sample_index = sample_index,
+                               filename = args.file,
+                               file_format = args.file_format)
+    tracker.stop()
 
-    if len(signal) > 1:
-      samples = [{'data': signal[defaults.sample_channel_GPS_L1],
-                  'IF': freq_profile['GPS_L1_IF']},
-                 {'data': signal[defaults.sample_channel_GPS_L2],
-                  'IF': freq_profile['GPS_L2_IF']}]
-    else:
-      samples = [{'data': signal[defaults.sample_channel_GPS_L1],
-                  'IF': freq_profile['GPS_L1_IF']}]
-
-    track_results = track(samples, acq_results,
-                          settings.msToProcess,
-                          freq_profile['sampling_freq'],
-                          stage2_coherent_ms=stage2_coherent_ms,
-                          stage2_loop_filter_params=stage2_params,
-                          tracker_options=tracker_options)
-    try:
-      with open(track_results_file, 'wb') as f:
-        cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-      logging.debug("Saving tracking results as '%s'" % track_results_file)
-      logging.debug("Saving tracking results for analysis")
-      dump_tracking_results_for_analysis(track_results_file, track_results)
-    except IOError:
-      logging.error("Couldn't save tracking results file '%s'.",
-                    track_results_file)
+    # try:
+    #   with open(track_results_file, 'wb') as f:
+    #     cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+    #   logging.debug("Saving tracking results as '%s'" % track_results_file)
+    # except IOError:
+    #   logging.error("Couldn't save tracking results file '%s'.",
+    #                 track_results_file)
 
   # Do navigation
   nav_results_file = args.file + ".nav_results"

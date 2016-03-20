@@ -14,54 +14,9 @@ from peregrine.samples import load_samples
 from peregrine.acquisition import AcquisitionResult
 from peregrine import defaults
 from peregrine.log import default_logging_config
-from peregrine.tracking import track
+import peregrine.tracking as tracking
 from peregrine.gps_constants import L1CA, L2C
 from peregrine.initSettings import initSettings
-
-
-def dump_tracking_results_for_analysis(output_file, track_results):
-  output_filename, output_file_extension = os.path.splitext(output_file)
-
-  for j in range(len(track_results)):
-
-    if len(track_results) > 1:
-      # mangle the result file name with the tracked signal name
-      filename = output_filename + \
-          (".%s.%d" % (track_results[j].signal, track_results[j].prn + 1)) +\
-          output_file_extension
-    else:
-      filename = output_file
-
-    with open(filename, 'w') as f1:
-      f1.write("IF,doppler_phase,carr_doppler,code_phase,code_freq,"
-               "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
-               "lock_detect_outp,lock_detect_outo,"
-               "lock_detect_pcount1,lock_detect_pcount2,"
-               "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
-               "code_phase_acc\n")
-      for i in range(len(track_results[j].carr_phase)):
-        f1.write("%s," % track_results[j].IF)
-        f1.write("%s," % track_results[j].carr_phase[i])
-        f1.write("%s," % (track_results[j].carr_freq[i] -
-                          track_results[j].IF))
-        f1.write("%s," % track_results[j].code_phase[i])
-        f1.write("%s," % track_results[j].code_freq[i])
-        f1.write("%s," % track_results[j].cn0[i])
-        f1.write("%s," % track_results[j].E[i].real)
-        f1.write("%s," % track_results[j].E[i].imag)
-        f1.write("%s," % track_results[j].P[i].real)
-        f1.write("%s," % track_results[j].P[i].imag)
-        f1.write("%s," % track_results[j].L[i].real)
-        f1.write("%s," % track_results[j].L[i].imag)
-        f1.write("%s," % track_results[j].lock_detect_outp[i])
-        f1.write("%s," % track_results[j].lock_detect_outo[i])
-        f1.write("%s," % track_results[j].lock_detect_pcount1[i])
-        f1.write("%s," % track_results[j].lock_detect_pcount2[i])
-        f1.write("%s," % track_results[j].lock_detect_lpfi[i])
-        f1.write("%s," % track_results[j].lock_detect_lpfq[i])
-        f1.write("%s," % track_results[j].alias_detect_err_hz[i])
-        f1.write("%s\n" % track_results[j].code_phase_acc[i])
-
 
 def main():
   default_logging_config()
@@ -177,23 +132,41 @@ def main():
 
   ms_to_track = int(args.ms_to_track)
 
-  if ms_to_track > 0:
-    samples_num = sampling_freq * 1e-3 * ms_to_track
-  else:
-    samples_num = -1  # all available samples
-  signals = load_samples(args.file,
-                         int(samples_num),
-                         skip_samples,
-                         file_format=args.file_format)
-
-  if ms_to_track < 0:
-    # use all available data
-    ms_to_track = int(1e3 * len(signals[0]) / sampling_freq)
-
   if args.pipelining is not None:
     tracker_options = {'mode': 'pipelining', 'k': args.pipelining}
   else:
     tracker_options = None
+
+  acq_result = AcquisitionResult(prn = prn,
+                    snr = 25, # dB
+                    carr_freq = IF + carr_doppler,
+                    doppler = carr_doppler,
+                    code_phase = code_phase,
+                    status = 'A',
+                    signal = signal,
+                    sample_index = 0)
+
+  if args.l1ca_profile:
+    profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
+    stage2_coherent_ms = profile[1]['coherent_ms']
+    stage2_params = profile[1]['loop_filter_params']
+  else:
+    stage2_coherent_ms = None
+    stage2_params = None
+
+  samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
+              L2C: {'IF': freq_profile['GPS_L2_IF']},
+             'samples_total': -1,
+             'sample_index': 0}
+
+  samples = load_samples(samples = samples,
+                         sample_index = 0,
+                         filename = args.file,
+                         file_format = args.file_format)
+
+  if ms_to_track < 0:
+    # use all available data
+    ms_to_track = int(1e3 * samples['samples_total'] / sampling_freq)
 
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
@@ -205,55 +178,32 @@ def main():
   print "Sampling frequency [Hz]:                %f" % sampling_freq
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
   print "Initial code phase [chips]:             %s" % code_phase
-  print "Track results file name:                %s" % args.output_file
   print "Signal:                                 %s" % args.signal
   print "L1 stage profile:                       %s" % args.l1ca_profile
   print "Tracker options:                        %s" % str(tracker_options)
   print "======================================================================"
 
-  channel = 0
-  if len(signals) > 1:
-    samples = [{'data': signals[defaults.sample_channel_GPS_L1],
-                'IF': freq_profile['GPS_L1_IF']},
-               {'data': signals[defaults.sample_channel_GPS_L2],
-                'IF': freq_profile['GPS_L2_IF']}]
-    if isL1CA:
-      channel = 0
+  tracker = tracking.Tracker(samples = samples,
+                    channels = [acq_result],
+                    ms_to_track = ms_to_track,
+                    sampling_freq = sampling_freq,  # [Hz]
+                    l2c_handover = l2c_handover,
+                    stage2_coherent_ms = stage2_coherent_ms,
+                    stage2_loop_filter_params = stage2_params,
+                    tracker_options = tracker_options,
+                    output_file = args.output_file)
+  tracker.start()
+  condition = True
+  while condition:
+    sample_index = tracker.run_channels(samples)
+    if sample_index == samples['sample_index']:
+      condition = False
     else:
-      channel = 1
-    pass
-  else:
-    samples = [{'data': signals[defaults.sample_channel_GPS_L1],
-                'IF': freq_profile['GPS_L1_IF']}]
-
-  acq_result = AcquisitionResult(prn=prn,
-                                 snr=25,  # dB
-                                 carr_freq=IF + carr_doppler,
-                                 doppler=carr_doppler,
-                                 code_phase=code_phase,
-                                 status='A',
-                                 signal=signal,
-                                 sample_channel=channel,
-                                 sample_index=0)
-
-  if args.l1ca_profile:
-    profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
-    stage2_coherent_ms = profile[1]['coherent_ms']
-    stage2_params = profile[1]['loop_filter_params']
-  else:
-    stage2_coherent_ms = None
-    stage2_params = None
-
-  track_results = track(samples=samples,
-                        channels=[acq_result],
-                        ms_to_track=ms_to_track,
-                        sampling_freq=sampling_freq,  # [Hz]
-                        l2c_handover=l2c_handover,
-                        stage2_coherent_ms=stage2_coherent_ms,
-                        stage2_loop_filter_params=stage2_params,
-                        tracker_options=tracker_options)
-
-  dump_tracking_results_for_analysis(args.output_file, track_results)
+      samples = load_samples(samples = samples,
+                             sample_index = sample_index,
+                             filename = args.file,
+                             file_format = args.file_format)
+  tracker.stop()
 
 if __name__ == '__main__':
   main()
