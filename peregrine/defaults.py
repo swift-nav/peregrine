@@ -11,6 +11,7 @@
 ms_to_track = 37 * 1e3
 skip_samples = 1000
 file_format = 'piksi'
+processing_block_size = 4e6 # [samples]
 
 chipping_rate = 1.023e6  # Hz
 code_length = 1023  # chips

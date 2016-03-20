@@ -9,8 +9,11 @@
 
 """Functions for handling sample data and sample data files."""
 
+import os
 import numpy as np
+import math
 import defaults
+from peregrine.gps_constants import L1CA, L2C
 
 __all__ = ['load_samples', 'save_samples']
 
@@ -47,25 +50,22 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits,
     channel_lookup = range(n_rx)
 
   sample_block_size = n_bits * n_rx
-  byte_offset = num_skip / (8 / sample_block_size)
+  byte_offset = int(math.floor(num_skip / (8 / sample_block_size)))
   sample_offset = num_skip % (8 / sample_block_size)
   s_file = np.memmap(filename, offset=byte_offset, dtype=np.uint8, mode='r')
 
   if num_samples > 0:
-    # Number of samples is defined: trim the source from start and end
-    s_file = s_file[(sample_offset * sample_block_size + 7) / 8:
-                    (num_samples * sample_block_size + 7) / 8]
-  else:
-    # Number of samples is not defined: trim the source from start only
-    # compute actual number of samples
-    s_file = s_file[(sample_offset * sample_block_size + 7) / 8:]
-    num_samples = len(s_file) * 8 / sample_block_size
+    # Number of samples is defined: trim the source from end
+    s_file = s_file[:(num_samples * sample_block_size + 7) / 8]
+
+  num_samples = len(s_file) * 8 / sample_block_size
 
   # Compute total data block size to ignore bits in the tail.
   rounded_len = num_samples * sample_block_size
 
   bits = np.unpackbits(s_file)
-  samples = np.empty((n_rx, num_samples), dtype=value_lookup.dtype)
+  samples = np.empty((n_rx, num_samples - sample_offset),
+                     dtype=value_lookup.dtype)
 
   for rx in range(n_rx):
     # Construct multi-bit sample values
@@ -74,7 +74,9 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits,
       tmp <<= 1
       tmp += bits[rx * n_bits + bit:rounded_len:sample_block_size]
     # Generate sample values using value_lookup table
-    samples[channel_lookup[rx]][:] = value_lookup[tmp]
+    chan = value_lookup[tmp]
+    chan = chan[sample_offset:]
+    samples[channel_lookup[rx]][:] = chan
   return samples
 
 def __load_samples_one_bit(filename, num_samples, num_skip, n_rx,
@@ -137,7 +139,10 @@ def __load_samples_two_bits(filename, num_samples, num_skip, n_rx,
   return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 2,
                                value_lookup, channel_lookup)
 
-def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
+def _load_samples(filename,
+                 num_samples = defaults.processing_block_size,
+                 num_skip = 0,
+                 file_format = 'piksi'):
   """
   Load sample data from a file.
 
@@ -301,9 +306,67 @@ def load_samples(filename, num_samples=-1, num_skip=0, file_format='piksi'):
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 
-  if len(samples[0]) < num_samples:
-    raise EOFError("Failed to read %d samples from file '%s'" %
-                   (num_samples, filename))
+  return samples
+
+def __get_samples_total(filename, file_format, sample_index):
+  if file_format == 'int8':
+    samples_block_size = 8
+  elif file_format == 'piksi':
+    """
+    Piksi format is packed 3-bit sign-magnitude samples, 2 samples per byte.
+
+    Bits:
+    [1..0] Flags (reserved for future use)
+    [3..2] Sample 2 magnitude
+    [4]    Sample 2 sign (1 is -ve)
+    [6..5] Sample 1 magnitude
+    [7]    Sample 1 sign (1 is -ve)
+
+    """
+    samples_block_size = 4
+  elif file_format == '1bit' or file_format == '1bitrev':
+    samples_block_size = 1
+  elif file_format == '1bit_x2':
+    # Interleaved single bit samples from two receivers: -1, +1
+    samples_block_size = 2
+  elif file_format == '2bits':
+    # Two bit samples from one receiver: -3, -1, +1, +3
+    samples_block_size = 2
+  elif file_format == '2bits_x2':
+    # Interleaved two bit samples from two receivers: -3, -1, +1, +3
+    samples_block_size = 4
+  elif file_format == '2bits_x4':
+    # Interleaved two bit samples from four receivers: -3, -1, +1, +3
+    samples_block_size = 8
+  else:
+    raise ValueError("Unknown file type '%s'" % file_format)
+
+  file_size = os.path.getsize(filename)
+  samples_total = 8 * file_size / samples_block_size
+
+  if sample_index < samples_total:
+    samples_total -= sample_index
+
+  return samples_total
+
+def load_samples(samples,
+                 filename,
+                 num_samples = defaults.processing_block_size,
+                 sample_index = 0,
+                 file_format = 'piksi'):
+
+  if samples['samples_total'] == -1:
+    samples['samples_total'] = __get_samples_total(filename,
+                                                   file_format,
+                                                   sample_index)
+  signal = _load_samples(filename,
+                         num_samples,
+                         sample_index,
+                         file_format)
+  samples['sample_index'] = sample_index
+  samples[L1CA]['samples'] = signal[defaults.sample_channel_GPS_L1]
+  if len(signal) > 1:
+    samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
 
   return samples
 

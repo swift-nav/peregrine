@@ -542,7 +542,6 @@ class AcquisitionResult:
                'code_phase', 'snr', 'status', 'signal')
 
   def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal,
-               sample_channel = 0,
                sample_index = 0):
     self.prn = prn
     self.snr = snr
@@ -551,7 +550,6 @@ class AcquisitionResult:
     self.code_phase = code_phase
     self.status = status
     self.signal = signal
-    self.sample_channel = sample_channel
     self.sample_index = sample_index
 
   def __str__(self):
