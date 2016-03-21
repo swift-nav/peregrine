@@ -30,6 +30,7 @@ from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
 
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +147,9 @@ class TrackingChannel(object):
     self.next_code_freq = self.loop_filter.to_dict()['code_freq']
     self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
 
-    self.track_result = TrackResults(
-        self.results_num, self.acq.prn, self.acq.signal)
+    self.track_result = TrackResults(self.results_num,
+                                     self.acq.prn,
+                                     self.acq.signal)
     self.alias_detect_init = 1
     self.code_phase = 0.0
     self.carr_phase = 0.0
@@ -161,15 +163,21 @@ class TrackingChannel(object):
     self.i = 0
     #self.samples_offset = self.samples['samples_offset']
 
-    self.pipelining = False
-    self.pipelining_k = 0.
+    self.pipelining = False    # Flag if pipelining is used
+    self.pipelining_k = 0.     # Error prediction coefficient for pipelining
+    self.short_n_long = False  # Short/Long cycle simulation
+    self.short_step = False    # Short cycle
     if self.tracker_options:
-      self.mode = self.tracker_options['mode']
-      if self.mode == 'pipelining':
+      mode = self.tracker_options['mode']
+      if mode == 'pipelining':
+        self.pipelining = True
+        self.pipelining_k = self.tracker_options['k']
+      elif mode == 'short-long-cycles':
+        self.short_n_long = True
         self.pipelining = True
         self.pipelining_k = self.tracker_options['k']
       else:
-        raise ValueError("Invalid tracker mode %s" % str(self.mode))
+        raise ValueError("Invalid tracker mode %s" % str(mode))
 
   def dump(self):
     filename = self.track_result.dump(self.output_file, self.i)
@@ -229,13 +237,20 @@ class TrackingChannel(object):
         self.next_code_freq = self.loop_filter.to_dict()['code_freq']
         self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
 
+        if self.short_n_long and not self.stage1 and not self.short_step:
+          # In case of short/long cycles, the correction applicable for the
+          # long cycle is smaller proportionally to the actual cycle size
+          pipelining_k = self.pipelining_k / (self.coherent_ms - 1)
+        else:
+          pipelining_k = self.pipelining_k
+
         # There is an error between target frequency and actual one. Affect
         # the target frequency according to the computed error
         carr_freq_error = self.next_carr_freq - corr_carr_freq
-        self.next_carr_freq += carr_freq_error * self.pipelining_k
+        self.next_carr_freq += carr_freq_error * pipelining_k
 
         code_freq_error = self.next_code_freq - corr_code_freq
-        self.next_code_freq += code_freq_error * self.pipelining_k
+        self.next_code_freq += code_freq_error * pipelining_k
 
       else:
         # Immediate correction simulation
@@ -244,7 +259,16 @@ class TrackingChannel(object):
 
         corr_code_freq, corr_carr_freq = self.next_code_freq, self.next_carr_freq
 
-      self.E = self.P = self.L = 0.j
+      if self.short_n_long and not self.stage1:
+        # When simulating short and long cycles, short step resets EPL
+        # registers, and long one adds up to them
+        if self.short_step:
+          self.E = self.P = self.L = 0.j
+          self.coherent_iter = 1
+        else:
+          self.coherent_iter = self.coherent_ms - 1
+      else:
+        self.E = self.P = self.L = 0.j
 
       for _ in range(self.coherent_iter):
 
@@ -274,6 +298,16 @@ class TrackingChannel(object):
         self.P += P_
         self.L += L_
 
+      if not self.stage1 and self.short_n_long:
+        if self.short_step:
+          # In case of short step - go to next integration period
+          self.short_step = False
+          self.alias_detect.first(self.P.real, self.P.imag)
+          continue
+        else:
+          # Next step is short cycle
+          self.short_step = True
+
       # Update PLL lock detector
       lock_detect_outo, \
           lock_detect_outp, \
@@ -282,13 +316,13 @@ class TrackingChannel(object):
           lock_detect_lpfi, \
           lock_detect_lpfq = self.lock_detect.update(self.P.real,
                                                      self.P.imag,
-                                                     self.coherent_ms)
+                                                     self.coherent_iter)
 
       if lock_detect_outo:
         if self.alias_detect_init:
           self.alias_detect_init = 0
           self.alias_detect.reinit(defaults.alias_detect_interval_ms /
-                                   self.coherent_ms,
+                                   self.coherent_iter,
                                    time_diff=1)
           self.alias_detect.first(self.P.real, self.P.imag)
         alias_detect_err_hz = \
@@ -435,16 +469,17 @@ class TrackingChannelL1CA(TrackingChannel):
       chan_snr = np.power(10, chan_snr / 10)
       l2c_doppler = self.loop_filter.to_dict(
       )['carr_freq'] * gps_constants.l2 / gps_constants.l1
-      self.l2c_handover_acq = AcquisitionResult(self.prn,
-                                                self.samples[gps_constants.L2C][
-                                                    'IF'] + l2c_doppler,
-                                                l2c_doppler,  # carrier doppler
-                                                self.track_result.code_phase[
-                                                    self.i],
-                                                chan_snr,
-                                                'A',
-                                                gps_constants.L2C,
-                                                self.track_result.absolute_sample[self.i])
+      self.l2c_handover_acq = \
+          AcquisitionResult(self.prn,
+                            self.samples[gps_constants.L2C][
+                                'IF'] + l2c_doppler,
+                            l2c_doppler,  # carrier doppler
+                            self.track_result.code_phase[
+                                self.i],
+                            chan_snr,
+                            'A',
+                            gps_constants.L2C,
+                            self.track_result.absolute_sample[self.i])
 
 
 class TrackingChannelL2C(TrackingChannel):
@@ -499,12 +534,12 @@ class Tracker(object):
                sampling_freq,
                chipping_rate=defaults.chipping_rate,
                l2c_handover=True,
-               show_progress=True,
+               progress_bar_output='none',
                loop_filter_class=AidedTrackingLoop,
                correlator=track_correlate,
                stage2_coherent_ms=None,
                stage2_loop_filter_params=None,
-               multi=True,
+               multi=False,
                tracker_options=None,
                output_file=None):
 
@@ -515,7 +550,6 @@ class Tracker(object):
     self.output_file = output_file
     self.chipping_rate = chipping_rate
     self.l2c_handover = l2c_handover
-    self.show_progress = show_progress
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
     self.stage2_loop_filter_params = stage2_loop_filter_params
@@ -531,13 +565,23 @@ class Tracker(object):
     else:
       self.samples_to_track = samples['samples_total']
 
+    if progress_bar_output == 'stdout':
+      self.show_progress = True
+      progress_fd = sys.stdout
+    elif progress_bar_output == 'stderr':
+      self.show_progress = True
+      progress_fd = sys.stderr
+    else:
+      self.show_progress = False
+      progress_fd = -1
+
     # If progressbar is not available, disable show_progress.
-    if show_progress and not _progressbar_available:
-      show_progress = False
+    if self.show_progress and not _progressbar_available:
+      self.show_progress = False
       logger.warning("show_progress = True but progressbar module not found.")
 
     # Setup our progress bar if we need it
-    if show_progress:
+    if self.show_progress:
       widgets = ['  Tracking ',
                  progressbar.Attribute(['sample', 'samples'],
                                        '(sample: %d/%d)',
@@ -548,7 +592,8 @@ class Tracker(object):
       self.pbar = progressbar.ProgressBar(widgets=widgets,
                                           maxval=samples['samples_total'],
                                           attr={'samples': self.samples['samples_total'],
-                                                'sample': 0l})
+                                                'sample': 0l},
+                                          fd=progress_fd)
     else:
       self.pbar = None
 
