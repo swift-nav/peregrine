@@ -2,7 +2,7 @@
 
 set -e
 
-function install_deps_debian () {
+function install_deps_ubuntu_maybe () {
     # Sudo'd version of travis installation instructions
     sudo apt-get update -qq
     sudo apt-get install python-software-properties
@@ -27,11 +27,53 @@ function install_deps_debian () {
     cmake ../
     make
     sudo make install
+    # Make sure last version of libswiftnav bindings are deleted
+    # Returns an exception but does uninstall
+    pip uninstall swiftnav -y 2>/dev/null || true
+    # Install libswiftnav bindings
     cd ../python
-    python setup.py build && python setup.py install
+    sudo pip install -r requirements.txt
+    sudo python setup.py build
+    sudo python setup.py install
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
+    cd .git/hooks; ln -sf ../../git-hooks/* ./; rm README.rst; cd ../..
+}
+
+function install_deps_debian_jessie_or_stretch () {
+    # Sudo'd version of travis installation instructions
+    sudo apt-get update -qq
+    sudo apt-get -y install cmake \
+         check \
+         fftw3 \
+         libfftw3-dev \
+         python-pip \
+         build-essential \
+         python-numpy \
+         python-dev \
+         cython \
+         python-dev
+    # Build and install libswiftnav
+    git submodule update --init
+    cd libswiftnav/
+    mkdir -p build && cd build/
+    cmake ../
+    make -j$(nproc)
+    sudo make install
+    sudo ldconfig
+    # Make sure last version of libswiftnav bindings are deleted
+    # Returns an exception but does uninstall
+    pip uninstall swiftnav -y 2>/dev/null || true
+    # Install libswiftnav bindings
+    cd ../python
+    sudo pip install -r requirements.txt
+    sudo python setup.py build
+    sudo python setup.py install
+    cd ../../
+    sudo pip install -r requirements.txt
+    sudo python setup.py develop
+    cd .git/hooks; ln -sf ../../git-hooks/* ./; rm README.rst; cd ../..
 }
 
 function install_deps_osx () {
@@ -49,15 +91,26 @@ function install_deps_osx () {
     cmake ../
     make
     sudo make install
+    # Make sure last version of libswiftnav bindings are deleted
+    # Returns an exception but does uninstall
+    pip uninstall swiftnav -y 2>/dev/null || true
+    # Install libswiftnav bindings
     cd ../python
-    python setup.py build && python setup.py install
+    sudo pip install -r requirements.txt
+    sudo python setup.py build
+    sudo python setup.py install
     cd ../../
     sudo pip install -r requirements.txt
     sudo python setup.py develop
+    cd .git/hooks; ln -sf ../../git-hooks/* ./; rm README.rst; cd ../..
 }
 
 if [[ "$OSTYPE" == "linux-"* ]]; then
-    install_deps_debian
+    if egrep -q "Debian GNU/Linux (jessie|stretch)" /etc/issue; then
+        install_deps_debian_jessie_or_stretch
+    else
+        install_deps_ubuntu_maybe
+    fi
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     install_deps_osx
 else

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+git diff --name-only --cached | grep -qx "tests/aws_creds.sh" && { echo "Error: do not commit 'tests/aws_creds.sh'" >&2; exit 1; }
+exit 0

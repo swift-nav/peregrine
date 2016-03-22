@@ -18,23 +18,24 @@ addons:
     - python-dev
 
 install:
-  # Hack so python bindings can find locally installed library file
   - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/libswiftnav/build/install/usr/local/lib
   - git submodule update --init
 
 script:
-  # Build libswiftnav
   - cd libswiftnav/
   - mkdir build
   - cd build/
   - cmake ../
   - make
-  # Install locally to avoid sudo
   - make DESTDIR="./install" install
   - cd ../python
-  - pip install cython
+  - pip install -r requirements.txt
   - python setup.py build && python setup.py install
   - cd $TRAVIS_BUILD_DIR
   - pip install -r requirements.txt
   - python setup.py develop
-  - py.test -v tests/
+  - cd tests/
+  - ./get_test_data.sh
+  - cd ..
+  - py.test -vv tests/
+

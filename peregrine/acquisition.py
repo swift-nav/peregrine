@@ -287,8 +287,8 @@ class Acquisition:
 
       # Shift the signal in the frequency domain to remove the carrier
       # i.e. mix down to baseband.
-      shift = round(float(freq) * len(self.short_samples_ft[0]) /
-                  self.sampling_freq)
+      shift = int((float(freq) * len(self.short_samples_ft[0]) /
+                  self.sampling_freq) + 0.5)
 
       # Search over the possible nav bit offset intervals
       for offset_i in range(len(self.offsets)):
@@ -435,8 +435,8 @@ class Acquisition:
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
       pbar = progressbar.ProgressBar(widgets=widgets,
-                                     maxval=len(prns) *
-                                     (2 * doppler_search / doppler_step + 1))
+                                     maxval=int(len(prns) *
+                                     (2 * doppler_search / doppler_step + 1)))
       pbar.start()
     else:
       pbar = None
@@ -551,6 +551,38 @@ class AcquisitionResult:
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()
 
+  def __eq__(self, other):
+    return self._equal(other)
+
+  def __ne__(self, other):
+    return not self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`AcquisitionResult` object.
+
+    Parameters
+    ----------
+    other : :class:`AcquisitionResult` object
+      The :class:`AcquisitionResult` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`AcquisitionResult` object is identical.
+    
+    """
+    if set(self.__dict__.keys()) != set(other.__dict__.keys()):
+      return False
+
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], float):
+        if abs(self.__dict__[k] - other.__dict__[k]) > 1e-6:
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
 
 def save_acq_results(filename, acq_results):
   """

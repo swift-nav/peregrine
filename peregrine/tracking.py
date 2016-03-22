@@ -81,21 +81,6 @@ class TrackingLoop(object):
     """
     raise NotImplementedError()
 
-default_loop_filter = swiftnav.track.SimpleTrackingLoop(
-  (2, 0.7, 1),     # Code loop NBW, zeta, k
-  (25, 0.7, 0.25), # Carrier loop NBW, zeta, k
-  1e3              # Loop frequency
-)
-
-aided_loop_filter = swiftnav.track.AidedTrackingLoop(
-  (1, 0.7, 1),     # Code loop NBW, zeta, k
-  (25, 0.7, 1),    # Carrier loop NBW, zeta, k
-  1e3,             # Loop frequency
-  5,               # Carrier loop aiding_igain
-  1540             # Carrier-to-code freq ratio (carrier aiding)
-)
-
-
 def track(samples, channels,
           ms_to_track=None,
           sampling_freq=defaults.sampling_freq,
@@ -110,7 +95,7 @@ def track(samples, channels,
             5,               # Carrier loop aiding_igain
             1540
           ),
-          correlator=swiftnav.correlate.track_correlate,
+          correlator=swiftnav.correlate.track_correlate_,
           stage2_coherent_ms=None,
           stage2_loop_filter_params=None,
           multi=True):
@@ -163,19 +148,35 @@ def track(samples, channels,
 
   # Run tracking for each channel
   def do_channel(chan, n=None, q_progress=None):
-    loop_filter = loop_filter_class(*stage1_loop_filter_params)
     track_result = TrackResults(num_points, chan.prn)
 
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(chan.snr)
     cn0_0 += 10 * np.log10(1000) # Channel bandwidth
-    cn0_est = swiftnav.track.CN0Estimator(1e3, cn0_0, 10, 1e3)
+    cn0_est = swiftnav.track.CN0Estimator(
+                                          bw=1e3,
+                                          cn0_0=cn0_0,
+                                          cutoff_freq=10,
+                                          loop_freq=1e3
+                                          )
 
     # Estimate initial code freq via aiding from acq carrier freq
     code_freq_init = (chan.carr_freq - IF) * \
                      gps_constants.chip_rate / gps_constants.l1
-    code_freq_init = 0
-    loop_filter.start(code_freq_init, chan.carr_freq - IF)
+    carr_freq_init = chan.carr_freq - IF
+    loop_filter = loop_filter_class(
+      loop_freq = stage1_loop_filter_params[2],
+      code_freq = code_freq_init,
+      code_bw = stage1_loop_filter_params[0][0],
+      code_zeta = stage1_loop_filter_params[0][1],
+      code_k = stage1_loop_filter_params[0][2],
+      carr_to_code = stage1_loop_filter_params[4],
+      carr_freq = carr_freq_init,
+      carr_bw = stage1_loop_filter_params[1][0],
+      carr_zeta = stage1_loop_filter_params[1][1],
+      carr_k = stage1_loop_filter_params[1][2],
+      carr_freq_b1 = stage1_loop_filter_params[3],
+    )
     code_phase = 0.0
     carr_phase = 0.0
 
@@ -211,9 +212,10 @@ def track(samples, channels,
         #print "PRN %02d transition to stage 2 at %d ms" % (chan.prn+1, ms_tracked)
         stage1 = False
         loop_filter.retune(*stage2_loop_filter_params)
-        cn0_est = swiftnav.track.CN0Estimator(1e3/stage2_coherent_ms,
-                                              track_result.cn0[i-1], 10,
-                                              1e3/stage2_coherent_ms)
+        cn0_est = swiftnav.track.CN0Estimator(bw=1e3/stage2_coherent_ms,
+                                              cn0_0=track_result.cn0[i-1],
+                                              cutoff_freq=10,
+                                              loop_freq=1e3/stage2_coherent_ms)
 
       coherent_ms = 1 if stage1 else stage2_coherent_ms
 
@@ -222,14 +224,14 @@ def track(samples, channels,
 
         E_, P_, L_, blksize, code_phase, carr_phase = correlator(
           samples_,
-          loop_filter.code_freq + chipping_rate, code_phase,
-          loop_filter.carr_freq + IF, carr_phase,
+          loop_filter.to_dict()['code_freq'] + chipping_rate, code_phase,
+          loop_filter.to_dict()['carr_freq'] + IF, carr_phase,
           ca_code,
           sampling_freq
         )
         sample_index += blksize
-        carr_phase_acc += loop_filter.carr_freq * blksize / sampling_freq
-        code_phase_acc += loop_filter.code_freq * blksize / sampling_freq
+        carr_phase_acc += loop_filter.to_dict()['carr_freq'] * blksize / sampling_freq
+        code_phase_acc += loop_filter.to_dict()['code_freq'] * blksize / sampling_freq
 
         E += E_; P += P_; L += L_
 
@@ -238,17 +240,18 @@ def track(samples, channels,
 
       track_result.nav_bit_sync.update(np.real(P), coherent_ms)
 
-      tow = track_result.nav_msg.update(np.real(P), coherent_ms)
+      # TODO - Is this the correct way to call nav_msg.update?
+      tow = track_result.nav_msg.update(np.real(P) >= 0)
       track_result.nav_msg_bit_phase_ref[i] = track_result.nav_msg.bit_phase_ref
       track_result.tow[i] = tow or (track_result.tow[i-1] + coherent_ms)
 
       track_result.carr_phase[i] = carr_phase
       track_result.carr_phase_acc[i] = carr_phase_acc
-      track_result.carr_freq[i] = loop_filter.carr_freq + IF
+      track_result.carr_freq[i] = loop_filter.to_dict()['carr_freq'] + IF
 
       track_result.code_phase[i] = code_phase
       track_result.code_phase_acc[i] = code_phase_acc
-      track_result.code_freq[i] = loop_filter.code_freq + chipping_rate
+      track_result.code_freq[i] = loop_filter.to_dict()['code_freq'] + chipping_rate
 
       # Record stuff for postprocessing
       track_result.absolute_sample[i] = sample_index
@@ -307,7 +310,7 @@ class TrackResults:
     self.cn0 = np.zeros(n_points)
     self.nav_msg = swiftnav.nav_msg.NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
-    self.nav_bit_sync = NBSMatchBit() if prn < 30 else NBSSBAS()
+    self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()
     self.tow = np.empty(n_points)
     self.tow[:] = np.NAN
     self.coherent_ms = np.zeros(n_points)
@@ -317,6 +320,37 @@ class TrackResults:
       v = getattr(self, k)
       if isinstance(v, np.ndarray):
         v.resize(n_points, refcheck=False)
+
+  def __eq__(self, other):
+    return self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`TrackResults` object.
+
+    Parameters
+    ----------
+    other : :class:`TrackResults` object
+      The :class:`TrackResults` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`TrackResults` object is identical.
+
+    """
+    if self.__dict__.keys() != other.__dict__.keys():
+      return False
+    
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], np.ndarray):
+        # If np.ndarray, elements might be floats, so compare accordingly.
+        if any(np.greater((self.__dict__[k]-other.__dict__[k]), np.ones(len(self.__dict__[k]))*10e-6)):
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
 
 
 class NavBitSync:
@@ -344,6 +378,40 @@ class NavBitSync:
 
   def bitstring(self):
     return ''.join(map(str, self.bits))
+
+  def __eq__(self, other):
+    return self._equal(other)
+
+  def __ne__(self, other):
+    return not self._equal(other)
+
+  def _equal(self, other):
+    """
+    Compare equality between self and another :class:`NavBitSync` object.
+
+    Parameters
+    ----------
+    other : :class:`NavBitSync` object
+      The :class:`NavBitSync` to test equality against.
+
+    Return
+    ------
+    out : bool
+      True if the passed :class:`NavBitSync` object is identical.
+
+    """
+    if self.__dict__.keys() != other.__dict__.keys():
+      return False
+    
+    for k in self.__dict__.keys():
+      if isinstance(self.__dict__[k], np.ndarray):
+        # If np.ndarray, elements might be floats, so compare accordingly.
+        if any((self.__dict__[k]-other.__dict__[k]) > 10e-6):
+          return False
+      elif self.__dict__[k] != other.__dict__[k]:
+        return False
+
+    return True
 
 class NavBitSyncSBAS:
   def __init__(self):
