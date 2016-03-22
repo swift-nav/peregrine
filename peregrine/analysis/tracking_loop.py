@@ -198,8 +198,8 @@ def main():
     if sample_index == samples['sample_index']:
       condition = False
     else:
+      samples['sample_index'] = sample_index
       samples = load_samples(samples = samples,
-                             sample_index = sample_index,
                              filename = args.file,
                              file_format = args.file_format)
   tracker.stop()

@@ -40,6 +40,7 @@ try:
 except ImportError:
   _progressbar_available = False
 
+
 class TrackingLoop(object):
   """
   Abstract base class for a tracking loop.
@@ -91,11 +92,13 @@ class TrackingLoop(object):
     """
     raise NotImplementedError()
 
+
 def _tracking_channel_factory(parameters):
   if parameters['acq'].signal == gps_constants.L1CA:
     return TrackingChannelL1CA(parameters)
   if parameters['acq'].signal == gps_constants.L2C:
     return TrackingChannelL2C(parameters)
+
 
 class TrackingChannel(object):
 
@@ -110,40 +113,41 @@ class TrackingChannel(object):
     self.stage1 = True
 
     self.lock_detect = LockDetector(
-        k1 = self.lock_detect_params["k1"],
-        k2 = self.lock_detect_params["k2"],
-        lp = self.lock_detect_params["lp"],
-        lo = self.lock_detect_params["lo"])
+        k1=self.lock_detect_params["k1"],
+        k2=self.lock_detect_params["k2"],
+        lp=self.lock_detect_params["lp"],
+        lo=self.lock_detect_params["lo"])
 
     self.alias_detect = AliasDetector(
-        acc_len = defaults.alias_detect_interval_ms / self.coherent_ms,
-        time_diff = 1)
+        acc_len=defaults.alias_detect_interval_ms / self.coherent_ms,
+        time_diff=1)
 
     self.cn0_est = CN0Estimator(
         bw=1e3 / self.coherent_ms,
-        cn0_0 = self.cn0_0,
-        cutoff_freq = 10,
-        loop_freq = self.loop_filter_params["loop_freq"]
+        cn0_0=self.cn0_0,
+        cutoff_freq=10,
+        loop_freq=self.loop_filter_params["loop_freq"]
     )
 
     self.loop_filter = self.loop_filter_class(
-        loop_freq = self.loop_filter_params['loop_freq'],
-        code_freq = self.code_freq_init,
-        code_bw = self.loop_filter_params['code_bw'],
-        code_zeta = self.loop_filter_params['code_zeta'],
-        code_k = self.loop_filter_params['code_k'],
-        carr_to_code = 0,  # the provided code frequency accounts for Doppler
-        carr_freq = self.acq.doppler,
-        carr_bw = self.loop_filter_params['carr_bw'],
-        carr_zeta = self.loop_filter_params['carr_zeta'],
-        carr_k = self.loop_filter_params['carr_k'],
-        carr_freq_b1 = self.loop_filter_params['carr_freq_b1'],
+        loop_freq=self.loop_filter_params['loop_freq'],
+        code_freq=self.code_freq_init,
+        code_bw=self.loop_filter_params['code_bw'],
+        code_zeta=self.loop_filter_params['code_zeta'],
+        code_k=self.loop_filter_params['code_k'],
+        carr_to_code=0,  # the provided code frequency accounts for Doppler
+        carr_freq=self.acq.doppler,
+        carr_bw=self.loop_filter_params['carr_bw'],
+        carr_zeta=self.loop_filter_params['carr_zeta'],
+        carr_k=self.loop_filter_params['carr_k'],
+        carr_freq_b1=self.loop_filter_params['carr_freq_b1'],
     )
 
     self.next_code_freq = self.loop_filter.to_dict()['code_freq']
     self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
 
-    self.track_result = TrackResults(self.results_num, self.acq.prn, self.acq.signal)
+    self.track_result = TrackResults(
+        self.results_num, self.acq.prn, self.acq.signal)
     self.alias_detect_init = 1
     self.code_phase = 0.0
     self.carr_phase = 0.0
@@ -174,26 +178,26 @@ class TrackingChannel(object):
 
   def start(self):
     logger.info("[PRN: %d (%s)] Tracking is started. "
-              "IF: %.1f, Doppler: %.1f, code phase: %.1f, "
-              "sample channel: %d sample index: %d" %
-              (self.prn + 1,
-               self.signal,
-               self.IF,
-               self.acq.doppler,
-               self.acq.code_phase,
-               self.acq.sample_channel,
-               self.acq.sample_index))
+                "IF: %.1f, Doppler: %.1f, code phase: %.1f, "
+                "sample channel: %d sample index: %d" %
+                (self.prn + 1,
+                 self.signal,
+                 self.IF,
+                 self.acq.doppler,
+                 self.acq.code_phase,
+                 self.acq.sample_channel,
+                 self.acq.sample_index))
 
   def get_index(self):
     return self.sample_index
 
-  def _run_preprocess(self): # optionally redefined in subclasses
+  def _run_preprocess(self):  # optionally redefined in subclasses
     pass
 
-  def _run_postprocess(self): # optionally redefine in subclasses
+  def _run_postprocess(self):  # optionally redefine in subclasses
     pass
 
-  def _get_result(self): # optionally redefine in subclasses
+  def _get_result(self):  # optionally redefine in subclasses
     return None
 
   def run_parallel(self, samples):
@@ -214,7 +218,7 @@ class TrackingChannel(object):
     estimated_blksize = self.coherent_ms * self.sampling_freq / 1e3
 
     while self.samples_tracked < self.samples_to_track and \
-          (sample_index + 2 * estimated_blksize) < samples_total:
+            (sample_index + 2 * estimated_blksize) < samples_total:
 
       self._run_preprocess()
 
@@ -228,10 +232,10 @@ class TrackingChannel(object):
         # There is an error between target frequency and actual one. Affect
         # the target frequency according to the computed error
         carr_freq_error = self.next_carr_freq - corr_carr_freq
-        self.next_carr_freq += carr_freq_error * pipelining_k
+        self.next_carr_freq += carr_freq_error * self.pipelining_k
 
         code_freq_error = self.next_code_freq - corr_code_freq
-        self.next_code_freq += code_freq_error * pipelining_k
+        self.next_code_freq += code_freq_error * self.pipelining_k
 
       else:
         # Immediate correction simulation
@@ -272,24 +276,24 @@ class TrackingChannel(object):
 
       # Update PLL lock detector
       lock_detect_outo, \
-      lock_detect_outp, \
-      lock_detect_pcount1, \
-      lock_detect_pcount2, \
-      lock_detect_lpfi, \
-      lock_detect_lpfq = self.lock_detect.update(self.P.real,
-                                                 self.P.imag,
-                                                 self.coherent_ms)
+          lock_detect_outp, \
+          lock_detect_pcount1, \
+          lock_detect_pcount2, \
+          lock_detect_lpfi, \
+          lock_detect_lpfq = self.lock_detect.update(self.P.real,
+                                                     self.P.imag,
+                                                     self.coherent_ms)
 
       if lock_detect_outo:
         if self.alias_detect_init:
           self.alias_detect_init = 0
-          self.alias_detect.reinit(defaults.alias_detect_interval_ms / \
+          self.alias_detect.reinit(defaults.alias_detect_interval_ms /
                                    self.coherent_ms,
                                    time_diff=1)
           self.alias_detect.first(self.P.real, self.P.imag)
         alias_detect_err_hz = \
-          self.alias_detect.second(self.P.real, self.P.imag) * np.pi * \
-          (1e3 / defaults.alias_detect_interval_ms)
+            self.alias_detect.second(self.P.real, self.P.imag) * np.pi * \
+            (1e3 / defaults.alias_detect_interval_ms)
         self.alias_detect.first(self.P.real, self.P.imag)
       else:
         self.alias_detect_init = 1
@@ -302,22 +306,23 @@ class TrackingChannel(object):
       self.track_result.carr_phase[self.i] = self.carr_phase
       self.track_result.carr_phase_acc[self.i] = self.carr_phase_acc
       self.track_result.carr_freq[self.i] = \
-        self.loop_filter.to_dict()['carr_freq'] + self.IF
+          self.loop_filter.to_dict()['carr_freq'] + self.IF
 
       self.track_result.code_phase[self.i] = self.code_phase
       self.track_result.code_phase_acc[self.i] = self.code_phase_acc
       self.track_result.code_freq[self.i] = \
-        self.loop_filter.to_dict()['code_freq'] + self.chipping_rate
+          self.loop_filter.to_dict()['code_freq'] + self.chipping_rate
 
       # Record stuff for postprocessing
       self.track_result.absolute_sample[self.i] = self.sample_index + \
-                                                  samples_processed
+          samples_processed
 
       self.track_result.E[self.i] = self.E
       self.track_result.P[self.i] = self.P
       self.track_result.L[self.i] = self.L
 
-      self.track_result.cn0[self.i] = self.cn0_est.update(self.P.real, self.P.imag)
+      self.track_result.cn0[self.i] = self.cn0_est.update(
+          self.P.real, self.P.imag)
 
       self.track_result.lock_detect_outo[self.i] = lock_detect_outo
       self.track_result.lock_detect_outp[self.i] = lock_detect_outp
@@ -332,7 +337,7 @@ class TrackingChannel(object):
 
       self.samples_tracked = self.sample_index + samples_processed
       self.track_result.ms_tracked[self.i] = self.samples_tracked * 1e3 / \
-                                             self.sampling_freq
+          self.sampling_freq
 
       self.i += 1
       if self.i >= self.results_num:
@@ -343,7 +348,9 @@ class TrackingChannel(object):
 
     return self._get_result()
 
+
 class TrackingChannelL1CA(TrackingChannel):
+
   def __init__(self, params):
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(params['acq'].snr)
@@ -354,7 +361,7 @@ class TrackingChannelL1CA(TrackingChannel):
     params['IF'] = params['samples'][gps_constants.L1CA]['IF']
     params['prn_code'] = caCodes[params['acq'].prn]
     params['code_freq_init'] = params['acq'].doppler * \
-                               gps_constants.chip_rate / gps_constants.l1
+        gps_constants.chip_rate / gps_constants.l1
     params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
     params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
 
@@ -383,10 +390,10 @@ class TrackingChannelL1CA(TrackingChannel):
           k2=self.lock_detect_params["k2"],
           lp=self.lock_detect_params["lp"],
           lo=self.lock_detect_params["lo"])
-      self.cn0_est = CN0Estimator(bw = 1e3 / self.stage2_coherent_ms,
-                             cn0_0 = self.track_result.cn0[self.i - 1],
-                             cutoff_freq = 10,
-                             loop_freq = 1e3 / self.stage2_coherent_ms)
+      self.cn0_est = CN0Estimator(bw=1e3 / self.stage2_coherent_ms,
+                                  cn0_0=self.track_result.cn0[self.i - 1],
+                                  cutoff_freq=10,
+                                  loop_freq=1e3 / self.stage2_coherent_ms)
 
     self.coherent_iter = self.coherent_ms
 
@@ -429,15 +436,19 @@ class TrackingChannelL1CA(TrackingChannel):
       l2c_doppler = self.loop_filter.to_dict(
       )['carr_freq'] * gps_constants.l2 / gps_constants.l1
       self.l2c_handover_acq = AcquisitionResult(self.prn,
-                                 self.samples[gps_constants.L2C]['IF'] + l2c_doppler,
-                                 l2c_doppler,  # carrier doppler
-                                 self.track_result.code_phase[self.i],
-                                 chan_snr,
-                                 'A',
-                                 gps_constants.L2C,
-                                 self.track_result.absolute_sample[self.i])
+                                                self.samples[gps_constants.L2C][
+                                                    'IF'] + l2c_doppler,
+                                                l2c_doppler,  # carrier doppler
+                                                self.track_result.code_phase[
+                                                    self.i],
+                                                chan_snr,
+                                                'A',
+                                                gps_constants.L2C,
+                                                self.track_result.absolute_sample[self.i])
+
 
 class TrackingChannelL2C(TrackingChannel):
+
   def __init__(self, params):
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(params['acq'].snr)
@@ -450,7 +461,7 @@ class TrackingChannelL2C(TrackingChannel):
     params['IF'] = params['samples'][gps_constants.L2C]['IF']
     params['prn_code'] = L2CMCodes[params['acq'].prn]
     params['code_freq_init'] = params['acq'].doppler * \
-                               gps_constants.chip_rate / gps_constants.l2
+        gps_constants.chip_rate / gps_constants.l2
 
     TrackingChannel.__init__(self, params)
 
@@ -476,7 +487,8 @@ class TrackingChannelL2C(TrackingChannel):
       self.track_result.tow[self.i] = tow
     else:
       self.track_result.tow[self.i] = self.track_result.tow[self.i - 1] + \
-                                      self.coherent_ms
+          self.coherent_ms
+
 
 class Tracker(object):
 
@@ -485,16 +497,16 @@ class Tracker(object):
                channels,
                ms_to_track,
                sampling_freq,
-               chipping_rate = defaults.chipping_rate,
-               l2c_handover = True,
-               show_progress = True,
-               loop_filter_class = AidedTrackingLoop,
-               correlator = track_correlate,
-               stage2_coherent_ms = None,
-               stage2_loop_filter_params = None,
-               multi = True,
-               tracker_options = None,
-               output_file = None):
+               chipping_rate=defaults.chipping_rate,
+               l2c_handover=True,
+               show_progress=True,
+               loop_filter_class=AidedTrackingLoop,
+               correlator=track_correlate,
+               stage2_coherent_ms=None,
+               stage2_loop_filter_params=None,
+               multi=True,
+               tracker_options=None,
+               output_file=None):
 
     self.samples = samples
     self.sampling_freq = sampling_freq
@@ -534,8 +546,9 @@ class Tracker(object):
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
       self.pbar = progressbar.ProgressBar(widgets=widgets,
-                    maxval=samples['samples_total'],
-                    attr={'samples': self.samples['samples_total']})
+                                          maxval=samples['samples_total'],
+                                          attr={'samples': self.samples['samples_total'],
+                                                'sample': 0l})
     else:
       self.pbar = None
 
@@ -605,7 +618,7 @@ class Tracker(object):
 
       handover = [h for h in handover if h is not None]
       if handover:
-        tracking_channels = map(self._create_channel, handover);
+        tracking_channels = map(self._create_channel, handover)
         self.tracking_channels += tracking_channels
       else:
         tracking_channels = None
@@ -614,9 +627,10 @@ class Tracker(object):
     min_index = min(indexes)
 
     if self.pbar:
-      self.pbar.update(min_index, attr={'samples': min_index})
+      self.pbar.update(min_index, attr={'sample': min_index})
 
     return min_index
+
 
 class TrackResults:
 
@@ -667,7 +681,7 @@ class TrackResults:
     else:
       mode = 'a'
 
-    #print "Storing tracking results into file: ", filename
+    # print "Storing tracking results into file: ", filename
 
     with open(filename, mode) as f1:
       if self.print_start:
