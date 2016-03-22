@@ -13,8 +13,8 @@ import sys
 import argparse
 import cPickle
 import logging
-from operator import attrgetter
 import numpy as np
+from operator import attrgetter
 
 from peregrine.samples import load_samples
 from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
@@ -24,6 +24,7 @@ from peregrine.log import default_logging_config
 from peregrine import defaults
 from peregrine.initSettings import initSettings
 from peregrine.gps_constants import L1CA, L2C
+
 
 def main():
   default_logging_config()
@@ -56,12 +57,37 @@ def main():
   parser.add_argument('--l1ca-profile',
                       help='L1 C/A stage profile',
                       choices=defaults.l1ca_stage_profiles.keys())
-  parser.add_argument("--pipelining",
-                      type=float,
-                      nargs='?',
-                      help="FPGA pipelining coefficient",
-                      const=defaults.pipelining_k,
-                      default=None)
+  if sys.stdout.isatty():
+    progress_bar_default = 'stdout'
+  elif sys.stderr.isatty():
+    progress_bar_default = 'stderr'
+  else:
+    progress_bar_default = 'none'
+  parser.add_argument("--progress-bar",
+                      metavar='FLAG',
+                      choices=['stdout', 'stderr', 'none'],
+                      default=progress_bar_default,
+                      help="Show progress bar. Default is '%s'" %
+                      progress_bar_default)
+
+  fpgaSim = parser.add_argument_group('FPGA simulation',
+                                      'FPGA delay control simulation')
+
+  fpgaSim.add_argument("--pipelining",
+                       type=float,
+                       nargs='?',
+                       help="Use FPGA pipelining simulation. Supply optional "
+                       " coefficient (%f)" % defaults.pipelining_k,
+                       const=defaults.pipelining_k,
+                       default=None)
+
+  fpgaSim.add_argument("--short-long-cycles",
+                       type=float,
+                       nargs='?',
+                       help="Use FPGA short-long cycle simulation. Supply"
+                       " optional pipelining coefficient (0.)",
+                       const=0.,
+                       default=None)
   args = parser.parse_args()
 
   if args.file is None:
@@ -101,7 +127,7 @@ def main():
                              (settings.codeFreqBasis / settings.codeLength)))
 
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
-              L2C: {'IF': freq_profile['GPS_L2_IF']},
+             L2C: {'IF': freq_profile['GPS_L2_IF']},
              'samples_total': -1,
              'sample_index': settings.skipNumberOfBytes}
 
@@ -117,16 +143,16 @@ def main():
       sys.exit(1)
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
-    acq_samples = load_samples(samples = samples,
-                               num_samples = 11 * samplesPerCode,
-                               filename = args.file,
-                               file_format = args.file_format)
+    load_samples(samples=samples,
+                 num_samples=11 * samplesPerCode,
+                 filename=args.file,
+                 file_format=args.file_format)
 
-    acq = Acquisition(acq_samples[L1CA]['samples'],
+    acq = Acquisition(samples[L1CA]['samples'],
                       freq_profile['sampling_freq'],
                       freq_profile['GPS_L1_IF'],
                       defaults.code_period * freq_profile['sampling_freq'])
-    acq_results = acq.acquisition()
+    acq_results = acq.acquisition(progress_bar_output=args.progress_bar)
 
     print "Acquisition is over!"
 
@@ -158,21 +184,24 @@ def main():
                        track_results_file)
       sys.exit(1)
   else:
-    samples = load_samples(samples = samples,
-                           filename = args.file,
-                           file_format = args.file_format)
+    load_samples(samples=samples,
+                 filename=args.file,
+                 file_format=args.file_format)
 
     if ms_to_process < 0:
-      ms_to_process = int(1e3 * samples['samples_total'] / freq_profile['sampling_freq'])
+      ms_to_process = int(
+          1e3 * samples['samples_total'] / freq_profile['sampling_freq'])
 
-    tracker = tracking.Tracker(samples = samples,
-                      channels = acq_results,
-                      ms_to_track = ms_to_process,
-                      sampling_freq = freq_profile['sampling_freq'],  # [Hz]
-                      stage2_coherent_ms = stage2_coherent_ms,
-                      stage2_loop_filter_params = stage2_params,
-                      tracker_options = tracker_options,
-                      output_file = args.file)
+    tracker = tracking.Tracker(samples=samples,
+                               channels=acq_results,
+                               ms_to_track=ms_to_process,
+                               sampling_freq=freq_profile[
+                                   'sampling_freq'],  # [Hz]
+                               stage2_coherent_ms=stage2_coherent_ms,
+                               stage2_loop_filter_params=stage2_params,
+                               tracker_options=tracker_options,
+                               output_file=args.file,
+                               progress_bar_output=args.progress_bar)
     tracker.start()
     condition = True
     while condition:
@@ -181,9 +210,9 @@ def main():
         condition = False
       else:
         samples['sample_index'] = sample_index
-        samples = load_samples(samples = samples,
-                               filename = args.file,
-                               file_format = args.file_format)
+        load_samples(samples=samples,
+                     filename=args.file,
+                     file_format=args.file_format)
     tracker.stop()
 
     # try:
