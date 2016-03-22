@@ -362,7 +362,7 @@ class TrackingChannelL1CA(TrackingChannel):
 
     self.nav_msg = NavMsg()
     self.nav_bit_sync = NBSMatchBit() if self.prn < 32 else NBSSBAS()
-    self.l2c_handover_chan = None
+    self.l2c_handover_acq = None
     self.l2c_handover_done = False
 
   def _run_preprocess(self):
@@ -391,9 +391,9 @@ class TrackingChannelL1CA(TrackingChannel):
     self.coherent_iter = self.coherent_ms
 
   def _get_result(self):
-    if self.l2c_handover_chan and not self.l2c_handover_done:
+    if self.l2c_handover_acq and not self.l2c_handover_done:
       self.l2c_handover_done = True
-      return self.l2c_handover_chan
+      return self.l2c_handover_acq
     return None
 
   def _run_postprocess(self):
@@ -421,14 +421,14 @@ class TrackingChannelL1CA(TrackingChannel):
         self.track_result.tow[self.i - 1] + self.coherent_ms)
 
     # Handover to L2C if possible
-    if not self.l2c_handover_chan and \
+    if self.l2c_handover and not self.l2c_handover_acq and \
        'samples' in self.samples[gps_constants.L2C] and sync:
       chan_snr = self.track_result.cn0[self.i]
       chan_snr -= 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
       chan_snr = np.power(10, chan_snr / 10)
       l2c_doppler = self.loop_filter.to_dict(
       )['carr_freq'] * gps_constants.l2 / gps_constants.l1
-      self.l2c_handover_chan = AcquisitionResult(self.prn,
+      self.l2c_handover_acq = AcquisitionResult(self.prn,
                                  self.samples[gps_constants.L2C]['IF'] + l2c_doppler,
                                  l2c_doppler,  # carrier doppler
                                  self.track_result.code_phase[self.i],
