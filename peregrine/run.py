@@ -96,10 +96,6 @@ def main():
   settings.fileName = args.file
 
   ms_to_process = int(args.ms_to_process)
-  if ms_to_process > 0:
-    samples_num = freq_profile['sampling_freq'] * 1e-3 * ms_to_process
-  else:
-    samples_num = -1  # all available samples
 
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
@@ -107,7 +103,7 @@ def main():
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
               L2C: {'IF': freq_profile['GPS_L2_IF']},
              'samples_total': -1,
-             'sample_index': 0}
+             'sample_index': settings.skipNumberOfBytes}
 
   # Do acquisition
   acq_results_file = args.file + ".acq_results"
@@ -122,7 +118,6 @@ def main():
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
     acq_samples = load_samples(samples = samples,
-                               sample_index = settings.skipNumberOfBytes,
                                num_samples = 11 * samplesPerCode,
                                filename = args.file,
                                file_format = args.file_format)
@@ -164,7 +159,6 @@ def main():
       sys.exit(1)
   else:
     samples = load_samples(samples = samples,
-                           sample_index = 0,
                            filename = args.file,
                            file_format = args.file_format)
 
@@ -186,8 +180,8 @@ def main():
       if sample_index == samples['sample_index']:
         condition = False
       else:
+        samples['sample_index'] = sample_index
         samples = load_samples(samples = samples,
-                               sample_index = sample_index,
                                filename = args.file,
                                file_format = args.file_format)
     tracker.stop()

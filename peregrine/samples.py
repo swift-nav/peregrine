@@ -352,18 +352,16 @@ def __get_samples_total(filename, file_format, sample_index):
 def load_samples(samples,
                  filename,
                  num_samples = defaults.processing_block_size,
-                 sample_index = 0,
                  file_format = 'piksi'):
 
   if samples['samples_total'] == -1:
     samples['samples_total'] = __get_samples_total(filename,
                                                    file_format,
-                                                   sample_index)
+                                                   samples['sample_index'])
   signal = _load_samples(filename,
                          num_samples,
-                         sample_index,
+                         samples['sample_index'],
                          file_format)
-  samples['sample_index'] = sample_index
   samples[L1CA]['samples'] = signal[defaults.sample_channel_GPS_L1]
   if len(signal) > 1:
     samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
