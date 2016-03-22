@@ -539,7 +539,6 @@ class Tracker(object):
     else:
       self.pbar = None
 
-    channels = (c for c in channels if c.snr > 100)
     self.tracking_channels = map(self._create_channel, channels)
 
   def start(self):
