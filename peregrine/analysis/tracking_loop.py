@@ -144,7 +144,7 @@ def main():
                     code_phase = code_phase,
                     status = 'A',
                     signal = signal,
-                    sample_index = 0)
+                    sample_index = skip_samples)
 
   if args.l1ca_profile:
     profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
@@ -157,10 +157,9 @@ def main():
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
               L2C: {'IF': freq_profile['GPS_L2_IF']},
              'samples_total': -1,
-             'sample_index': 0}
+             'sample_index': skip_samples}
 
   samples = load_samples(samples = samples,
-                         sample_index = 0,
                          filename = args.file,
                          file_format = args.file_format)
 
