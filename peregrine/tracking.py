@@ -165,13 +165,13 @@ def track(samples, channels,
                      gps_constants.chip_rate / gps_constants.l1
     carr_freq_init = chan.carr_freq - IF
     loop_filter = loop_filter_class(
-      loop_freq = stage1_loop_filter_params[2], \
-      code_freq = code_freq_init, \
+      loop_freq = stage1_loop_filter_params[2],
+      code_freq = code_freq_init,
       code_bw = stage1_loop_filter_params[0][0],
       code_zeta = stage1_loop_filter_params[0][1],
       code_k = stage1_loop_filter_params[0][2],
       carr_to_code = stage1_loop_filter_params[4],
-      carr_freq = carr_freq_init, \
+      carr_freq = carr_freq_init,
       carr_bw = stage1_loop_filter_params[1][0],
       carr_zeta = stage1_loop_filter_params[1][1],
       carr_k = stage1_loop_filter_params[1][2],
