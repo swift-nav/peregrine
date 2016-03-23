@@ -38,6 +38,9 @@ def parmap(f, X, nprocs=mp.cpu_count(), show_progress=True, func_progress=False)
   else:
     q_progress = None
 
+  if nprocs > mp.cpu_count():
+    nprocs = mp.cpu_count()
+
   proc = [mp.Process(target=spawn(f), args=(q_in, q_out, q_progress))
           for _ in range(nprocs)]
 

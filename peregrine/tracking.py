@@ -13,6 +13,7 @@ import os
 import math
 import parallel_processing as pp
 import multiprocessing as mp
+import cPickle
 
 from swiftnav.track import LockDetector
 from swiftnav.track import CN0Estimator
@@ -110,7 +111,7 @@ class TrackingChannel(object):
     self.prn = params['acq'].prn
     self.signal = params['acq'].signal
 
-    self.results_num = 1000
+    self.results_num = 500
     self.stage1 = True
 
     self.lock_detect = LockDetector(
@@ -180,9 +181,9 @@ class TrackingChannel(object):
         raise ValueError("Invalid tracker mode %s" % str(mode))
 
   def dump(self):
-    filename = self.track_result.dump(self.output_file, self.i)
+    fn_analysis, fn_results = self.track_result.dump(self.output_file, self.i)
     self.i = 0
-    return filename
+    return fn_analysis, fn_results
 
   def start(self):
     logger.info("[PRN: %d (%s)] Tracking is started. "
@@ -207,6 +208,9 @@ class TrackingChannel(object):
 
   def _get_result(self):  # optionally redefine in subclasses
     return None
+
+  def is_pickleable(self):
+    return True
 
   def run_parallel(self, samples):
     handover = self.run(samples)
@@ -503,6 +507,9 @@ class TrackingChannelL2C(TrackingChannel):
     self.cnav_msg = CNavMsg()
     self.cnav_msg_decoder = CNavMsgDecoder()
 
+  def is_pickleable(self):
+    return False # could not pickle cnav_msg_decoder Cython object
+
   def _run_postprocess(self):
     symbol = 0xFF if np.real(self.P) >= 0 else 0x00
     res, delay = self.cnav_msg_decoder.decode(symbol, self.cnav_msg)
@@ -553,7 +560,12 @@ class Tracker(object):
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
     self.stage2_loop_filter_params = stage2_loop_filter_params
-    self.multi = multi
+
+    if mp.cpu_count() > 1:
+      self.multi = multi
+    else:
+      self.multi = False
+
     self.loop_filter_class = loop_filter_class
 
     if self.ms_to_track:
@@ -619,12 +631,18 @@ class Tracker(object):
     if self.pbar:
       self.pbar.finish()
 
-    filenames = map(lambda chan: chan.dump(), self.tracking_channels)
+    # (fn_analysis, fn_results) = map(lambda chan: chan.dump(), self.tracking_channels)
+    res = map(lambda chan: chan.dump(), self.tracking_channels)
+
+    fn_analysis = map(lambda x: x[0], res)
+    fn_results = map(lambda x: x[1], res)
 
     print "The tracking results were stored into:"
-    map(self._print_name, filenames)
+    map(self._print_name, fn_analysis)
 
     logger.info("Tracking finished")
+
+    return fn_results
 
   def _create_channel(self, acq):
     if not acq:
@@ -645,28 +663,44 @@ class Tracker(object):
                   'multi': self.multi}
     return _tracking_channel_factory(parameters)
 
-  def run_channels(self, samples):
-    self.samples = samples
-    tracking_channels = self.tracking_channels
+  def _run_parallel(self, i, samples):
+    handover = self.parallel_channels[i].run(samples)
+    return self.parallel_channels[i], handover
 
-    while tracking_channels and not all(v is None for v in tracking_channels):
-      if self.multi and mp.cpu_count() > 1:
-        res = pp.parmap(lambda x: self.run(samples),
-                        tracking_channels,
+  def run_channels(self, samples):
+    channels = self.tracking_channels
+    self.tracking_channels = []
+
+    while channels and not all(v is None for v in channels):
+
+      if self.multi:
+        self.parallel_channels = filter(lambda x: x.is_pickleable(), channels)
+      else:
+        self.parallel_channels = []
+
+      serial_channels = list(set(channels) - set(self.parallel_channels))
+      channels = []
+      handover = []
+
+      if self.parallel_channels:
+        res = pp.parmap(lambda i: self._run_parallel(i, samples),
+                        range(len(self.parallel_channels)),
+                        nprocs = len(self.parallel_channels),
                         show_progress=False,
                         func_progress=False)
 
-        handover = map(lambda x: x[0], res)
-        tracking_channels = map(lambda x: x[1], res)
-      else:
-        handover = map(lambda x: x.run(samples), tracking_channels)
+        channels = map(lambda x: x[0], res)
+        handover += map(lambda x: x[1], res)
 
+      if serial_channels:
+        handover += map(lambda x: x.run(samples), serial_channels)
+
+      self.tracking_channels += channels + serial_channels
       handover = [h for h in handover if h is not None]
       if handover:
-        tracking_channels = map(self._create_channel, handover)
-        self.tracking_channels += tracking_channels
+        channels = map(self._create_channel, handover)
       else:
-        tracking_channels = None
+        channels = None
 
     indexes = map(lambda x: x.get_index(), self.tracking_channels)
     min_index = min(indexes)
@@ -716,19 +750,26 @@ class TrackResults:
   def dump(self, output_file, size):
     output_filename, output_file_extension = os.path.splitext(output_file)
 
-    # mangle the result file name with the tracked signal name
-    filename = output_filename + \
+    # mangle the analyses file name with the tracked signal name
+    fn_analysis = output_filename + \
         (".PRN-%d.%s" % (self.prn + 1, self.signal)) +\
         output_file_extension
+
+    # mangle the results file name with the tracked signal name
+    fn_results = output_filename + \
+        (".PRN-%d.%s" % (self.prn + 1, self.signal)) +\
+        output_file_extension + '.track_results'
 
     if self.print_start:
       mode = 'w'
     else:
       mode = 'a'
 
-    # print "Storing tracking results into file: ", filename
+    # saving tracking results for navigation stage
+    with open(fn_results, mode) as f1:
+      cPickle.dump(self, f1, protocol = cPickle.HIGHEST_PROTOCOL)
 
-    with open(filename, mode) as f1:
+    with open(fn_analysis, mode) as f1:
       if self.print_start:
         f1.write("sample_index,ms_tracked,IF,doppler_phase,carr_doppler,"
                  "code_phase, code_freq,"
@@ -764,7 +805,7 @@ class TrackResults:
 
     self.print_start = 0
 
-    return filename
+    return fn_analysis, fn_results
 
   def resize(self, n_points):
     for k in dir(self):
