@@ -25,6 +25,19 @@ from peregrine import defaults
 from peregrine.initSettings import initSettings
 from peregrine.gps_constants import L1CA, L2C
 
+def unpickle_iter(filenames):
+  try:
+    f = [open(filename, "r") for filename in filenames]
+
+    while True:
+      yield [cPickle.load(fh) for fh in f]
+
+  except EOFError:
+    raise StopIteration
+
+  finally:
+    for fh in f:
+      fh.close()
 
 def main():
   default_logging_config()
@@ -213,34 +226,29 @@ def main():
         load_samples(samples=samples,
                      filename=args.file,
                      file_format=args.file_format)
-    tracker.stop()
+    fn_results = tracker.stop()
 
-    # try:
-    #   with open(track_results_file, 'wb') as f:
-    #     cPickle.dump(track_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-    #   logging.debug("Saving tracking results as '%s'" % track_results_file)
-    # except IOError:
-    #   logging.error("Couldn't save tracking results file '%s'.",
-    #                 track_results_file)
+    logging.debug("Saving tracking results as '%s'" % fn_results)
 
   # Do navigation
   nav_results_file = args.file + ".nav_results"
   if not args.skip_navigation:
-    nav_solns = navigation(track_results, settings)
-    nav_results = []
-    for s, t in nav_solns:
-      nav_results += [(t, s.pos_llh, s.vel_ned)]
-    if len(nav_results):
-      print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
-          nav_results[0][0],
-          np.degrees(nav_results[0][1][0]), np.degrees(
-              nav_results[0][1][1]), nav_results[0][1][2],
-          nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
-      with open(nav_results_file, 'wb') as f:
-        cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-      print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
-    else:
-      print "No navigation results."
+    for track_results in unpickle_iter(fn_results):
+      nav_solns = navigation(track_results, settings)
+      nav_results = []
+      for s, t in nav_solns:
+        nav_results += [(t, s.pos_llh, s.vel_ned)]
+      if len(nav_results):
+        print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
+            nav_results[0][0],
+            np.degrees(nav_results[0][1][0]), np.degrees(
+                nav_results[0][1][1]), nav_results[0][1][2],
+            nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
+        with open(nav_results_file, 'wb') as f:
+          cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+        print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
+      else:
+        print "No navigation results."
 
 if __name__ == '__main__':
   main()
