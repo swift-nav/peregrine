@@ -546,7 +546,7 @@ class Tracker(object):
                correlator=track_correlate,
                stage2_coherent_ms=None,
                stage2_loop_filter_params=None,
-               multi=False,
+               multi=True,
                tracker_options=None,
                output_file=None):
 
