@@ -622,7 +622,8 @@ class Tracker(object):
     logger.debug("Tracking PRNs %s" %
                  ([chan.prn + 1 for chan in self.tracking_channels]))
 
-    self.pbar.start()
+    if self.pbar:
+      self.pbar.start()
 
   def _print_name(self, name):
     print name
