@@ -6,7 +6,12 @@ function install_deps_ubuntu_maybe () {
     # Sudo'd version of travis installation instructions
     sudo apt-get update -qq
     sudo apt-get install python-software-properties
-    sudo add-apt-repository --yes ppa:kalakris/cmake
+    if [[ $(source /etc/os-release;echo $ID) == "ubuntu" ]]; then
+        if [[ $(source /etc/os-release;echo $VERSION_ID) == "12.04" ]]; then
+	    # If this is Ubuntu 12.04 install updated cmake
+            sudo add-apt-repository --yes ppa:kalakris/cmake
+        fi
+    fi
     sudo apt-get update -qq
     sudo apt-get -y install cmake \
          check \
