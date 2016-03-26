@@ -233,8 +233,9 @@ def main():
   # Do navigation
   nav_results_file = args.file + ".nav_results"
   if not args.skip_navigation:
-    for track_results in unpickle_iter(fn_results):
-      nav_solns = navigation(track_results, settings)
+    track_results_generator = lambda: unpickle_iter(fn_results)
+    for track_results in track_results_generator():
+      nav_solns = navigation(track_results_generator, settings)
       nav_results = []
       for s, t in nav_solns:
         nav_results += [(t, s.pos_llh, s.vel_ned)]

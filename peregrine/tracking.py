@@ -702,8 +702,8 @@ class Tracker(object):
       else:
         channels = None
 
-    indexes = map(lambda x: x.get_index(), self.tracking_channels)
-    min_index = min(indexes)
+    indicies = map(lambda x: x.get_index(), self.tracking_channels)
+    min_index = min(indicies)
 
     if self.pbar:
       self.pbar.update(min_index, attr={'sample': min_index})
