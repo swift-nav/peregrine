@@ -137,7 +137,7 @@ class TrackingChannel(object):
         code_bw=self.loop_filter_params['code_bw'],
         code_zeta=self.loop_filter_params['code_zeta'],
         code_k=self.loop_filter_params['code_k'],
-        carr_to_code=0,  # the provided code frequency accounts for Doppler
+        carr_to_code=self.loop_filter_params['carr_to_code'],
         carr_freq=self.acq.doppler,
         carr_bw=self.loop_filter_params['carr_bw'],
         carr_zeta=self.loop_filter_params['carr_zeta'],
