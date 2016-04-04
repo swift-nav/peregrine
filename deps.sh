@@ -16,7 +16,6 @@ function install_deps_ubuntu_maybe () {
          build-essential \
          python-numpy \
          python-dev \
-         cython \
          python-cython \
          python-dev
     git submodule update --init
