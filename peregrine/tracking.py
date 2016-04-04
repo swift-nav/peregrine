@@ -179,7 +179,7 @@ class TrackingChannel(object):
     self.cn0_est = CN0Estimator(
         bw=1e3 / self.coherent_ms,
         cn0_0=self.cn0_0,
-        cutoff_freq=10,
+        cutoff_freq=0.1,
         loop_freq=self.loop_filter_params["loop_freq"]
     )
 
