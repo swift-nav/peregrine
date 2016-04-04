@@ -127,7 +127,7 @@ class TrackingChannel(object):
     self.cn0_est = CN0Estimator(
         bw=1e3 / self.coherent_ms,
         cn0_0=self.cn0_0,
-        cutoff_freq=10,
+        cutoff_freq=0.1,
         loop_freq=self.loop_filter_params["loop_freq"]
     )
 
@@ -137,7 +137,7 @@ class TrackingChannel(object):
         code_bw=self.loop_filter_params['code_bw'],
         code_zeta=self.loop_filter_params['code_zeta'],
         code_k=self.loop_filter_params['code_k'],
-        carr_to_code=0,  # the provided code frequency accounts for Doppler
+        carr_to_code=self.loop_filter_params['carr_to_code'],
         carr_freq=self.acq.doppler,
         carr_bw=self.loop_filter_params['carr_bw'],
         carr_zeta=self.loop_filter_params['carr_zeta'],
