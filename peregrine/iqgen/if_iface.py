@@ -52,15 +52,19 @@ class LowRateConfig(object):
       INTERMEDIATE_FREQUENCY_HZ = 7.4e+5
       INDEX = 1
 
-  class Glonass(object):
+  class GLONASS(object):
 
     class L1(object):
-      INTERMEDIATE_FREQUENCY_HZ = 12e5
-      INDEX = 1
+      INTERMEDIATE_FREQUENCIES_HZ = \
+          [float(1200000 + b * 562500) for b in range(7)] + \
+          [float(1200000 + b * 562500) for b in range(-7, 0)]
+      INDEX = 2
 
     class L2(object):
-      INTERMEDIATE_FREQUENCY_HZ = 11e5
-      INDEX = 2
+      INTERMEDIATE_FREQUENCIES_HZ = \
+          [float(1100000 + b * 437500) for b in range(7)] + \
+          [float(1100000 + b * 437500) for b in range(-7, 0)]
+      INDEX = 3
 
   class Galileo(object):
 
@@ -128,14 +132,18 @@ class NormalRateConfig(object):
       INTERMEDIATE_FREQUENCY_HZ = 7.4e+6
       INDEX = 1
 
-  class Glonass(object):
+  class GLONASS(object):
 
     class L1(object):
-      INTERMEDIATE_FREQUENCY_HZ = 12e6
+      INTERMEDIATE_FREQUENCIES_HZ = \
+          [float(12000000 + b * 562500) for b in range(7)] + \
+          [float(12000000 + b * 562500) for b in range(-7, 0)]
       INDEX = 1
 
     class L2(object):
-      INTERMEDIATE_FREQUENCY_HZ = 11e6
+      INTERMEDIATE_FREQUENCIES_HZ = \
+          [float(11000000 + b * 437500) for b in range(7)] + \
+          [float(11000000 + b * 437500) for b in range(-7, 0)]
       INDEX = 2
 
   class Galileo(object):
@@ -187,7 +195,7 @@ class HighRateConfig(object):
   SAMPLE_BATCH_SIZE = 100000
 
   GPS = NormalRateConfig.GPS
-  Glonass = NormalRateConfig.Glonass
+  GLONASS = NormalRateConfig.GLONASS
   Galileo = NormalRateConfig.Galileo
   Beidou = NormalRateConfig.Beidou
 

@@ -136,3 +136,27 @@ class Satellite(object):
       True, if the band is supported and enabled; False otherwise.
     '''
     return False
+
+  def isCodeDopplerIgnored(self):
+    '''
+    Checks if code doppler is ignored
+
+    Returns
+    -------
+    bool
+      True, when code doppler is ignored, False otherwise
+    '''
+    return self.doppler.isCodeDopplerIgnored()
+
+  def setCodeDopplerIgnored(self, flag):
+    '''
+    Checks if code doppler is ignored
+
+    Parameters
+    ----------
+    flag : bool
+      Flag to control code doppler: True - to ignore code doppler, 
+      False - normal operation 
+
+    '''
+    self.doppler.setCodeDopplerIgnored(flag)

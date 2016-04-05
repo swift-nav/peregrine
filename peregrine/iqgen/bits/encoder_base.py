@@ -76,7 +76,7 @@ class Encoder(object):
     '''
     Converts buffered bit data into packed array.
 
-    The method coverts multiple of 8 bits into single output byte.
+    The method converts multiple of 8 bits into single output byte.
 
     Returns
     -------

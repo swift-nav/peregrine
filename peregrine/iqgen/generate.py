@@ -8,19 +8,22 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import sys
-import traceback
 
 """
 The :mod:`peregrine.iqgen.generate` module contains classes and functions
 related to main loop of samples generation.
 
 """
+
+from peregrine.iqgen.bits.satellite_gps import GPSSatellite
+from peregrine.iqgen.bits.satellite_glo import GLOSatellite
 from peregrine.iqgen.bits.filter_lowpass import LowPassFilter
 from peregrine.iqgen.bits.filter_bandpass import BandPassFilter
 
 from peregrine.iqgen.bits import signals
 
+import sys
+import traceback
 import logging
 import scipy
 import numpy
@@ -321,8 +324,12 @@ def generateSamples(outputFile,
   _count = 0l
 
   # Check which bands are enabled, configure band-specific parameters
-  bands = [outputConfig.GPS.L1, outputConfig.GPS.L2]  # Supported bands
+  bands = [outputConfig.GPS.L1,
+           outputConfig.GPS.L2,
+           outputConfig.GLONASS.L1,
+           outputConfig.GLONASS.L2]  # Supported bands
   lpf = [None] * len(bands)
+  lpfFA_db = [0.] * len(bands)  # Filter attenuation levels
   bandsEnabled = [False] * len(bands)
 
   bandPass = False
@@ -341,14 +348,21 @@ def generateSamples(outputFile,
       bandsEnabled[band.INDEX] |= sv.isBandEnabled(band.INDEX, outputConfig)
 
     filterObject = None
+    ifHz = 0.
+    if hasattr(band, "INTERMEDIATE_FREQUENCY_HZ"):
+      ifHz = band.INTERMEDIATE_FREQUENCY_HZ
+    elif hasattr(band, "INTERMEDIATE_FREQUENCIES_HZ"):
+      ifHz = band.INTERMEDIATE_FREQUENCIES_HZ[0]
+    else:
+      raise ValueError("Unknown band type")
+
     if lowPass:
-      filterObject = LowPassFilter(outputConfig,
-                                   band.INTERMEDIATE_FREQUENCY_HZ)
+      filterObject = LowPassFilter(outputConfig, ifHz)
     elif bandPass:
-      filterObject = BandPassFilter(outputConfig,
-                                    band.INTERMEDIATE_FREQUENCY_HZ)
+      filterObject = BandPassFilter(outputConfig, ifHz)
     if filterObject:
       lpf[band.INDEX] = filterObject
+      lpfFA_db[band.INDEX] = filterObject.getPassBandAtt()
       logger.debug("Band %d filter NBW is %s" %
                    (band.INDEX, str(filterObject)))
 
@@ -356,6 +370,14 @@ def generateSamples(outputFile,
     sourcePower = 0.
     for sv in sv_list:
       svMeanPower = sv.getAmplitude().computeMeanPower()
+      if isinstance(sv, GPSSatellite):
+        # GPS: 1023 Kilobits/second
+        svMeanPower /= 1023e3
+      elif isinstance(sv, GLOSatellite):
+        # GLONASS: 511 Kilobits/second
+        svMeanPower /= 511e3
+      else:
+        pass
       sourcePower += svMeanPower
       logger.debug("[%s] Estimated mean power is %f" %
                    (sv.getSvName(), svMeanPower))
@@ -367,8 +389,8 @@ def generateSamples(outputFile,
     # Nsigma and while noise amplitude computation: check if the Nsigma is
     # actually a correct value for white noise with normal distribution.
 
-    # Number of samples for 1023 MHz
-    freqTimesTau = outputConfig.SAMPLE_RATE_HZ / 1.023e6
+    # Number of samples for 1023/511 MHz
+    freqTimesTau = outputConfig.SAMPLE_RATE_HZ
     noiseVariance = freqTimesTau * meanPower / (4. * 10. ** (float(SNR) / 10.))
     noiseSigma = numpy.sqrt(noiseVariance)
     logger.info("Selected noise sigma %f (variance %f) for SNR %f" %
@@ -388,32 +410,54 @@ def generateSamples(outputFile,
     _svTime0_s = 0
     _dist0_m = _sv.doppler.computeDistanceM(_svTime0_s)
     _speed_mps = _sv.doppler.computeSpeedMps(_svTime0_s)
+    svMeanPower = _sv.getAmplitude().computeMeanPower()
+    if isinstance(sv, GPSSatellite):
+      # GPS: 1023 Kilobits/second
+      powerDivider = 1023e3
+      band1Index = outputConfig.GPS.L1.INDEX
+      band2Index = outputConfig.GPS.L2.INDEX
+    elif isinstance(sv, GLOSatellite):
+      # GLONASS: 511 Kilobits/second
+      powerDivider = 511e3
+      band1Index = outputConfig.GLONASS.L1.INDEX
+      band2Index = outputConfig.GLONASS.L2.INDEX
+    else:
+      pass
+    # SNR for a satellite. Depends on sampling rate.
+    if noiseVariance:
+      svSNR = svMeanPower / (4. * noiseVariance) * freqTimesTau / powerDivider
+    else:
+      svSNR = 1e6
+    svSNR_db = 10. * numpy.log10(svSNR)
+    # CNo for L1
+    svCNoL1 = svSNR_db + 10. * numpy.log10(powerDivider) - lpfFA_db[band1Index]
+    # CNo for L2, half power used (-3dB)
+    svCNoL2 = svSNR_db + 10. * \
+        numpy.log10(powerDivider) - 3. - lpfFA_db[band2Index]
+
     _bit = signals.GPS.L1CA.getSymbolIndex(_svTime0_s)
     _c1 = signals.GPS.L1CA.getCodeChipIndex(_svTime0_s)
     _c2 = signals.GPS.L2C.getCodeChipIndex(_svTime0_s)
     _d1 = signals.GPS.L1CA.calcDopplerShiftHz(_dist0_m, _speed_mps)
     _d2 = signals.GPS.L2C.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    svMeanPower = _sv.getAmplitude().computeMeanPower()
-    # SNR for a satellite. Depends on sampling rate.
-    if noiseVariance:
-      svSNR = svMeanPower / (4. * noiseVariance) * freqTimesTau
+
+    if isinstance(_sv, GPSSatellite):
+      _msg1 = _sv.getL1CAMessage()
+      _msg2 = _sv.getL2CMessage()
+      _l2ct = _sv.getL2CLCodeType()
+    elif isinstance(_sv, GLOSatellite):
+      _msg1 = _sv.getL1Message()
+      _msg2 = _sv.getL2Message()
+      _l2ct = "N/A"
     else:
-      svSNR = 1e6
-    svSNR_db = 10. * numpy.log10(svSNR)
-    # Filters lower the power according to their attenuation levels
-    l1FA_db = lpf[0].getPassBandAtt() if lpf[0] else 0.
-    l2FA_db = lpf[1].getPassBandAtt() if lpf[1] else 0.
-    # CNo for L1
-    svCNoL1 = svSNR_db + 10. * numpy.log10(1.023e6) - l1FA_db
-    # CNo for L2, half power used (-3dB)
-    svCNoL2 = svSNR_db + 10. * numpy.log10(1.023e6) - 3. - l2FA_db
+      raise ValueError("Unknown SV type")
 
     print "{} = {{".format(_svNo)
     print "  .amplitude:  {}".format(_amp)
     print "  .doppler:    {}".format(_sv.doppler)
-    print "  .l1_message: {}".format(_sv.getL1CAMessage())
-    print "  .l2_message: {}".format(_sv.getL2CMessage())
-    print "  .l2_cl_type: {}".format(_sv.getL2CLCodeType())
+    print "  .l1_message: {}".format(_msg1)
+    print "  .l2_message: {}".format(_msg2)
+    print "  .l2_cl_type: {}".format(_l2ct)
     print "  .SNR (dBHz): {}".format(svSNR_db)
     print "  .L1 CNo:     {}".format(svCNoL1)
     print "  .L2 CNo:     {}".format(svCNoL2)
