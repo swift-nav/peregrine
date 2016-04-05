@@ -16,6 +16,7 @@ functions related to object factory for satellite objects.
 """
 
 from peregrine.iqgen.bits.satellite_gps import GPSSatellite
+from peregrine.iqgen.bits.satellite_glo import GLOSatellite
 from peregrine.iqgen.bits.amplitude_factory import factoryObject as amplitudeOF
 from peregrine.iqgen.bits.doppler_factory import factoryObject as dopplerOF
 from peregrine.iqgen.bits.message_factory import factoryObject as messageOF
@@ -33,6 +34,8 @@ class ObjectFactory(object):
     t = type(obj)
     if t is GPSSatellite:
       return self.__GPSSatellite_ToMap(obj)
+    elif t is GLOSatellite:
+      return self.__GLOSatellite_ToMap(obj)
     else:
       raise ValueError("Invalid object type")
 
@@ -40,6 +43,8 @@ class ObjectFactory(object):
     t = data['type']
     if t == 'GPSSatellite':
       return self.__MapTo_GPSSatellite(data)
+    elif t == 'GLOSatellite':
+      return self.__MapTo_GLOSatellite(data)
     else:
       raise ValueError("Invalid object type")
 
@@ -53,6 +58,19 @@ class ObjectFactory(object):
             'l2cMessage': messageOF.toMapForm(obj.getL2CMessage()),
             'doppler': dopplerOF.toMapForm(obj.getDoppler()),
             'l2clCodeType': obj.getL2CLCodeType(),
+            'codeDopplerIgnored': obj.isCodeDopplerIgnored()
+            }
+    return data
+
+  def __GLOSatellite_ToMap(self, obj):
+    data = {'type': 'GLOSatellite',
+            'prn': obj.prn,
+            'amplitude': amplitudeOF.toMapForm(obj.getAmplitude()),
+            'l1Enabled': obj.isL1Enabled(),
+            'l2Enabled': obj.isL2Enabled(),
+            'l1Message': messageOF.toMapForm(obj.getL1Message()),
+            'l2Message': messageOF.toMapForm(obj.getL2Message()),
+            'doppler': dopplerOF.toMapForm(obj.getDoppler()),
             'codeDopplerIgnored': obj.isCodeDopplerIgnored()
             }
     return data
@@ -75,6 +93,25 @@ class ObjectFactory(object):
     satellite.setL1CAMessage(l1caMessage)
     satellite.setL2CMessage(l2cMessage)
     satellite.setL2CLCodeType(clCodeType)
+    satellite.setCodeDopplerIgnored(codeDopplerIgnored)
+    return satellite
+
+  def __MapTo_GLOSatellite(self, data):
+    prn = data['prn']
+    doppler = dopplerOF.fromMapForm(data['doppler'])
+    amplitude = amplitudeOF.fromMapForm(data['amplitude'])
+    l1caEnabled = data['l1Enabled']
+    l2cEnabled = data['l2Enabled']
+    l1caMessage = messageOF.fromMapForm(data['l1Message'])
+    l2cMessage = messageOF.fromMapForm(data['l2Message'])
+    codeDopplerIgnored = data['codeDopplerIgnored']
+    satellite = GLOSatellite(prn)
+    satellite.setAmplitude(amplitude)
+    satellite.setDoppler(doppler)
+    satellite.setL1Enabled(l1caEnabled)
+    satellite.setL2Enabled(l2cEnabled)
+    satellite.setL1Message(l1caMessage)
+    satellite.setL2Message(l2cMessage)
     satellite.setCodeDopplerIgnored(codeDopplerIgnored)
     return satellite
 
