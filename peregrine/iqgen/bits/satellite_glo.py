@@ -102,6 +102,7 @@ class GLOSatellite(Satellite):
       Message object that will provide symbols for L1 C/A signal.
     '''
     self.l1Message = message
+    self.l2Message = message
 
   def setL2Message(self, message):
     '''
@@ -112,7 +113,7 @@ class GLOSatellite(Satellite):
     message : object
       Message object that will provide symbols for L2 C signal.
     '''
-    self.l2Message = message
+    pass
 
   def getL1Message(self):
     '''
@@ -134,7 +135,7 @@ class GLOSatellite(Satellite):
     object
       L2 C message object
     '''
-    return self.l2Message
+    return self.l1Message
 
   def getBatchSignals(self, userTimeAll_s, samples, outputConfig, debug):
     '''

@@ -57,6 +57,7 @@ from peregrine.iqgen.bits.message_zeroone import Message as ZeroOneMessage
 from peregrine.iqgen.bits.message_block import Message as BlockMessage
 from peregrine.iqgen.bits.message_cnav import Message as CNavMessage
 from peregrine.iqgen.bits.message_lnav import Message as LNavMessage
+from peregrine.iqgen.bits.message_glo import Message as GLOMessage
 
 # PRN code generators
 from peregrine.iqgen.bits.prn_gps_l1ca import PrnCode as GPS_L1CA_Code
@@ -362,6 +363,9 @@ def prepareArgsParser():
         if isinstance(sv, GPSSatellite):
           messageL1 = LNavMessage(sv.prn)
           messageL2 = CNavMessage(sv.prn)
+        elif isinstance(sv, GLOSatellite):
+          messageL1 = GLOMessage(sv.prn)
+          messageL2 = GLOMessage(sv.prn)
         else:
           raise ValueError(
               "Message type is not supported for a satellite type")
