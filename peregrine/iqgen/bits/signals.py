@@ -36,7 +36,7 @@ def _calcDopplerShiftHz(frequency_hz, distance_m, velocity_mps):
   float
     Doppler shift in hertz
   '''
-  doppler_hz = -velocity_mps * frequency_hz / scipy.constants.c
+  doppler_hz = -float(velocity_mps) * float(frequency_hz) / scipy.constants.c
   return doppler_hz
 
 
@@ -50,7 +50,7 @@ class GPS:
     GPS L1 C/A parameters and utilities.
     '''
     SYMBOL_RATE_HZ = 50
-    CENTER_FREQUENCY_HZ = 1575.42e6
+    CENTER_FREQUENCY_HZ = 1575420000
     CODE_CHIP_RATE_HZ = 1023000
     CHIP_TO_SYMBOL_DIVIDER = 20460
 
@@ -114,7 +114,7 @@ class GPS:
     '''
 
     SYMBOL_RATE_HZ = 50
-    CENTER_FREQUENCY_HZ = 1227.60e6
+    CENTER_FREQUENCY_HZ = 1227600000
     CODE_CHIP_RATE_HZ = 1023000
     CHIP_TO_SYMBOL_DIVIDER = 20460
 
@@ -183,7 +183,106 @@ GLONASS_L2_FREQUENCY_STEP_HZ = 437500
 # GLONASS L1 and L2 common
 GLONASS_SYMBOL_RATE_HZ = 100
 GLONASS_CODE_CHIP_RATE_HZ = 511000
-GLONASS_CHIP_TO_SYMBOL_DIVIDER = 5110
+GLONASS_CHIP_TO_SYMBOL_DIVIDER = 5110  # 10 ms * 511
+
+
+class __GLONASS_L1L2Base(object):
+  '''
+  GLONASS L1/L2 frequency object for a single sub-band
+
+  Attributes
+  ----------
+  SUB_BAND
+    Sub-band index in the range [-7, 6]
+  SYMBOL_RATE_HZ
+    Symbol rate for GLONASS L1/L2
+  CENTER_FREQUENCY_HZ
+    Center frequency for GLONASS L1 or L2 sub-band
+  CODE_CHIP_RATE_HZ
+    Code chip rate in Hz
+  CHIP_TO_SYMBOL_DIVIDER
+    Divider for converting chips to symbols
+  '''
+
+  def __init__(self, subBand, centerFrequencyHz):
+    assert subBand >= -7 and subBand < 7
+
+    self.SUB_BAND = subBand
+    self.SYMBOL_RATE_HZ = GLONASS_SYMBOL_RATE_HZ
+    self.CENTER_FREQUENCY_HZ = centerFrequencyHz
+    self.CODE_CHIP_RATE_HZ = GLONASS_CODE_CHIP_RATE_HZ
+    self.CHIP_TO_SYMBOL_DIVIDER = GLONASS_CHIP_TO_SYMBOL_DIVIDER
+
+  def calcDopplerShiftHz(self, distance_m, velocity_mps):
+    '''
+    Converts relative speed into doppler value for GPS L1 or L2 band.
+
+    Parameters
+    ----------
+    distance_m : float
+      Distance in meters
+    velocity_mps : float
+      Relative speed in meters per second.
+
+    Returns
+    -------
+    float
+      Doppler shift in Hz.
+    '''
+    return _calcDopplerShiftHz(self.CENTER_FREQUENCY_HZ,
+                               distance_m, velocity_mps)
+
+
+class _GLONASS_L1(__GLONASS_L1L2Base):
+  '''
+  GLONASS L1 frequency object for a single sub-band
+
+  Attributes
+  ----------
+  SUB_BAND
+    Sub-band index in the range [-7, 6]
+  SYMBOL_RATE_HZ
+    Symbol rate for GLONASS L1
+  CENTER_FREQUENCY_HZ
+    Center frequency for GLONASS L1 sub-band
+  CODE_CHIP_RATE_HZ
+    Code chip rate in Hz
+  CHIP_TO_SYMBOL_DIVIDER
+    Divider for converting chips to symbols
+  '''
+
+  def __init__(self, subBand):
+    assert subBand >= -7 and subBand < 7
+
+    super(_GLONASS_L1, self).__init__(
+        subBand,
+        GLONASS_L1_CENTER_FREQUENCY_HZ + subBand * GLONASS_L1_FREQUENCY_STEP_HZ)
+
+
+class _GLONASS_L2(__GLONASS_L1L2Base):
+  '''
+  GLONASS L2 frequency object for a single sub-band
+
+  Attributes
+  ----------
+  SUB_BAND
+    Sub-band index in the range [-7, 6]
+  SYMBOL_RATE_HZ
+    Symbol rate for GLONASS L2
+  CENTER_FREQUENCY_HZ
+    Center frequency for GLONASS L2 sub-band
+  CODE_CHIP_RATE_HZ
+    Code chip rate in Hz
+  CHIP_TO_SYMBOL_DIVIDER
+    Divider for converting chips to symbols
+  '''
+
+  def __init__(self, subBand):
+    assert subBand >= -7 and subBand < 7
+
+    super(_GLONASS_L2, self).__init__(
+        subBand,
+        GLONASS_L2_CENTER_FREQUENCY_HZ + subBand * GLONASS_L2_FREQUENCY_STEP_HZ)
 
 
 class GLONASS:
@@ -227,7 +326,7 @@ class GLONASS:
     long
       Symbol index
     '''
-    return long(float(svTime_s) * float(GLONASS.SYMBOL_RATE_HZ))
+    return long(float(svTime_s) * float(GLONASS_SYMBOL_RATE_HZ))
 
   @staticmethod
   def getCodeChipIndex(svTime_s):
@@ -244,101 +343,9 @@ class GLONASS:
     long
       Code chip index
     '''
-    return long(float(svTime_s) * float(GLONASS.CODE_CHIP_RATE_HZ))
+    return long(float(svTime_s) * float(GLONASS_CODE_CHIP_RATE_HZ))
 
-  class _L1:
-    '''
-    GLONASS L1 frequency object for a single sub-band
-
-    Attributes
-    ----------
-    SUB_BAND
-      Sub-band index in the range [-7, 6] 
-    SYMBOL_RATE_HZ
-      Symbol rate for GLONASS L1
-    CENTER_FREQUENCY_HZ
-      Center frequency for GLONASS L1 sub-band
-    CODE_CHIP_RATE_HZ
-      Code chip rate in Hz
-    CHIP_TO_SYMBOL_DIVIDER
-      Divider for converting chips to symbols
-    '''
-
-    def __init__(self, subBand):
-      assert subBand >= -7 and subBand < 7
-
-      self.SUB_BAND = subBand
-      self.SYMBOL_RATE_HZ = GLONASS_SYMBOL_RATE_HZ
-      self.CENTER_FREQUENCY_HZ = float(GLONASS_L1_CENTER_FREQUENCY_HZ +
-                                       subBand * GLONASS_L1_FREQUENCY_STEP_HZ)
-      self.CODE_CHIP_RATE_HZ = GLONASS_CODE_CHIP_RATE_HZ
-      self.CHIP_TO_SYMBOL_DIVIDER = GLONASS_CHIP_TO_SYMBOL_DIVIDER
-
-    def calcDopplerShiftHz(self, distance_m, velocity_mps):
-      '''
-      Converts relative speed into doppler value for GPS L2 C band.
-
-      Parameters
-      ----------
-      distance_m : float
-        Distance in meters
-      velocity_mps : float
-        Relative speed in meters per second.
-
-      Returns
-      -------
-      float
-        Doppler shift in Hz.
-      '''
-      return _calcDopplerShiftHz(self.CENTER_FREQUENCY_HZ,
-                                 distance_m, velocity_mps)
-
-  class _L2:
-    '''
-    GLONASS L2 frequency object for a single sub-band
-
-    Attributes
-    ----------
-    SUB_BAND
-      Sub-band index in the range [-7, 6] 
-    SYMBOL_RATE_HZ
-      Symbol rate for GLONASS L2
-    CENTER_FREQUENCY_HZ
-      Center frequency for GLONASS L2 sub-band
-    CODE_CHIP_RATE_HZ
-      Code chip rate in Hz
-    CHIP_TO_SYMBOL_DIVIDER
-      Divider for converting chips to symbols
-    '''
-
-    def __init__(self, subBand):
-      assert subBand >= -7 and subBand < 7
-
-      self.SUB_BAND = subBand
-      self.SYMBOL_RATE_HZ = GLONASS_SYMBOL_RATE_HZ
-      self.CENTER_FREQUENCY_HZ = float(GLONASS_L2_CENTER_FREQUENCY_HZ +
-                                       subBand * GLONASS_L2_FREQUENCY_STEP_HZ)
-      self.CODE_CHIP_RATE_HZ = GLONASS_CODE_CHIP_RATE_HZ
-      self.CHIP_TO_SYMBOL_DIVIDER = GLONASS_CHIP_TO_SYMBOL_DIVIDER
-
-    def calcDopplerShiftHz(self, distance_m, velocity_mps):
-      '''
-      Converts relative speed into doppler value for GPS L2 C band.
-
-      Parameters
-      ----------
-      distance_m : float
-        Distance in meters
-      velocity_mps : float
-        Relative speed in meters per second.
-
-      Returns
-      -------
-      float
-        Doppler shift in Hz.
-      '''
-      return _calcDopplerShiftHz(self.CENTER_FREQUENCY_HZ,
-                                 distance_m, velocity_mps)
-
-  L1S = [_L1(b) for b in range(7)] + [_L1(b) for b in range(-7, 0)]
-  L2S = [_L2(b) for b in range(7)] + [_L2(b) for b in range(-7, 0)]
+  L1S = tuple([_GLONASS_L1(b) for b in range(7)] +
+              [_GLONASS_L1(b) for b in range(-7, 0)])
+  L2S = tuple([_GLONASS_L2(b) for b in range(7)] +
+              [_GLONASS_L2(b) for b in range(-7, 0)])
