@@ -212,8 +212,8 @@ class Message(object):
                    (self.prn, self.nextMsgId))
       glo_msg = self.generateGloMessage()
       # First 170 symbols are 85 bits of message
-      # Meander sequence goes here
-      newMessageData[i:i + 85 * 2:2] = glo_msg
+      # Meander sequence: as per ICD, each data bit is added to 1/0 sequence
+      newMessageData[i:i + 85 * 2:2] = glo_msg ^ 1
       newMessageData[i + 1:i + 85 * 2:2] = glo_msg
       # Last 30 symbols is the time mark
       newMessageData[i + 170:i + 200] = _TIME_MARK
