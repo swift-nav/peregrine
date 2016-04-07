@@ -8,16 +8,25 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-acqThreshold         = 21.0  # SNR (unitless)
-acqSanityCheck       = True  # Check for sats known to be below the horizon
-navSanityMaxResid    = 25.0  # meters per SV, normalized nav residuals
-abortIfInsane        = True  # Abort the whole attempt if sanity check fails
-useCache             = True
-cacheDir             = 'cache'
-ephemMaxAge          = 4 * 3600.0 # Reject an ephemeris entry if older than this
+acqThreshold = 21.0  # SNR (unitless)
+acqSanityCheck = True  # Check for sats known to be below the horizon
+navSanityMaxResid = 25.0  # meters per SV, normalized nav residuals
+abortIfInsane = True  # Abort the whole attempt if sanity check fails
+useCache = True
+cacheDir = 'cache'
+ephemMaxAge = 4 * 3600.0  # Reject an ephemeris entry if older than this
 
 # the size of the sample data block processed at a time
-processing_block_size = int(20e6) # [samples]
+processing_block_size = int(20e6)  # [samples]
+
+# used to simulate real HW
+# [0..10230]
+l2c_short_step_chips = 500  # used to simulate real HW
+
+chipping_rate = 1.023e6  # Hz
+code_length = 1023  # chips
+
+code_period = code_length / chipping_rate
 
 # original
 sample_channel_GPS_L1 = 0
