@@ -15,9 +15,12 @@ class initSettings:
     self.skipNumberOfBytes    = 0                       # Skip bytes in sample file before loading samples for acquisition (bytes)
     self.L1_IF                = freq_profile['GPS_L1_IF']   # L1 intermediate frequency of signal in sample file (Hz)
     self.L2_IF                = freq_profile['GPS_L2_IF']   # L2 intermediate frequency of signal in sample file (Hz)
+    self.GLO_L1_IF            = freq_profile['GLO_L1_IF']   # GLO L1 intermediate frequency of signal in sample file (Hz)
     self.samplingFreq         = freq_profile['sampling_freq'] # Sampling frequency of sample file (Hz)
     self.codeFreqBasis        = defaults.chipping_rate  # Frequency of chipping code (Hz)
     self.codeLength           = defaults.code_length    # Length of chipping code (chips)
+    self.gloCodeFreqBasis     = defaults.glo_chipping_rate  # GLO frequency of chipping code (Hz)
+    self.gloCodeLength        = defaults.glo_code_length    # GLO length of chipping code (chips)
     self.acqThreshold         = 21.0                    # SNR (unitless)
     self.acqSanityCheck       = True                    # Check for sats known to be below the horizon
     self.navSanityMaxResid    = 25.0                    # meters per SV, normalized nav residuals

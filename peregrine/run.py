@@ -17,13 +17,15 @@ import numpy as np
 from operator import attrgetter
 
 from peregrine.samples import load_samples
-from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
+from peregrine.acquisition import Acquisition, load_acq_results,\
+                                  save_acq_results
 from peregrine.navigation import navigation
 import peregrine.tracking as tracking
 from peregrine.log import default_logging_config
 from peregrine import defaults
 from peregrine.initSettings import initSettings
-from peregrine.gps_constants import L1CA, L2C
+from peregrine.gps_constants import L1CA, L2C, GLO_L1
+
 
 def unpickle_iter(filenames):
   try:
@@ -39,12 +41,16 @@ def unpickle_iter(filenames):
     for fh in f:
       fh.close()
 
+
 def main():
   default_logging_config()
 
   parser = argparse.ArgumentParser()
   parser.add_argument("file",
                       help="the sample data file to process")
+  parser.add_argument("--skip-glonass",
+                      help="skip glonass",
+                      action="store_true")
   parser.add_argument("-a", "--skip-acquisition",
                       help="use previously saved acquisition results",
                       action="store_true")
@@ -139,8 +145,13 @@ def main():
   samplesPerCode = int(round(settings.samplingFreq /
                              (settings.codeFreqBasis / settings.codeLength)))
 
+  gloSamplesPerCode = int(round(settings.samplingFreq /
+                                 (settings.gloCodeFreqBasis /
+                                  settings.gloCodeLength)))
+
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
              L2C: {'IF': freq_profile['GPS_L2_IF']},
+             GLO_L1: {'IF': freq_profile['GLO_L1_IF']},
              'samples_total': -1,
              'sample_index': settings.skipNumberOfBytes}
 
@@ -157,7 +168,7 @@ def main():
   else:
     # Get 11ms of acquisition samples for fine frequency estimation
     load_samples(samples=samples,
-                 num_samples=11 * samplesPerCode,
+                 num_samples=11 * max(samplesPerCode, gloSamplesPerCode),
                  filename=args.file,
                  file_format=args.file_format)
 
@@ -166,6 +177,16 @@ def main():
                       freq_profile['GPS_L1_IF'],
                       defaults.code_period * freq_profile['sampling_freq'])
     acq_results = acq.acquisition(progress_bar_output=args.progress_bar)
+
+    if not args.skip_glonass:
+      acq = Acquisition(samples[GLO_L1]['samples'],
+                        freq_profile['sampling_freq'],
+                        freq_profile['GLO_L1_IF'],
+                        defaults.glo_code_period *
+                          freq_profile['sampling_freq'],
+                        code_length=settings.gloCodeLength)
+      acq_results = acq.acquisition(bandcode=GLO_L1,
+                                     progress_bar_output=args.progress_bar)
 
     print "Acquisition is over!"
 
@@ -247,7 +268,8 @@ def main():
             nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
         with open(nav_results_file, 'wb') as f:
           cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-        print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
+        print "and %d more are cPickled in '%s'." % (len(nav_results) - 1,
+                                                     nav_results_file)
       else:
         print "No navigation results."
 

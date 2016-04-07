@@ -11,12 +11,17 @@
 ms_to_track = 37 * 1e3
 skip_samples = 1000
 file_format = 'piksi'
-processing_block_size = 20e6 # [samples]
+processing_block_size = 20e6  # [samples]
 
 chipping_rate = 1.023e6  # Hz
 code_length = 1023  # chips
 
 code_period = code_length / chipping_rate
+
+glo_chipping_rate = 0.511e6  # Hz
+glo_code_length = 511  # chips
+
+glo_code_period = glo_code_length / glo_chipping_rate
 
 # original
 sample_channel_GPS_L1 = 0
@@ -80,12 +85,14 @@ freq_profile_low_rate = {
 freq_profile_normal_rate = {
     'GPS_L1_IF': 14.58e6,
     'GPS_L2_IF': 7.4e6,
+    'GLO_L1_IF': 12e6,
     'sampling_freq': 24.84375e6}
 
-# 'normal_rate' frequencies profile
+# 'high_rate' frequencies profile
 freq_profile_high_rate = {
     'GPS_L1_IF': freq_profile_normal_rate['GPS_L1_IF'],
     'GPS_L2_IF': freq_profile_normal_rate['GPS_L2_IF'],
+    'GLO_L1_IF': freq_profile_normal_rate['GLO_L1_IF'],
     'sampling_freq': 99.375e6}
 
 L1CA_CHANNEL_BANDWIDTH_HZ = 1000
