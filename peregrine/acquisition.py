@@ -13,6 +13,7 @@ to satellite acquisition.
 
 """
 
+import sys
 import numpy as np
 import pyfftw
 import cPickle
@@ -76,12 +77,12 @@ class Acquisition:
 
   def __init__(self,
                samples,
-               sampling_freq=defaults.sampling_freq,
-               IF=defaults.IF,
-               samples_per_code=defaults.samples_per_code,
+               sampling_freq,
+               IF,
+               samples_per_code,
                code_length=defaults.code_length,
                n_codes_integrate=4,
-               offsets = None,
+               offsets=None,
                wisdom_file=DEFAULT_WISDOM_FILE):
 
     self.sampling_freq = sampling_freq
@@ -95,11 +96,11 @@ class Acquisition:
       if n_codes_integrate <= 10:
         offsets = [0, self.n_integrate]
       elif n_codes_integrate <= 13:
-        offsets = [0, 2*(n_codes_integrate - 10)*self.samples_per_code,
+        offsets = [0, 2 * (n_codes_integrate - 10) * self.samples_per_code,
                    self.n_integrate]
       elif n_codes_integrate <= 15:
         offsets = [0, (n_codes_integrate - 10) * self.samples_per_code,
-                   2*(n_codes_integrate - 10) * self.samples_per_code,
+                   2 * (n_codes_integrate - 10) * self.samples_per_code,
                    self.n_integrate]
       else:
         raise ValueError("Integration interval too long to guess nav-declobber "
@@ -129,9 +130,9 @@ class Acquisition:
 
     # Allocate aligned arrays for the inverse FFT.
     self.corr_ft = pyfftw.n_byte_align_empty((self.n_integrate), 16,
-                                              dtype=np.complex128)
+                                             dtype=np.complex128)
     self.corr = pyfftw.n_byte_align_empty((self.n_integrate), 16,
-                                           dtype=np.complex128)
+                                          dtype=np.complex128)
 
     # Setup FFTW transforms for inverse FFT.
     self.corr_ifft = pyfftw.FFTW(self.corr_ft, self.corr,
@@ -226,13 +227,13 @@ class Acquisition:
     """
     if interpolation == 'parabolic':
       # Parabolic interpolation.
-      return 0.5 * (S_2 - S_0) / (2*S_1 - S_0 - S_2)
+      return 0.5 * (S_2 - S_0) / (2 * S_1 - S_0 - S_2)
     elif interpolation == 'gaussian':
       # Gaussian interpolation.
       ln_S_0 = np.log(S_0)
       ln_S_1 = np.log(S_1)
       ln_S_2 = np.log(S_2)
-      return 0.5 * (ln_S_2 - ln_S_0) / (2*ln_S_1 - ln_S_0 - ln_S_2)
+      return 0.5 * (ln_S_2 - ln_S_0) / (2 * ln_S_1 - ln_S_0 - ln_S_2)
     elif interpolation == 'none':
       return 0
     else:
@@ -270,8 +271,9 @@ class Acquisition:
 
     # Upsample the code to our sampling frequency.
     code_indices = np.arange(1.0, self.n_integrate + 1.0) / \
-                    self.samples_per_chip
-    code_indices = np.remainder(np.asarray(code_indices, np.int), self.code_length)
+        self.samples_per_chip
+    code_indices = np.remainder(
+        np.asarray(code_indices, np.int), self.code_length)
     self.code[:] = code[code_indices]
 
     # Find the conjugate Fourier transform of the code which will be used to
@@ -288,7 +290,7 @@ class Acquisition:
       # Shift the signal in the frequency domain to remove the carrier
       # i.e. mix down to baseband.
       shift = int((float(freq) * len(self.short_samples_ft[0]) /
-                  self.sampling_freq) + 0.5)
+                   self.sampling_freq) + 0.5)
 
       # Search over the possible nav bit offset intervals
       for offset_i in range(len(self.offsets)):
@@ -306,7 +308,6 @@ class Acquisition:
     # Choose the nav-bit-declobber sample interval with the best correlation
     max_indices = np.unravel_index(results.argmax(), results.shape)
     return results[max_indices[0]]
-
 
   def find_peak(self, freqs, results, interpolation='gaussian'):
     """
@@ -338,17 +339,19 @@ class Acquisition:
     freq_index, cp_samples = np.unravel_index(results.argmax(),
                                               results.shape)
 
-    if freq_index > 1 and freq_index < len(freqs)-1:
+    if freq_index > 1 and freq_index < len(freqs) - 1:
       delta = self.interpolate(
-        results[freq_index-1][cp_samples],
-        results[freq_index][cp_samples],
-        results[freq_index+1][cp_samples],
-        interpolation
+          results[freq_index - 1][cp_samples],
+          results[freq_index][cp_samples],
+          results[freq_index + 1][cp_samples],
+          interpolation
       )
       if delta > 0:
-        freq = freqs[freq_index] + (freqs[freq_index+1] - freqs[freq_index]) * delta
+        freq = freqs[freq_index] + \
+            (freqs[freq_index + 1] - freqs[freq_index]) * delta
       else:
-        freq = freqs[freq_index] - (freqs[freq_index-1] - freqs[freq_index]) * delta
+        freq = freqs[freq_index] - \
+            (freqs[freq_index - 1] - freqs[freq_index]) * delta
     else:
       freq = freqs[freq_index]
 
@@ -361,13 +364,13 @@ class Acquisition:
 
   def acquisition(self,
                   prns=range(32),
-                  doppler_priors = None,
-                  doppler_search = 7000,
-                  doppler_step = None,
+                  doppler_priors=None,
+                  doppler_search=7000,
+                  doppler_step=None,
                   threshold=DEFAULT_THRESHOLD,
-                  show_progress=True,
+                  progress_bar_output='none',
                   multi=True
-  ):
+                  ):
     """
     Perform an acquisition for a given list of PRNs.
 
@@ -421,6 +424,15 @@ class Acquisition:
     if doppler_priors is None:
       doppler_priors = np.zeros_like(prns)
 
+    if progress_bar_output == 'stdout':
+      show_progress = True
+      progress_fd = sys.stdout
+    elif progress_bar_output == 'stderr':
+      show_progress = True
+      progress_fd = sys.stderr
+    else:
+      show_progress = False
+      progress_fd = -1
 
     # If progressbar is not available, disable show_progress.
     if show_progress and not _progressbar_available:
@@ -436,7 +448,8 @@ class Acquisition:
                  progressbar.Bar()]
       pbar = progressbar.ProgressBar(widgets=widgets,
                                      maxval=int(len(prns) *
-                                     (2 * doppler_search / doppler_step + 1)))
+                                                (2 * doppler_search / doppler_step + 1)),
+                                     fd=progress_fd)
       pbar.start()
     else:
       pbar = None
@@ -448,16 +461,15 @@ class Acquisition:
                         doppler_prior + doppler_search, doppler_step) + self.IF
       if pbar:
         def progress_callback(freq_num, num_freqs):
-          pbar.update(n*len(freqs) + freq_num, attr={'prn': prn + 1})
+          pbar.update(n * len(freqs) + freq_num, attr={'prn': prn + 1})
       else:
         progress_callback = None
 
       coarse_results = self.acquire(caCodes[prn], freqs,
                                     progress_callback=progress_callback)
 
-
       code_phase, carr_freq, snr = self.find_peak(freqs, coarse_results,
-                                                  interpolation = 'gaussian')
+                                                  interpolation='gaussian')
 
       # If the result is above the threshold, then we have acquired the
       # satellite.
@@ -471,7 +483,8 @@ class Acquisition:
                                      carr_freq - self.IF,
                                      code_phase,
                                      snr,
-                                     status)
+                                     status,
+                                     'l1ca')
 
       # If the acquisition was successful, log it
       if (snr > threshold):
@@ -480,7 +493,8 @@ class Acquisition:
       return acq_result
 
     if multi:
-      acq_results = parmap(do_acq, range(len(prns)), show_progress=show_progress)
+      acq_results = parmap(
+          do_acq, range(len(prns)), show_progress=show_progress)
     else:
       acq_results = map(do_acq, range(len(prns)))
 
@@ -506,7 +520,8 @@ class Acquisition:
   def save_wisdom(self, wisdom_file=DEFAULT_WISDOM_FILE):
     """Save FFTW wisdom to file."""
     with open(wisdom_file, 'wb') as f:
-      cPickle.dump(pyfftw.export_wisdom(), f, protocol=cPickle.HIGHEST_PROTOCOL)
+      cPickle.dump(
+          pyfftw.export_wisdom(), f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 class AcquisitionResult:
@@ -531,22 +546,30 @@ class AcquisitionResult:
       * `'A'` : The satellite has been successfully acquired.
       * `'-'` : The acquisition was not successful, the SNR was below the
                 acquisition threshold.
-
+  signal : {'l1ca', 'l2c'}
+    The type of the signal: L1C/A or L2C
+  sample_channel : IQ channel index
+  sample_index : Index of sample when acquisition succeeded
   """
 
-  __slots__ = ('prn', 'carr_freq', 'doppler', 'code_phase', 'snr', 'status')
+  __slots__ = ('prn', 'carr_freq', 'doppler',
+               'code_phase', 'snr', 'status', 'signal')
 
-  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status):
+  def __init__(self, prn, carr_freq, doppler, code_phase, snr, status, signal,
+               sample_index=0):
     self.prn = prn
     self.snr = snr
     self.carr_freq = carr_freq
     self.doppler = doppler
     self.code_phase = code_phase
     self.status = status
+    self.signal = signal
+    self.sample_index = sample_index
 
   def __str__(self):
-    return "PRN %2d SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
-        (self.prn + 1, self.snr, self.code_phase, self.doppler, self.status)
+    return "PRN %2d (%s) SNR %6.2f @ CP %6.1f, %+8.2f Hz %s" % \
+        (self.prn + 1, self.signal, self.snr, self.code_phase,
+         self.doppler, self.status)
 
   def __repr__(self):
     return "<AcquisitionResult %s>" % self.__str__()
@@ -570,7 +593,7 @@ class AcquisitionResult:
     ------
     out : bool
       True if the passed :class:`AcquisitionResult` object is identical.
-    
+
     """
     if set(self.__dict__.keys()) != set(other.__dict__.keys()):
       return False
@@ -583,6 +606,7 @@ class AcquisitionResult:
         return False
 
     return True
+
 
 def save_acq_results(filename, acq_results):
   """
@@ -598,6 +622,7 @@ def save_acq_results(filename, acq_results):
   """
   with open(filename, 'wb') as f:
     cPickle.dump(acq_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+
 
 def load_acq_results(filename):
   """
@@ -617,7 +642,8 @@ def load_acq_results(filename):
   with open(filename, 'rb') as f:
     return cPickle.load(f)
 
-def print_scores(acq_results, pred, pred_dopp = None):
+
+def print_scores(acq_results, pred, pred_dopp=None):
   if pred_dopp is None:
     pred_dopp = np.zeros_like(pred)
 
@@ -628,19 +654,19 @@ def print_scores(acq_results, pred, pred_dopp = None):
   sum_abs_dopp_err = 0
 
   for i, prn in enumerate(pred):
-      print "%2d\t%+6.0f" % (prn + 1, pred_dopp[i]),
-      if acq_results[i].status == 'A':
-          n_match += 1
-          dopp_err = acq_results[i].doppler - pred_dopp[i]
-          sum_dopp_err += dopp_err
-          sum_abs_dopp_err += abs(dopp_err)
-          if abs(dopp_err) > abs(worst_dopp_err):
-              worst_dopp_err = dopp_err
-          print "\t%+6.0f\t%+5.0f\t%5.1f" % (
-              acq_results[i].doppler, dopp_err, acq_results[i].snr)
-      else:
-          print
+    print "%2d\t%+6.0f" % (prn + 1, pred_dopp[i]),
+    if acq_results[i].status == 'A':
+      n_match += 1
+      dopp_err = acq_results[i].doppler - pred_dopp[i]
+      sum_dopp_err += dopp_err
+      sum_abs_dopp_err += abs(dopp_err)
+      if abs(dopp_err) > abs(worst_dopp_err):
+        worst_dopp_err = dopp_err
+      print "\t%+6.0f\t%+5.0f\t%5.1f" % (
+          acq_results[i].doppler, dopp_err, acq_results[i].snr)
+    else:
+      print
 
   print "Found %d of %d, mean doppler error = %+5.0f Hz, mean abs err = %4.0f Hz, worst = %+5.0f Hz"\
         % (n_match, len(pred),
-           sum_dopp_err/max(1, n_match), sum_abs_dopp_err/max(1, n_match), worst_dopp_err)
+           sum_dopp_err / max(1, n_match), sum_abs_dopp_err / max(1, n_match), worst_dopp_err)
