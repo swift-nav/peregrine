@@ -13,6 +13,10 @@ skip_samples = 1000
 file_format = 'piksi'
 processing_block_size = 20e6 # [samples]
 
+# used to simulate real HW
+# [0..10230]
+l2c_short_step_chips = 500 # used to simulate real HW
+
 chipping_rate = 1.023e6  # Hz
 code_length = 1023  # chips
 

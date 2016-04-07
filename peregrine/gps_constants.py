@@ -13,6 +13,7 @@ omegae_dot = 7.2921151467e-005 # rad/s (WGS84 earth rotation rate)
 l1 = 1.57542e9 # Hz
 l2 = 1.22760e9 # Hz
 chips_per_code = 1023
+l2_cm_chips_per_code = 10230
 chip_rate = 1.023e6 # Hz
 nominal_range = 26000e3 # m
 
