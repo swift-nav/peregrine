@@ -136,15 +136,15 @@ class NormalRateConfig(object):
 
     class L1(object):
       INTERMEDIATE_FREQUENCIES_HZ = \
-          [float(12000000 + b * 562500) for b in range(7)] + \
-          [float(12000000 + b * 562500) for b in range(-7, 0)]
-      INDEX = 1
+          [float(12000000l + b * 562500l) for b in range(7)] + \
+          [float(12000000l + b * 562500l) for b in range(-7, 0)]
+      INDEX = 2
 
     class L2(object):
       INTERMEDIATE_FREQUENCIES_HZ = \
-          [float(11000000 + b * 437500) for b in range(7)] + \
-          [float(11000000 + b * 437500) for b in range(-7, 0)]
-      INDEX = 2
+          [float(11000000l + b * 437500l) for b in range(7)] + \
+          [float(11000000l + b * 437500l) for b in range(-7, 0)]
+      INDEX = 3
 
   class Galileo(object):
 
