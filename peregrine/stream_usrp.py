@@ -10,7 +10,6 @@ from gnuradio import analog
 from gnuradio import blocks
 from gnuradio import gr
 from gnuradio import uhd
-from gnuradio import gru
 import time
 import argparse
 import sys
@@ -24,6 +23,7 @@ class streamer(gr.top_block):
     gr.top_block.__init__(self)
     if mix:
       raise NotImplementedError("TODO: Hilbert remix mode not implemented.")
+
     if dual:
       channels = [0, 1]
     else:
@@ -58,6 +58,7 @@ class streamer(gr.top_block):
       if noise or onebit or not iq:
         raise NotImplementedError("TODO: RX channel-interleaved mode only "
                       "supported for noiseless 8-bit complex.")
+
       BLOCK_N = 16*1024*1024
       demux = blocks.vector_to_streams(2, len(uhd_sinks))
       self.connect(blocks.file_source(2*len(uhd_sinks)*BLOCK_N, filenames[0], False),
@@ -131,23 +132,49 @@ class streamer(gr.top_block):
       # No external PPS/10 MHz.  Just set each clock and accept some skew.
       t = time.time()
       [sink.set_time_now(uhd.time_spec(time.time())) for sink in uhd_sinks]
-      if len(uhd_sinks) > 1 or dual:
+      if len(uhd_sinks) > 1:
         print "Uncabled; loosely synced only. Initial skew ~ %.1f ms" % (
           (time.time()-t) * 1000)
 
     t_start = uhd.time_spec(time.time() + 1.5)
     [sink.set_start_time(t_start) for sink in uhd_sinks]
     print "ready"
-    # setup message handler
-    self.async_msgq = gr.msg_queue(0)
-    self.async_src = uhd.amsg_source("", self.async_msgq)
-    self.async_rcv = gru.msgq_runner(self.async_msgq, self.async_callback)
 
-  def async_callback(self, msg):
-    md = self.async_src.msg_to_async_metadata_t(msg)
-    print "Channel: %i Time: %f Event: %i" % (md.channel, md.time_spec.get_real_secs(), md.event_code)
-    self.error_code= md.event_code
-    self.stop()
+# This function should behave exactly as MAIN, except it errors out
+# as soon as any of the USRP errors are encountered.  It should be run in
+# a fashion like this:
+# PYTHONPATH=. python -c "import peregrine.stream_usrp; peregrine.stream_usrp.main_capture_errors()"
+# ... -1 -u name=MyB210 -d -g30 peregrine/sample_2015_09_11_18-47-11.1bit peregrine/a
+
+def main_capture_errors():
+  args = sys.argv
+  args.pop(0)
+  args.insert(0,"peregrine/stream_usrp.py")
+  print args
+  proc = subprocess.Popen(args,
+              stderr=subprocess.PIPE)
+  out_str = ""
+  while proc.poll() == None:
+    errchar = proc.stderr.read(1)
+    if errchar == 'U':
+      print "Stream_usrp exiting due to Underflow at time {0}".format(str(datetime.datetime.now()))
+      proc.kill()
+      sys.exit(2)
+    if errchar == 'L':
+      print "Stream_usrp exiting due to Undeflow at time {0}".format(str(dateime.datetime.now()))
+      proc.kill()
+      sys.exit(3)
+    if errchar == "\n":
+      sys.stderr.write(out_str)
+      out_str = ""
+    else:
+      out_str += errchar
+  # Sleep for a second before exiting if it's not one of the cases we handle specially
+  time.sleep(1)
+  out_str += proc.stderr.read()
+  if out_str != "":
+    sys.stderr.write(out_str)
+  return proc.returncode
 
 def main():
   if gr.enable_realtime_scheduling() != gr.RT_OK:
@@ -179,7 +206,7 @@ def main():
             help="Center frequency (%(default).0f)")
   parser.add_argument("-d", dest="dual", action='store_true',
             help="Using dual USRP devices")
-  parser.add_argument("-o", dest="outfile", default=None,
+  parser.add_argument("-o", dest="outfile", default="out.txt",
             help="Route Python stdout/stderr to this file")
   args = parser.parse_args()
 
@@ -210,9 +237,7 @@ def main():
           sync_pps=args.pps)
   tb.start()
   tb.wait()
-  if args.outfile:
-    stdout.close()
-  sys.exit(tb.error_code)
+  stdout.close()
 if __name__ == '__main__':
   main()
 
