@@ -225,10 +225,20 @@ def prepareArgsParser():
       super(UpdateDopplerType, self).__init__(option_strings, dest, **kwargs)
 
     def doUpdate(self, sv, parser, namespace, values, option_string):
-      if sv.l1caEnabled:
-        frequency_hz = signals.GPS.L1CA.CENTER_FREQUENCY_HZ
-      elif sv.l2cEnabled:
-        frequency_hz = signals.GPS.L2C.CENTER_FREQUENCY_HZ
+      if isinstance(sv, GPSSatellite):
+        if sv.l1caEnabled:
+          frequency_hz = signals.GPS.L1CA.CENTER_FREQUENCY_HZ
+        elif sv.l2cEnabled:
+          frequency_hz = signals.GPS.L2C.CENTER_FREQUENCY_HZ
+        else:
+          raise ValueError("Signal band must be specified before doppler")
+      elif isinstance(sv, GLOSatellite):
+        if sv.isL1Enabled():
+          frequency_hz = signals.GLONASS.L1S[sv.prn].CENTER_FREQUENCY_HZ
+        elif sv.isL2Enabled():
+          frequency_hz = signals.GLONASS.L2S[sv.prn].CENTER_FREQUENCY_HZ
+        else:
+          raise ValueError("Signal band must be specified before doppler")
       else:
         raise ValueError("Signal band must be specified before doppler")
 
@@ -676,8 +686,8 @@ def main():
     enabledGLONASSL2 |= sv.isBandEnabled(outputConfig.GLONASS.L2.INDEX,
                                          outputConfig)
 
-  enabledGPS = enabledGPSL1 or enabledGPSL2
-  enabledGLONASS = enabledGLONASSL1 or enabledGLONASSL2
+  enabledGPS |= enabledGPSL1 or enabledGPSL2
+  enabledGLONASS |= enabledGLONASSL1 or enabledGLONASSL2
 
   # Configure data encoder
   if args.encoder == "1bit":

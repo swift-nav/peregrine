@@ -171,7 +171,7 @@ class FourBandsBitEncoder(Encoder):
     for band in range(4):
       bandIndex = self.bandIndexes[band]
       band_bits = BandBitEncoder.convertBand(sample_array[bandIndex])
-      self.bits[start + band:end:2] = band_bits
+      self.bits[start + band:end:4] = band_bits
 
     self.n_bits = end
 
