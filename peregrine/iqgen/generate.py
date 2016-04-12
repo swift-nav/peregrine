@@ -195,7 +195,7 @@ class Task(object):
     list[numpy.array] * outputConfig.N_GROUPS
       If the group delays are enabled, each element offsets initial time vector
       by an appropriate group delay, otherwise all entries point to original
-      time vector without modifications. 
+      time vector without modifications.
     '''
     if self.groupDelays:
       # In case of group delays the time vector shall be adjusted for each
@@ -481,7 +481,14 @@ def generateSamples(outputFile,
     Progress bar object
   '''
 
-  _t0 = time.clock()
+  #
+  # Print out parameters
+  #
+  logger.info(
+    "Generating samples, sample rate={} Hz, interval={} seconds".format(
+      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
+  logger.debug("Jobs: %d" % threadCount)
+
   _count = 0l
 
   # Check which bands are enabled, configure band-specific parameters
@@ -489,6 +496,7 @@ def generateSamples(outputFile,
            outputConfig.GPS.L2,
            outputConfig.GLONASS.L1,
            outputConfig.GLONASS.L2]  # Supported bands
+
   lpf = [None] * outputConfig.N_GROUPS
   lpfFA_db = [0.] * outputConfig.N_GROUPS  # Filter attenuation levels
   bandsEnabled = [False] * outputConfig.N_GROUPS
@@ -499,6 +507,7 @@ def generateSamples(outputFile,
   for band in bands:
     for sv in sv_list:
       bandsEnabled[band.INDEX] |= sv.isBandEnabled(band, outputConfig)
+
     sv = None
 
     filterObject = None
@@ -533,7 +542,8 @@ def generateSamples(outputFile,
     logger.info("SNR is not provided, noise is not generated.")
 
   # Print out parameters
-  logger.info("Generating samples, sample rate={} Hz, interval={} seconds".format(
+  logger.info(
+    "Generating samples, sample rate={} Hz, interval={} seconds".format(
       outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
   logger.debug("Jobs: %d" % threadCount)
   # Print out SV parameters

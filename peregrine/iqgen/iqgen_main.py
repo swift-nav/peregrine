@@ -519,7 +519,8 @@ def prepareArgsParser():
   amplitudeGrp.add_argument('--amplitude-type',
                             default="poly",
                             choices=["poly", "sine"],
-                            help="Configure amplitude type: polynomial or sine.",
+                            help=
+                              "Configure amplitude type: polynomial or sine.",
                             action=UpdateAmplitudeType)
   amplitudeGrp.add_argument('--amplitude-units',
                             default="snr-db",
@@ -609,7 +610,8 @@ def prepareArgsParser():
                        action=UpdateTcxoType)
   parser.add_argument('--group-delays',
                       type=bool,
-                      help="Enable/disable group delays simulation between bands")
+                      help=
+                        "Enable/disable group delays simulation between bands")
   parser.add_argument('--debug',
                       type=argparse.FileType('wb'),
                       help="Debug output file")
@@ -712,6 +714,8 @@ def main():
 
   enabledGPS |= enabledGPSL1 or enabledGPSL2
   enabledGLONASS |= enabledGLONASSL1 or enabledGLONASSL2
+
+  enabledGPS |= enabledGPSL1 or enabledGPSL2
 
   # Configure data encoder
   if args.encoder == "1bit":

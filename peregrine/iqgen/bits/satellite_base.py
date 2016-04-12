@@ -168,8 +168,8 @@ class Satellite(object):
     Parameters
     ----------
     flag : bool
-      Flag to control code doppler: True - to ignore code doppler, 
-      False - normal operation 
+      Flag to control code doppler: True - to ignore code doppler,
+      False - normal operation
 
     '''
     self.doppler.setCodeDopplerIgnored(flag)
