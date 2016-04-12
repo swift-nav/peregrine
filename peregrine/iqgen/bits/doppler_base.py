@@ -150,6 +150,7 @@ class DopplerBase(object):
   def computeBatch(self,
                    userTimeAll_s,
                    amplitude,
+                   noiseParams,
                    carrierSignal,
                    ifFrequency_hz,
                    message,
@@ -206,7 +207,7 @@ class DopplerBase(object):
     signal = scipy.cos(phaseAll)
 
     if amplitude:
-      amplitude.applyAmplitude(signal, userTimeAll_s)
+      amplitude.applyAmplitude(signal, userTimeAll_s, noiseParams)
 
     # PRN and data index computation
     codeChipRateHz = float(carrierSignal.CODE_CHIP_RATE_HZ)

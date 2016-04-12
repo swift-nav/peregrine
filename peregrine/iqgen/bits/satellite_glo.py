@@ -137,7 +137,7 @@ class GLOSatellite(Satellite):
     '''
     return self.l1Message
 
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, debug):
+  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, noiseParams, debug):
     '''
     Generates signal samples.
 
@@ -164,6 +164,7 @@ class GLOSatellite(Satellite):
       frequencyIndex = band.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
+                                         noiseParams,
                                          signals.GLONASS.L1S[self.prn],
                                          intermediateFrequency_hz,
                                          self.l1Message,
@@ -181,6 +182,7 @@ class GLOSatellite(Satellite):
       frequencyIndex = band.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
+                                         noiseParams,
                                          signals.GLONASS.L2S[self.prn],
                                          intermediateFrequency_hz,
                                          self.l2Message,

@@ -161,7 +161,7 @@ class Doppler(DopplerBase):
     speedPoly = self.speedPoly
     if speedPoly is not None:
       # Slower, but simple
-      c0 = -carrierSignal.CENTER_FREQUENCY_HZ / scipy.constants.c
+      c0 = -float(carrierSignal.CENTER_FREQUENCY_HZ) / scipy.constants.c
       doppler_hz = speedPoly(userTimeAll_s) * c0
     else:
       # No phase shift
@@ -193,11 +193,12 @@ def linearDoppler(distance0_m,
   Doppler
     object that implments constant acceleration logic.
   '''
-  speed0_mps = -scipy.constants.c / frequency_hz * doppler0_hz
-  accel_mps2 = -scipy.constants.c / frequency_hz * dopplerChange_hzps
+  speed0_mps = -scipy.constants.c / float(frequency_hz) * float(doppler0_hz)
+  accel_mps2 = -scipy.constants.c / \
+      float(frequency_hz) * float(dopplerChange_hzps)
 
-  return Doppler(distance0_m=distance0_m,
-                 tec_epm2=tec_epm2,
+  return Doppler(distance0_m=float(distance0_m),
+                 tec_epm2=float(tec_epm2),
                  coeffs=(accel_mps2, speed0_mps))
 
 
@@ -219,8 +220,10 @@ def constDoppler(distance0_m, tec_epm2, frequency_hz, doppler_hz):
   Doppler
     Object that implements constant speed logic.
   '''
-  speed_mps = -scipy.constants.c / frequency_hz * doppler_hz
-  return Doppler(distance0_m=distance0_m, tec_epm2=tec_epm2, coeffs=(speed_mps,))
+  speed_mps = -scipy.constants.c / float(frequency_hz) * float(doppler_hz)
+  return Doppler(distance0_m=float(distance0_m),
+                 tec_epm2=float(tec_epm2),
+                 coeffs=(speed_mps,))
 
 
 def zeroDoppler(distance_m, tec_epm2, frequency_hz):
@@ -243,4 +246,6 @@ def zeroDoppler(distance_m, tec_epm2, frequency_hz):
   Doppler
     object that implments constant acceleration logic.
   '''
-  return Doppler(distance0_m=distance_m, tec_epm2=tec_epm2, coeffs=())
+  return Doppler(distance0_m=float(distance_m),
+                 tec_epm2=float(tec_epm2),
+                 coeffs=())

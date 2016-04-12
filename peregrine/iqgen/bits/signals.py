@@ -232,6 +232,38 @@ class __GLONASS_L1L2Base(object):
     return _calcDopplerShiftHz(self.CENTER_FREQUENCY_HZ,
                                distance_m, velocity_mps)
 
+  def getSymbolIndex(self, svTime_s):
+    '''
+    Computes symbol index.
+
+    Parameters
+    ----------
+    svTime_s : float
+      SV time in seconds
+
+    Returns
+    -------
+    long
+      Symbol index
+    '''
+    return svTime_s * self.SYMBOL_RATE_HZ
+
+  def getCodeChipIndex(self, svTime_s):
+    '''
+    Computes code chip index.
+
+    Parameters
+    ----------
+    svTime_s : float
+      SV time in seconds
+
+    Returns
+    -------
+    long
+      Code chip index
+    '''
+    return svTime_s * self.CODE_CHIP_RATE_HZ
+
 
 class _GLONASS_L1(__GLONASS_L1L2Base):
   '''

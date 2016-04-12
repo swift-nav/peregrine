@@ -38,6 +38,7 @@ from peregrine.iqgen.bits.doppler_sine import sineDoppler
 # Amplitude objects
 from peregrine.iqgen.bits.amplitude_poly import AmplitudePoly
 from peregrine.iqgen.bits.amplitude_sine import AmplitudeSine
+from peregrine.iqgen.bits.amplitude_base import AmplitudeBase
 
 # TCXO objects
 from peregrine.iqgen.bits.tcxo_poly import TCXOPoly
@@ -87,6 +88,11 @@ from peregrine.iqgen.bits.satellite_factory import factoryObject as satelliteFO
 from peregrine.iqgen.bits.tcxo_factory import factoryObject as tcxoFO
 
 logger = logging.getLogger(__name__)
+
+AMP_MAP = {'amplitude': AmplitudeBase.UNITS_AMPLITUDE,
+           'power': AmplitudeBase.UNITS_POWER,
+           'snr': AmplitudeBase.UNITS_SNR,
+           'snr-db': AmplitudeBase.UNITS_SNR_DB}
 
 
 def computeTimeDelay(doppler, symbol_index, chip_index, signal, code):
@@ -169,6 +175,7 @@ def prepareArgsParser():
 
       # Amplitude parameters
       namespace.amplitude_type = "poly"
+      namespace.amplitude_unis = "snr-db"
       namespace.amplitude_a0 = None
       namespace.amplitude_a1 = None
       namespace.amplitude_a2 = None
@@ -280,6 +287,8 @@ def prepareArgsParser():
       super(UpdateAmplitudeType, self).__init__(option_strings, dest, **kwargs)
 
     def doUpdate(self, sv, parser, namespace, values, option_string):
+      amplitude_units = AMP_MAP[namespace.amplitude_units]
+
       if namespace.amplitude_type == "poly":
         coeffs = []
         hasHighOrder = False
@@ -292,7 +301,7 @@ def prepareArgsParser():
             hasHighOrder = True
           elif hasHighOrder:
             coeffs.append(0.)
-        amplitude = AmplitudePoly(tuple(coeffs))
+        amplitude = AmplitudePoly(amplitude_units, tuple(coeffs))
       elif namespace.amplitude_type == "sine":
         initial = 1.
         ampl = 0.5
@@ -304,7 +313,7 @@ def prepareArgsParser():
         if namespace.amplitude_period is not None:
           period_s = namespace.amplitude_period
 
-        amplitude = AmplitudeSine(initial, ampl, period_s)
+        amplitude = AmplitudeSine(amplitude_units, initial, ampl, period_s)
       else:
         raise ValueError("Unsupported amplitude type")
       sv.setAmplitude(amplitude)
@@ -422,7 +431,7 @@ def prepareArgsParser():
               'chip_delay': namespace.chip_delay,
               'symbol_delay': namespace.symbol_delay,
               'generate': namespace.generate,
-              'snr': namespace.snr,
+              'noise_sigma': namespace.noise_sigma,
               'filter_type': namespace.filter_type,
               'tcxo': tcxoFO.toMapForm(namespace.tcxo)
               }
@@ -442,7 +451,7 @@ def prepareArgsParser():
       namespace.chip_delay = loaded['chip_delay']
       namespace.symbol_delay = loaded['symbol_delay']
       namespace.generate = loaded['generate']
-      namespace.snr = loaded['snr']
+      namespace.noise_sigma = loaded['noise_sigma']
       namespace.filter_type = loaded['filter_type']
       namespace.tcxo = tcxoFO.fromMapForm(loaded['tcxo'])
       namespace.gps_sv = [
@@ -510,6 +519,12 @@ def prepareArgsParser():
                             choices=["poly", "sine"],
                             help="Configure amplitude type: polynomial or sine.",
                             action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-units',
+                            default="snr-db",
+                            choices=["snr-db", "snr", "amplitude", "power"],
+                            help="Configure amplitude units: SNR in dB; SNR;"
+                                 " amplitude; power.",
+                            action=UpdateAmplitudeType)
   amplitudeGrp.add_argument('--amplitude-a0',
                             type=float,
                             help="Amplitude coefficient (a0 for polynomial;"
@@ -557,9 +572,10 @@ def prepareArgsParser():
                       default='none',
                       choices=['none', 'lowpass', 'bandpass'],
                       help="Enable filter")
-  parser.add_argument('--snr',
+  parser.add_argument('--noise-sigma',
                       type=float,
-                      help="SNR for noise generation")
+                      default=1.,
+                      help="Noise sigma for noise generation")
   tcxoGrp = parser.add_argument_group("TCXO Control",
                                       "TCXO control parameters")
 
@@ -666,7 +682,7 @@ def main():
   print "  GPS L2 IF:      ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
   print "Other parameters:"
   print "  TCXO:           ", args.tcxo
-  print "  SNR:            ", args.snr
+  print "  noise sigma:    ", args.noise_sigma
   print "  tSatellites:    ", args.gps_sv
 
   # Check which signals are enabled on each of satellite to select proper
@@ -777,7 +793,7 @@ def main():
                   n_samples,
                   outputConfig,
                   tcxo=args.tcxo,
-                  SNR=args.snr,
+                  noiseSigma=args.noise_sigma,
                   filterType=args.filter_type,
                   logFile=args.debug,
                   threadCount=args.jobs,
