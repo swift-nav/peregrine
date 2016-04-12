@@ -21,6 +21,9 @@ class BandBitEncoder(Encoder):
   '''
   Base class for single bit encoding.
   '''
+  # Minimum is 1.96 dB. Can be up to 3.5 dB.
+  # See Global Positioning System: Theory and Applications
+  ATT_LVL_DB = 1.96
 
   def __init__(self, bandIndex):
     '''
@@ -31,7 +34,7 @@ class BandBitEncoder(Encoder):
     bandIndex : int
       Index of the band in the generated sample matrix.
     '''
-    super(BandBitEncoder, self).__init__()
+    super(BandBitEncoder, self).__init__(attDb=BandBitEncoder.ATT_LVL_DB)
     self.bandIndex = bandIndex
 
   def addSamples(self, sample_array):
@@ -96,7 +99,7 @@ class TwoBandsBitEncoder(Encoder):
     outputConfig : object
       Output parameters object.
     '''
-    super(TwoBandsBitEncoder, self).__init__()
+    super(TwoBandsBitEncoder, self).__init__(attDb=BandBitEncoder.ATT_LVL_DB)
     self.l1Index = band1
     self.l2Index = band2
 
@@ -146,7 +149,7 @@ class FourBandsBitEncoder(Encoder):
     outputConfig : object
       Output parameters object.
     '''
-    super(FourBandsBitEncoder, self).__init__()
+    super(FourBandsBitEncoder, self).__init__(attDb=BandBitEncoder.ATT_LVL_DB)
     self.bandIndexes = [band1, band2, band3, band4]
 
   def addSamples(self, sample_array):

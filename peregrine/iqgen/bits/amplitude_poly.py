@@ -24,7 +24,7 @@ class AmplitudePoly(AmplitudeBase):
   Amplitude control with polynomial dependency over time.
   '''
 
-  def __init__(self, coeffs):
+  def __init__(self, units, coeffs):
     '''
     Constructs polynomial amplitude control object.
 
@@ -32,7 +32,7 @@ class AmplitudePoly(AmplitudeBase):
     coeffs : array-like
       Polynomial coefficients
     '''
-    super(AmplitudePoly, self).__init__()
+    super(AmplitudePoly, self).__init__(units)
 
     self.coeffs = tuple([x for x in coeffs])
     if len(coeffs) > 0:
@@ -49,9 +49,9 @@ class AmplitudePoly(AmplitudeBase):
     string
       Literal presentation of object
     '''
-    return "AmplitudePoly(c={})".format(self.coeffs)
+    return "AmplitudePoly(units={}, c={})".format(self.units, self.coeffs)
 
-  def applyAmplitude(self, signal, userTimeAll_s):
+  def applyAmplitude(self, signal, userTimeAll_s, noiseParams):
     '''
     Applies amplitude modulation to signal.
 
@@ -64,6 +64,8 @@ class AmplitudePoly(AmplitudeBase):
       [-1; +1]. This vector is modified in place.
     userTimeAll_s : numpy.ndarray
       Sample time vector. Each element defines sample time in seconds.
+    noiseParams : NoiseParameters
+      Noise parameters to adjust signal amplitude level.
 
     Returns
     -------
@@ -74,22 +76,34 @@ class AmplitudePoly(AmplitudeBase):
     poly = self.poly
     if poly is not None:
       amplitudeVector = poly(userTimeAll_s)
+      amplitudeVector = AmplitudeBase.convertUnits2Amp(amplitudeVector,
+                                                       self.units,
+                                                       noiseParams)
       signal *= amplitudeVector
+    else:
+      amplitude = AmplitudeBase.convertUnits2Amp(1.,
+                                                 self.units,
+                                                 noiseParams)
+      signal *= amplitude
 
     return signal
 
-  def computeMeanPower(self):
+  def computeSNR(self, noiseParams):
     '''
-    Computes mean signal power.
+    Computes signal to noise ratio in dB.
+
+    noiseParams : NoiseParameters
+      Noise parameter container
 
     Returns
     -------
     float
-      Mean signal power for the configured amplitude
+      SNR in dB
     '''
     poly = self.poly
     if poly is not None:
-      result = numpy.square(poly(0.))
+      value = poly(0.)
     else:
-      result = 1.
-    return result
+      value = 1.
+
+    return AmplitudeBase.convertUnits2SNR(value, self.units, noiseParams)

@@ -147,7 +147,7 @@ class GPSSatellite(Satellite):
     '''
     return self.l2cMessage
 
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, debug):
+  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, noiseParams, debug):
     '''
     Generates signal samples.
 
@@ -173,6 +173,7 @@ class GPSSatellite(Satellite):
       frequencyIndex = outputConfig.GPS.L1.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
+                                         noiseParams,
                                          signals.GPS.L1CA,
                                          intermediateFrequency_hz,
                                          self.l1caMessage,
@@ -189,6 +190,7 @@ class GPSSatellite(Satellite):
       frequencyIndex = outputConfig.GPS.L2.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
+                                         noiseParams,
                                          signals.GPS.L2C,
                                          intermediateFrequency_hz,
                                          self.l2cMessage,

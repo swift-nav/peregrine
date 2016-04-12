@@ -15,6 +15,7 @@ functions related to satellite base object.
 """
 from peregrine.iqgen.bits.doppler_poly import zeroDoppler
 from peregrine.iqgen.bits.amplitude_poly import AmplitudePoly
+from peregrine.iqgen.bits.amplitude_base import AmplitudeBase
 
 
 class Satellite(object):
@@ -37,7 +38,7 @@ class Satellite(object):
     super(Satellite, self).__init__()
     self.svName = svName
     self.doppler = zeroDoppler(0., 0., 1.)
-    self.amplitude = AmplitudePoly(())
+    self.amplitude = AmplitudePoly(AmplitudeBase.UNITS_AMPLITUDE, ())
 
   def getDoppler(self):
     '''
@@ -100,7 +101,7 @@ class Satellite(object):
   def __repr__(self):
     return self.getSvName()
 
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig):
+  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, noiseParams):
     '''
     Generates signal samples.
 
