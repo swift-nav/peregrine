@@ -29,7 +29,7 @@ class Encoder(object):
 
   EMPTY_RESULT = numpy.ndarray(0, dtype=numpy.uint8)  # Internal empty array
 
-  def __init__(self, bufferSize=1000):
+  def __init__(self, bufferSize=1000, attDb=0.):
     '''
     Constructs encoder.
 
@@ -37,9 +37,12 @@ class Encoder(object):
     ----------
     bufferSize : int, optional
       Size of the internal buffer to batch-process samples
+    attDb : float, optional
+      Encoder attenuation level, optional
     '''
     self.bits = numpy.ndarray(bufferSize, dtype=numpy.int8)
     self.n_bits = 0
+    self.attDb = attDb
 
   def addSamples(self, sample_array):
     '''
@@ -103,3 +106,14 @@ class Encoder(object):
     '''
     if len(self.bits) < self.n_bits + extraBits:
       self.bits.resize(self.n_bits + extraBits)
+
+  def getAttenuationLevel(self):
+    '''
+    Method provides encoder attenuation level in dB.
+
+    Returns
+    -------
+    float
+      Encoder attenuation level. Positive value expected.
+    '''
+    return self.attDb
