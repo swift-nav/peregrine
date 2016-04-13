@@ -687,8 +687,10 @@ def main():
   print "  Batch size:      ", outputConfig.SAMPLE_BATCH_SIZE
   print "  GPS L1 IF:       ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
   print "  GPS L2 IF:       ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
-  print "  GLONASS L1[0] IF:", outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
-  print "  GLONASS L2[0] IF:", outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
+  print "  GLONASS L1[0] IF:",\
+    outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
+  print "  GLONASS L2[0] IF:",\
+    outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "Other parameters:"
   print "  TCXO:           ", args.tcxo
   print "  noise sigma:    ", args.noise_sigma

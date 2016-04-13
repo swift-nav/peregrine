@@ -496,7 +496,6 @@ def generateSamples(outputFile,
            outputConfig.GPS.L2,
            outputConfig.GLONASS.L1,
            outputConfig.GLONASS.L2]  # Supported bands
-
   lpf = [None] * outputConfig.N_GROUPS
   lpfFA_db = [0.] * outputConfig.N_GROUPS  # Filter attenuation levels
   bandsEnabled = [False] * outputConfig.N_GROUPS
@@ -507,7 +506,6 @@ def generateSamples(outputFile,
   for band in bands:
     for sv in sv_list:
       bandsEnabled[band.INDEX] |= sv.isBandEnabled(band, outputConfig)
-
     sv = None
 
     filterObject = None
