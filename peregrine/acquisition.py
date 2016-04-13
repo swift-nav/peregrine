@@ -361,7 +361,11 @@ class Acquisition:
     code_phase = float(cp_samples) / self.samples_per_chip
 
     # Calculate SNR for the peak.
-    snr = np.max(results) / np.mean(results)
+    results_mean = np.mean(results)
+    if results_mean != 0:
+      snr = np.max(results) / results_mean
+    else:
+      snr = 0
 
     return (code_phase, freq, snr)
 
