@@ -62,7 +62,7 @@ class Satellite(object):
     '''
     self.doppler = doppler
 
-  def getSvName(self):
+  def getName(self):
     '''
     Returns satellite name.
 
@@ -101,7 +101,13 @@ class Satellite(object):
   def __repr__(self):
     return self.getSvName()
 
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, noiseParams):
+  def getBatchSignals(self,
+                      userTimeAll_s,
+                      samples,
+                      outputConfig,
+                      noiseParams,
+                      band,
+                      debug):
     '''
     Generates signal samples.
 
@@ -113,6 +119,12 @@ class Satellite(object):
       Array to which samples are added.
     outputConfig : object
       Output configuration object.
+    noiseParams : NoiseParameters
+      Noise parameters object.
+    band : Band
+      Band description object.
+    debug : bool
+      Debug flag
 
     Returns
     -------
@@ -121,14 +133,14 @@ class Satellite(object):
     '''
     raise NotImplementedError()
 
-  def isBandEnabled(self, bandIndex, outputConfig):
+  def isBandEnabled(self, band, outputConfig):
     '''
     Checks if particular band is supported and enabled.
 
     Parameters
     ----------
-    bandIndex : int
-      Signal band index
+    band : Band
+      Band description object.
     outputConfig : object
       Output configuration
 

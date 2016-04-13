@@ -400,7 +400,8 @@ def prepareArgsParser():
               'generate': namespace.generate,
               'noise_sigma': namespace.noise_sigma,
               'filter_type': namespace.filter_type,
-              'tcxo': tcxoFO.toMapForm(namespace.tcxo)
+              'tcxo': tcxoFO.toMapForm(namespace.tcxo),
+              'group_delays': namespace.group_delays
               }
       json.dump(data, values, indent=2)
       values.close()
@@ -423,6 +424,7 @@ def prepareArgsParser():
       namespace.tcxo = tcxoFO.fromMapForm(loaded['tcxo'])
       namespace.gps_sv = [
           satelliteFO.fromMapForm(sv) for sv in loaded['gps_sv']]
+      namespace.group_delays = loaded['group_delays']
       values.close()
 
   parser = argparse.ArgumentParser(
@@ -568,6 +570,9 @@ def prepareArgsParser():
                        type=float,
                        help="TCXO period in seconds for sine TCXO drift",
                        action=UpdateTcxoType)
+  parser.add_argument('--group-delays',
+                      type=bool,
+                      help="Enable/disable group delays simulation between bands")
   parser.add_argument('--debug',
                       type=argparse.FileType('wb'),
                       help="Debug output file")
@@ -638,15 +643,18 @@ def main():
     raise ValueError()
 
   print "Output configuration:"
-  print "  Description:    ", outputConfig.NAME
-  print "  Sampling rate:  ", outputConfig.SAMPLE_RATE_HZ
-  print "  Batch size:     ", outputConfig.SAMPLE_BATCH_SIZE
-  print "  GPS L1 IF:      ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  print "  GPS L2 IF:      ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
+  print "  Description:     ", outputConfig.NAME
+  print "  Sampling rate:   ", outputConfig.SAMPLE_RATE_HZ
+  print "  Batch size:      ", outputConfig.SAMPLE_BATCH_SIZE
+  print "  GPS L1 IF:       ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+  print "  GPS L2 IF:       ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
+  print "  GLONASS L1[0] IF:", outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
+  print "  GLONASS L2[0] IF:", outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "Other parameters:"
   print "  TCXO:           ", args.tcxo
   print "  noise sigma:    ", args.noise_sigma
-  print "  tSatellites:    ", args.gps_sv
+  print "  satellites:     ", [sv.getName() for sv in args.gps_sv]
+  print "  group delays:    ", args.group_delays
 
   # Check which signals are enabled on each of satellite to select proper
   # output encoder
@@ -655,8 +663,8 @@ def main():
   enabledGPS = False
 
   for sv in args.gps_sv:
-    enabledGPSL1 |= sv.isBandEnabled(outputConfig.GPS.L1.INDEX, outputConfig)
-    enabledGPSL2 |= sv.isBandEnabled(outputConfig.GPS.L2.INDEX, outputConfig)
+    enabledGPSL1 |= sv.isBandEnabled(outputConfig.GPS.L1, outputConfig)
+    enabledGPSL2 |= sv.isBandEnabled(outputConfig.GPS.L2, outputConfig)
 
   enabledGPS |= enabledGPSL1 or enabledGPSL2
 
@@ -732,6 +740,7 @@ def main():
                   tcxo=args.tcxo,
                   noiseSigma=args.noise_sigma,
                   filterType=args.filter_type,
+                  groupDelays=args.group_delays,
                   logFile=args.debug,
                   threadCount=args.jobs,
                   pbar=pbar)
