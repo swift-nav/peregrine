@@ -137,7 +137,13 @@ class GLOSatellite(Satellite):
     '''
     return self.l1Message
 
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, noiseParams, debug):
+  def getBatchSignals(self,
+                      userTimeAll_s,
+                      samples,
+                      outputConfig,
+                      noiseParams,
+                      band,
+                      debug):
     '''
     Generates signal samples.
 
@@ -149,6 +155,10 @@ class GLOSatellite(Satellite):
       Array to which samples are added.
     outputConfig : object
       Output configuration object.
+    noiseParams : NoiseParameters
+      Noise parameters object
+    band : Band
+      Band description object.
     debug : bool
       Debug flag
 
@@ -158,10 +168,8 @@ class GLOSatellite(Satellite):
       Debug information
     '''
     result = []
-    if (self.l1Enabled):
-      band = outputConfig.GLONASS.L1
+    if (self.l1Enabled and band == outputConfig.GLONASS.L1):
       intermediateFrequency_hz = band.INTERMEDIATE_FREQUENCIES_HZ[self.prn]
-      frequencyIndex = band.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
                                          noiseParams,
@@ -171,15 +179,13 @@ class GLOSatellite(Satellite):
                                          self.caCode,
                                          outputConfig,
                                          debug)
-      numpy.add(samples[frequencyIndex],
+      numpy.add(samples[band.INDEX],
                 values[0],
-                out=samples[frequencyIndex])
+                out=samples[band.INDEX])
       debugData = {'type': "GLOL1", 'doppler': values[1]}
       result.append(debugData)
-    if (self.l2Enabled):
-      band = outputConfig.GLONASS.L2
+    if (self.l2Enabled and band == outputConfig.GLONASS.L2):
       intermediateFrequency_hz = band.INTERMEDIATE_FREQUENCIES_HZ[self.prn]
-      frequencyIndex = band.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
                                          noiseParams,
@@ -189,21 +195,21 @@ class GLOSatellite(Satellite):
                                          self.caCode,
                                          outputConfig,
                                          debug)
-      numpy.add(samples[frequencyIndex],
+      numpy.add(samples[band.INDEX],
                 values[0],
-                out=samples[frequencyIndex])
+                out=samples[band.INDEX])
       debugData = {'type': "GLOL2", 'doppler': values[1]}
       result.append(debugData)
     return result
 
-  def isBandEnabled(self, bandIndex, outputConfig):
+  def isBandEnabled(self, band, outputConfig):
     '''
     Checks if particular band is supported and enabled.
 
     Parameters
     ----------
-    bandIndex : int
-      Signal band index
+    band : Band
+      Band description object.
     outputConfig : object
       Output configuration
 
@@ -212,9 +218,9 @@ class GLOSatellite(Satellite):
       True, if the band is supported and enabled; False otherwise.
     '''
     result = None
-    if bandIndex == outputConfig.GLONASS.L1.INDEX:
+    if band == outputConfig.GLONASS.L1:
       result = self.isL1Enabled()
-    elif bandIndex == outputConfig.GLONASS.L2.INDEX:
+    elif band == outputConfig.GLONASS.L2:
       result = self.isL2Enabled()
     else:
       result = False
