@@ -48,6 +48,8 @@ class Task(object):
                noiseParams,
                tcxo,
                signalFilters,
+               groupDelays,
+               bands,
                generateDebug):
     '''
     Parameters
@@ -62,6 +64,10 @@ class Task(object):
       TCXO control object
     signalFilters : array-like
       Output signal filter objects
+    groupDelays : bool
+      Flag if group delays are enabled
+    bands : list
+      List of bands to generate
     generateDebug : bool
       Flag if additional debug output is required
     '''
@@ -72,10 +78,13 @@ class Task(object):
     self.generateDebug = generateDebug
     self.noiseParams = noiseParams
     self.tcxo = tcxo
-    self.signals = scipy.ndarray(shape=(4, outputConfig.SAMPLE_BATCH_SIZE),
+    self.signals = scipy.ndarray(shape=(outputConfig.N_GROUPS,
+                                        outputConfig.SAMPLE_BATCH_SIZE),
                                  dtype=numpy.float)
     self.noise = self.createNoise(outputConfig.SAMPLE_BATCH_SIZE)
     self.nSamples = outputConfig.SAMPLE_BATCH_SIZE
+    self.groupDelays = groupDelays
+    self.bands = bands
 
   def update(self, userTime0_s, nSamples, firstSampleIndex):
     '''
@@ -97,7 +106,8 @@ class Task(object):
     self.firstSampleIndex = firstSampleIndex
 
     if (self.nSamples != nSamples):
-      newSignals = numpy.ndarray((4, nSamples), dtype=float)
+      newSignals = numpy.ndarray((self.outputConfig.N_GROUPS,
+                                  nSamples), dtype=float)
       newNoise = self.createNoise(nSamples)
       self.nSamples = nSamples
       self.signals = newSignals
@@ -114,7 +124,7 @@ class Task(object):
 
     Returns
     -------
-    numpy.ndarray(shape=(4, nSamples), dtype=numpy.float)
+    numpy.ndarray(shape=(outputConfig.N_GROUPS, nSamples), dtype=numpy.float)
       Noise values
     '''
     noiseParams = self.noiseParams
@@ -122,19 +132,44 @@ class Task(object):
     if noiseParams is not None:
       # Initialize signal array with noise
       noiseSigma = noiseParams.getNoiseSigma()
-      noise = noiseSigma * scipy.randn(4, nSamples) if noiseSigma else None
+      noise = noiseSigma * scipy.randn(self.outputConfig.N_GROUPS,
+                                       nSamples) if noiseSigma else None
     return noise
 
-  def perform(self):
-    outputConfig = self.outputConfig
-    signalSources = self.signalSources
-    signalFilters = self.signalFilters
+  def computeTcxoVector(self):
+    '''
+    Computes TCXO time drift vector if enabled.
+
+    Returns
+    -------
+    numpy.array or None
+      Computed TCXO time drift as a vector or None if TCXO is not enabled
+    '''
     tcxo = self.tcxo
-    firstSampleIndex = self.firstSampleIndex
-    finalSampleIndex = firstSampleIndex + self.nSamples
+    if tcxo:
+      firstSampleIndex = self.firstSampleIndex
+      finalSampleIndex = firstSampleIndex + self.nSamples
+      outputConfig = self.outputConfig
+      tcxoTimeDrift_s = tcxo.computeTcxoTime(firstSampleIndex,
+                                             finalSampleIndex,
+                                             outputConfig)
+    else:
+      tcxoTimeDrift_s = None
+    return tcxoTimeDrift_s
 
-    generateDebug = self.generateDebug
+  def computeTimeVector(self):
+    '''
+    Computes time vector for the batch.
 
+    Returns
+    -------
+    numpy.array
+      Computed time vector for computing sampling time
+    '''
+    outputConfig = self.outputConfig
+
+    # Group delay shifts all time stamps backwards, this shift is performed
+    # before TCXO drift is applied, as group delays are not controlled by TCXO
     userTime0_s = self.userTime0_s
     userTimeX_s = userTime0_s + float(self.nSamples) / \
         float(outputConfig.SAMPLE_RATE_HZ)
@@ -142,22 +177,64 @@ class Task(object):
                                    userTimeX_s,
                                    self.nSamples,
                                    endpoint=False)
+    return userTimeAll_s
 
-    if tcxo:
-      tcxoTimeDrift_s = tcxo.computeTcxoTime(firstSampleIndex,
-                                             finalSampleIndex,
-                                             outputConfig)
-      if tcxoTimeDrift_s:
-        userTimeAll_s += tcxoTimeDrift_s
+  def computeGroupTimeVectors(self, userTimeAll_s, outputConfig):
+    '''
+    Computes group time vector from a single source and output configuration.
 
+    Parameters
+    ----------
+    userTimeAll_s : numpy.array
+      Time vector
+    outputConfig : object
+      Output configuration with group delay parameters
+
+    Returns
+    -------
+    list[numpy.array] * outputConfig.N_GROUPS
+      If the group delays are enabled, each element offsets initial time vector
+      by an appropriate group delay, otherwise all entries point to original
+      time vector without modifications. 
+    '''
+    if self.groupDelays:
+      # In case of group delays the time vector shall be adjusted for each
+      # signal group. This makes impossible parallel processing of multiple
+      # signals with the same time vector.
+      bandTimeAll_s = [userTimeAll_s + outputConfig.GROUP_DELAYS[x]
+                       for x in range(outputConfig.N_GROUPS)]
+    else:
+      bandTimeAll_s = [userTimeAll_s] * outputConfig.N_GROUPS
+
+    return bandTimeAll_s
+
+  def perform(self):
+    outputConfig = self.outputConfig
+    signalSources = self.signalSources
+    signalFilters = self.signalFilters
     noiseParams = self.noiseParams
-    noise = self.noise
-    sigs = self.signals
+    generateDebug = self.generateDebug
+    noise = self.noise  # Noise matrix if present
+    sigs = self.signals  # Signal matrix
+
+    # Compute time stamps in linear time space
+    userTimeAll_s = self.computeTimeVector()
+
+    # Compute TCXO time drift and apply if appropriate
+    tcxoTimeDrift_s = self.computeTcxoVector()
+    if tcxoTimeDrift_s:
+      userTimeAll_s += tcxoTimeDrift_s
+
+    # Compute band time vectors with group delays
+    bandTimeAll_s = self.computeGroupTimeVectors(userTimeAll_s, outputConfig)
+
+    # Prepare signal matrix
     sigs.fill(0.)
     if noise is not None:
       # Initialize signal array with noise
       sigs += noise
 
+    # Debug data
     if generateDebug:
       signalData = []
       debugData = {'time': userTimeAll_s, 'signalData': signalData}
@@ -166,21 +243,25 @@ class Task(object):
 
     # Sum up signals for all SVs
     for signalSource in signalSources:
-      # Add signal from source (satellite) to signal accumulator
-      t = signalSource.getBatchSignals(userTimeAll_s,
-                                       sigs,
-                                       outputConfig,
-                                       noiseParams,
-                                       generateDebug)
-      # Debugging output
-      if generateDebug:
-        svDebug = {'name': signalSource.getSvName(), 'data': t}
-        signalData.append(svDebug)
-      t = None
+      for band in self.bands:
+        if signalSource.isBandEnabled(band, outputConfig):
+          # Add signal from source (satellite) to signal accumulator
+          t = signalSource.getBatchSignals(bandTimeAll_s[band.INDEX],
+                                           sigs,
+                                           outputConfig,
+                                           noiseParams,
+                                           band,
+                                           generateDebug)
+          # Debugging output
+          if generateDebug:
+            svDebug = {'name': signalSource.getSvName(), 'data': t}
+            signalData.append(svDebug)
+
+          t = None
 
     if signalFilters is list:
       # Filter signal values through LPF, BPF or another
-      for i in range(len(self.filters)):
+      for i in range(outputConfig.N_GROUPS):
         filterObject = signalFilters[i]
         if filterObject is not None:
           sigs[i][:] = filterObject.filter(sigs[i])
@@ -190,6 +271,10 @@ class Task(object):
 
 
 class Worker(multiprocessing.Process):
+  '''
+  Remote process worker. The object encapsulates Task logic for running in a
+  separate address space.
+  '''
 
   def __init__(self,
                outputConfig,
@@ -197,6 +282,8 @@ class Worker(multiprocessing.Process):
                noiseParams,
                tcxo,
                signalFilters,
+               groupDelays,
+               bands,
                generateDebug):
     super(Worker, self).__init__()
     self.queueIn = multiprocessing.Queue()
@@ -208,6 +295,8 @@ class Worker(multiprocessing.Process):
     self.noiseParams = noiseParams
     self.tcxo = tcxo
     self.signalFilters = signalFilters
+    self.groupDelays = groupDelays
+    self.bands = bands
     self.generateDebug = generateDebug
 
   def run(self):
@@ -216,6 +305,8 @@ class Worker(multiprocessing.Process):
                 noiseParams=self.noiseParams,
                 tcxo=self.tcxo,
                 signalFilters=self.signalFilters,
+                groupDelays=self.groupDelays,
+                bands=self.bands,
                 generateDebug=self.generateDebug)
 
     while True:
@@ -253,23 +344,95 @@ class Worker(multiprocessing.Process):
     sys.exit(0)
 
 
-def computeTimeIntervalS(outputConfig):
+def printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder):
   '''
-  Helper for computing generation interval duration in seconds.
+  Print some relevant information to console.
 
   Parameters
   ----------
+  sv_list : list
+    List of signal sources
   outputConfig : object
-    Output configuration.
-
-  Returns
-  -------
-  float
-    Generation interval duration in seconds
+    Output configuration object
+  lpfFA_db : list
+    Filter attenuation levels for each band
+  encoder : Encoder
+    Encoder object
   '''
-  deltaTime_s = float(outputConfig.SAMPLE_BATCH_SIZE) / \
-      outputConfig.SAMPLE_RATE_HZ
-  return deltaTime_s
+  for _sv in sv_list:
+    _svNo = _sv.getName()
+    _amp = _sv.amplitude
+    _svTime0_s = 0
+    _dist0_m = _sv.doppler.computeDistanceM(_svTime0_s)
+    _speed_mps = _sv.doppler.computeSpeedMps(_svTime0_s)
+    # svMeanPower = _sv.getAmplitude().computeMeanPower()
+    if isinstance(_sv, GPSSatellite):
+      band1 = outputConfig.GPS.L1
+      band2 = outputConfig.GPS.L2
+      band1IncreaseDb = 60. - lpfFA_db[band1.INDEX]  # GPS L1 C/A
+      # GPS L2C CM - only half of power is used: -3dB
+      band2IncreaseDb = 60. - 3. - lpfFA_db[band2.INDEX]
+      signal1 = signals.GPS.L1CA
+      signal2 = signals.GPS.L2C
+      _msg1 = _sv.getL1CAMessage()
+      _msg2 = _sv.getL2CMessage()
+      _l2ct = _sv.getL2CLCodeType()
+    elif isinstance(_sv, GLOSatellite):
+      band1 = outputConfig.GLONASS.L1
+      band2 = outputConfig.GLONASS.L2
+      band1IncreaseDb = 60. - lpfFA_db[band1.INDEX]  # GLONASS L1
+      band2IncreaseDb = 60. - lpfFA_db[band2.INDEX]  # GLONASS L2
+      signal1 = signals.GLONASS.L1S[_sv.prn]
+      signal2 = signals.GLONASS.L2S[_sv.prn]
+      _msg1 = _sv.getL1Message()
+      _msg2 = _sv.getL2Message()
+      _l2ct = None
+    else:
+      pass
+    # SNR for a satellite. Depends on sampling rate.
+    if noiseParams.getNoiseSigma():
+      svSNR_db = _sv.getAmplitude().computeSNR(noiseParams)
+      svCNoL1 = svSNR_db + band1IncreaseDb - encoder.getAttenuationLevel()
+      svCNoL2 = svSNR_db + band2IncreaseDb - encoder.getAttenuationLevel()
+    else:
+      svSNR_db = 60.
+      svCNoL1 = svCNoL2 = 120
+
+    _d1 = signal1.calcDopplerShiftHz(_dist0_m, _speed_mps)
+    _d2 = signal2.calcDopplerShiftHz(_dist0_m, _speed_mps)
+    _f1 = signal1.CENTER_FREQUENCY_HZ
+    _f2 = signal2.CENTER_FREQUENCY_HZ
+    _bit = signal1.getSymbolIndex(_svTime0_s)
+    _c1 = signal1.getCodeChipIndex(_svTime0_s)
+    _c2 = signal2.getCodeChipIndex(_svTime0_s)
+
+    print "{} = {{".format(_svNo)
+    print "  .amplitude:  {}".format(_amp)
+    print "  .doppler:    {}".format(_sv.doppler)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "  .l1_message: {}".format(_msg1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "  .l2_message: {}".format(_msg2)
+    if _l2ct:
+      print "  .l2_cl_type: {}".format(_l2ct)
+    print "  .epoc:"
+    print "    .SNR (dB):   {}".format(svSNR_db)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .L1 CNo:     {}".format(svCNoL1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "    .L2 CNo:     {}".format(svCNoL2)
+    print "    .distance:   {} m".format(_dist0_m)
+    print "    .speed:      {} m/s".format(_speed_mps)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .l1_doppler: {} hz @ {}".format(_d1, _f1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "    .l2_doppler: {} hz @ {}".format(_d2, _f2)
+    print "    .symbol:     {}".format(_bit)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .l1_chip:    {}".format(_c1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "    .l2_chip:    {}".format(_c2)
+    print "}"
 
 
 def generateSamples(outputFile,
@@ -281,6 +444,7 @@ def generateSamples(outputFile,
                     noiseSigma=None,
                     tcxo=None,
                     filterType="none",
+                    groupDelays=None,
                     logFile=None,
                     threadCount=0,
                     pbar=None):
@@ -307,16 +471,15 @@ def generateSamples(outputFile,
     When specified, controls TCXO drift
   filterType : string, optional
     Controls IIR/FIR signal post-processing. Disabled by default.
-  debugLog : bool, optional
-    Control generation of additional debug output. Disabled by default.
+  groupDelays : bool
+    Flag if group delays are enabled.
+  logFile : object
+    Debug information destination file.
+  threadCount : int
+    Number of parallel threads for multi-process computation.
+  pbar : object
+    Progress bar object
   '''
-
-  #
-  # Print out parameters
-  #
-  logger.info("Generating samples, sample rate={} Hz, interval={} seconds".format(
-      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
-  logger.debug("Jobs: %d" % threadCount)
 
   _t0 = time.clock()
   _count = 0l
@@ -326,24 +489,16 @@ def generateSamples(outputFile,
            outputConfig.GPS.L2,
            outputConfig.GLONASS.L1,
            outputConfig.GLONASS.L2]  # Supported bands
-  lpf = [None] * len(bands)
-  lpfFA_db = [0.] * len(bands)  # Filter attenuation levels
-  bandsEnabled = [False] * len(bands)
+  lpf = [None] * outputConfig.N_GROUPS
+  lpfFA_db = [0.] * outputConfig.N_GROUPS  # Filter attenuation levels
+  bandsEnabled = [False] * outputConfig.N_GROUPS
 
-  bandPass = False
-  lowPass = False
-  if filterType == 'lowpass':
-    lowPass = True
-  elif filterType == 'bandpass':
-    bandPass = True
-  elif filterType == 'none':
-    pass
-  else:
-    raise ValueError("Invalid filter type %s" % repr(filter))
+  bandPass = filterType == 'bandpass'
+  lowPass = filterType == 'lowpass'
 
   for band in bands:
     for sv in sv_list:
-      bandsEnabled[band.INDEX] |= sv.isBandEnabled(band.INDEX, outputConfig)
+      bandsEnabled[band.INDEX] |= sv.isBandEnabled(band, outputConfig)
     sv = None
 
     filterObject = None
@@ -377,79 +532,17 @@ def generateSamples(outputFile,
     noiseParams = NoiseParameters(outputConfig.SAMPLE_RATE_HZ, 0.)
     logger.info("SNR is not provided, noise is not generated.")
 
-  #
+  # Print out parameters
+  logger.info("Generating samples, sample rate={} Hz, interval={} seconds".format(
+      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
+  logger.debug("Jobs: %d" % threadCount)
   # Print out SV parameters
-  #
-  for _sv in sv_list:
-    _svNo = _sv.getSvName()
-    _amp = _sv.amplitude
-    _svTime0_s = 0
-    _dist0_m = _sv.doppler.computeDistanceM(_svTime0_s)
-    _speed_mps = _sv.doppler.computeSpeedMps(_svTime0_s)
-    # svMeanPower = _sv.getAmplitude().computeMeanPower()
-    if isinstance(_sv, GPSSatellite):
-      band1Index = outputConfig.GPS.L1.INDEX
-      band2Index = outputConfig.GPS.L2.INDEX
-      band1IncreaseDb = 60. - lpfFA_db[band1Index]  # GPS L1 C/A
-      # GPS L2C CM - only half of power is used: -3dB
-      band2IncreaseDb = 60. - 3. - lpfFA_db[band2Index]
-      signal1 = signals.GPS.L1CA
-      signal2 = signals.GPS.L2C
-      _msg1 = _sv.getL1CAMessage()
-      _msg2 = _sv.getL2CMessage()
-      _l2ct = _sv.getL2CLCodeType()
-    elif isinstance(_sv, GLOSatellite):
-      band1Index = outputConfig.GLONASS.L1.INDEX
-      band2Index = outputConfig.GLONASS.L2.INDEX
-      band1IncreaseDb = 60. - lpfFA_db[band1Index]  # GLONASS L1
-      band2IncreaseDb = 60. - lpfFA_db[band2Index]  # GLONASS L2
-      signal1 = signals.GLONASS.L1S[_sv.prn]
-      signal2 = signals.GLONASS.L2S[_sv.prn]
-      _msg1 = _sv.getL1Message()
-      _msg2 = _sv.getL2Message()
-      _l2ct = None
-    else:
-      pass
-    # SNR for a satellite. Depends on sampling rate.
-    if noiseVariance:
-      svSNR_db = _sv.getAmplitude().computeSNR(noiseParams)
-      svCNoL1 = svSNR_db + band1IncreaseDb - encoder.getAttenuationLevel()
-      svCNoL2 = svSNR_db + band2IncreaseDb - encoder.getAttenuationLevel()
-    else:
-      svSNR_db = 60.
-      svCNoL1 = svCNoL2 = 120
-
-    _d1 = signal1.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    _d2 = signal2.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    _f1 = signal1.CENTER_FREQUENCY_HZ
-    _f2 = signal2.CENTER_FREQUENCY_HZ
-    _bit = signal1.getSymbolIndex(_svTime0_s)
-    _c1 = signal1.getCodeChipIndex(_svTime0_s)
-    _c2 = signal2.getCodeChipIndex(_svTime0_s)
-
-    print "{} = {{".format(_svNo)
-    print "  .amplitude:  {}".format(_amp)
-    print "  .doppler:    {}".format(_sv.doppler)
-    print "  .l1_message: {}".format(_msg1)
-    print "  .l2_message: {}".format(_msg2)
-    if _l2ct:
-      print "  .l2_cl_type: {}".format(_l2ct)
-    print "  .epoc:"
-    print "    .SNR (dB):   {}".format(svSNR_db)
-    print "    .L1 CNo:     {}".format(svCNoL1)
-    print "    .L2 CNo:     {}".format(svCNoL2)
-    print "    .distance:   {} m".format(_dist0_m)
-    print "    .speed:      {} m/s".format(_speed_mps)
-    print "    .l1_doppler: {} hz @ {}".format(_d1, _f1)
-    print "    .l2_doppler: {} hz @ {}".format(_d2, _f2)
-    print "    .symbol:     {}".format(_bit)
-    print "    .l1_chip:    {}".format(_c1)
-    print "    .l2_chip:    {}".format(_c2)
-    print "}"
+  printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder)
 
   userTime_s = float(time0S)
 
-  deltaUserTime_s = computeTimeIntervalS(outputConfig)
+  deltaUserTime_s = (float(outputConfig.SAMPLE_BATCH_SIZE) /
+                     float(outputConfig.SAMPLE_RATE_HZ))
   debugFlag = logFile is not None
 
   if debugFlag:
@@ -464,31 +557,38 @@ def generateSamples(outputFile,
     logFile.write("\n")
 
   if threadCount > 0:
+    # Parallel execution: create worker pool
     workerPool = [Worker(outputConfig,
                          sv_list,
                          noiseParams,
                          tcxo,
                          lpf,
+                         groupDelays,
+                         bands,
                          debugFlag) for _ in range(threadCount)]
 
     for worker in workerPool:
       worker.start()
+    # Each worker in the pool permits 2 tasks in the queue.
     maxTaskListSize = threadCount * 2
   else:
+    # Synchronous execution: single worker
     workerPool = None
     task = Task(outputConfig,
                 sv_list,
                 noiseParams=noiseParams,
                 tcxo=tcxo,
                 signalFilters=lpf,
+                groupDelays=groupDelays,
+                bands=bands,
                 generateDebug=debugFlag)
     maxTaskListSize = 1
 
-  workerPutIndex = 0
-  workerGetIndex = 0
-  activeTasks = 0
+  workerPutIndex = 0  # Worker index for adding task parameters with RR policy
+  workerGetIndex = 0  # Worker index for getting task results with RR policy
+  activeTasks = 0     # Number of active generation tasks
 
-  totalSampleCounter = 0
+  totalSampleCounter = 0l
   taskQueuedCounter = 0
   taskReceivedCounter = 0
 
@@ -498,23 +598,29 @@ def generateSamples(outputFile,
   while True:
     while activeTasks < maxTaskListSize and totalSampleCounter < nSamples:
       # We have space in the task backlog and not all batchIntervals are issued
-      userTime0_s = userTime_s
-      userTimeX_s = userTime_s + deltaUserTime_s
-      sampleCount = outputConfig.SAMPLE_BATCH_SIZE
 
-      if totalSampleCounter + sampleCount > nSamples:
+      userTime0_s = userTime_s
+
+      if totalSampleCounter + outputConfig.SAMPLE_BATCH_SIZE > nSamples:
         # Last interval may contain less than full batch size of samples
         sampleCount = nSamples - totalSampleCounter
-        userTimeX_s = userTime0_s + float(sampleCount) / \
-            outputConfig.SAMPLE_RATE_HZ
+        userTimeX_s = userTime0_s + (float(sampleCount) /
+                                     float(outputConfig.SAMPLE_RATE_HZ))
+      else:
+        # Normal internal: full batch size
+        userTimeX_s = userTime_s + deltaUserTime_s
+        sampleCount = outputConfig.SAMPLE_BATCH_SIZE
 
+      # Parameters: time interval start, number of samples, sample index
+      # counter for debug output
       params = (userTime0_s, sampleCount, totalSampleCounter)
-      # print ">>> ", userTime0_s, sampleCount, totalSampleCounter,
-      # workerPutIndex
       if workerPool is not None:
+        # Parallel execution: add the next task parameters into the worker's
+        # pool queue. Worker pool uses RR policy.
         workerPool[workerPutIndex].queueIn.put(params)
         workerPutIndex = (workerPutIndex + 1) % threadCount
       else:
+        # Synchronous execution: update task parameters for the next interval
         task.update(userTime0_s, sampleCount, totalSampleCounter)
       activeTasks += 1
 
@@ -532,16 +638,15 @@ def generateSamples(outputFile,
 
     try:
       if workerPool is not None:
-        # Wait for the first task
+        # Parallel execution: wait for the next task result
         worker = workerPool[workerGetIndex]
         waitStartTime_s = time.time()
-        # print "waiting data from worker", workerGetIndex
         result = worker.queueOut.get()
-        # print "Data received from worker", workerGetIndex
         workerGetIndex = (workerGetIndex + 1) % threadCount
         waitDuration_s = time.time() - waitStartTime_s
         totalWaitTime_s += waitDuration_s
       else:
+        # Synchronous execution: execute task and get result
         result = task.perform()
     except:
       exType, exValue, exTraceback = sys.exc_info()
@@ -554,9 +659,9 @@ def generateSamples(outputFile,
       print "Error in processor; aborting."
       break
 
+    # Unpack result values.
     (inputParams, signalSamples, debugData) = result
     (_userTime0_s, _sampleCount, _firstSampleIndex) = inputParams
-    # print "<<< ", _userTime0_s, _sampleCount, _firstSampleIndex
 
     if logFile is not None:
       # Data from all satellites is collected. Now we can dump the debug matrix
@@ -567,10 +672,8 @@ def generateSamples(outputFile,
         logFile.write("{},{}".format(_firstSampleIndex + smpl_idx,
                                      userTimeAll_s[smpl_idx]))
         for svIdx in range(len(signalData)):
-          # signalSourceName = signalData[svIdx]['name']
           signalSourceData = signalData[svIdx]['data']
           for band in signalSourceData:
-            # bandType = band['type']
             doppler = band['doppler']
             logFile.write(",{}".format(doppler[smpl_idx]))
         # End of line
@@ -585,22 +688,24 @@ def generateSamples(outputFile,
       _count += len(encodedSamples)
       encodedSamples.tofile(outputFile)
       encodedSamples = None
-    encodeDuration_s = time.time() - encodeStartTime_s
-    totalEncodeTime_s += encodeDuration_s
+
+    totalEncodeTime_s += time.time() - encodeStartTime_s
 
     if pbar:
       pbar.update(_firstSampleIndex + _sampleCount)
 
-  logger.debug("MAIN: Encode duration: %f" % totalEncodeTime_s)
-  logger.debug("MAIN: wait duration: %f" % totalWaitTime_s)
+  # Generation completed.
 
+  # Flush any pending data in encoder
   encodedSamples = encoder.flush()
   if len(encodedSamples) > 0:
     encodedSamples.tofile(outputFile)
 
+  # Close debug log file
   if debugFlag:
     logFile.close()
 
+  # Terminate all worker processes
   if workerPool is not None:
     for worker in workerPool:
       worker.queueIn.put(None)
@@ -616,3 +721,7 @@ def generateSamples(outputFile,
       worker.queueOut.close()
       worker.terminate()
       worker.join()
+
+  # Print some statistical debug information
+  logger.debug("MAIN: Encode duration: %f" % totalEncodeTime_s)
+  logger.debug("MAIN: wait duration: %f" % totalWaitTime_s)
