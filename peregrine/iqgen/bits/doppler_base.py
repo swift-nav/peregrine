@@ -181,12 +181,8 @@ class DopplerBase(object):
     -------
     signal : numpy.ndarray(n_samples, dtype=float)
       Generated samples
-    userTimeX_s : float
-      End of interval time in seconds
-    chipAll_idx : numpy.ndarray(n_samples, dtype=float)
-      Code chip phases for the samples
-    chips : numpy.ndarray(n_samples, dtype=int)
-      Code combined with data
+    dopplerAll_hz : numpy.ndarray(n_samples, dtype=float)
+      Doppler values in Hz if debug is enabled
     '''
 
     userTimeAll_s = self.applySignalDelays(userTimeAll_s, carrierSignal)

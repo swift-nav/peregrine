@@ -14,9 +14,10 @@ functions related to GLONASS G1/G2 PRN processing
 
 """
 import numpy
-from peregrine.include.glo_ca_code import value as GLONASS_CA_Code
+from peregrine.include.glo_ca_code import value as GLONASS_CACode
 
-caCode = GLONASS_CA_Code[:]
+# Binary CA code (0/1)
+caCode = (GLONASS_CACode < 0).astype(numpy.uint8)
 
 
 class PrnCode(object):
@@ -36,11 +37,7 @@ class PrnCode(object):
       SV identifier
     '''
     super(PrnCode, self).__init__()
-    self.caCode = caCode[:]
-    tmp = numpy.asarray(self.caCode, dtype=numpy.int8)
-    tmp -= 1
-    tmp /= -2
-    self.binCode = tmp
+    self.binCode = caCode
     self.prnNo = prnNo
     self.bitLookup = numpy.asarray([1, -1], dtype=numpy.int8)
 

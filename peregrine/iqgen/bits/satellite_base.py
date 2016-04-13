@@ -96,10 +96,10 @@ class Satellite(object):
     return self.amplitude
 
   def __str__(self):
-    return self.getSvName()
-
-  def __repr__(self):
-    return self.getSvName()
+    '''
+    Returns string representation of SV object
+    '''
+    return self.getName()
 
   def getBatchSignals(self,
                       userTimeAll_s,
