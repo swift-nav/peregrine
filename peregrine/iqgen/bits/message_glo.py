@@ -137,14 +137,13 @@ class Message(object):
     self.messageLen = n_prefixBits
     self.nextTk_h = tow0 / (60 * 60) % (60 * 60 * 24)
     self.nextTk_m = tow0 / 60 % 60
-    self.nextTk_30s = 1 if tow0 % 30 else 0
+    self.nextTk_30s = 1 if tow0 / 30 % 2 else 0
 
     self.nextMsgId = 1
     self.messageBits = numpy.zeros(n_prefixBits, dtype=numpy.uint8)
     self.messageBits[1::2] = 1
-    self.msgCount = 0
     self.a8 = numpy.ndarray(1, dtype=numpy.uint8)
-    self.a32 = numpy.ndarray(1, dtype=numpy.dtype('>u4'))
+    self.addMessages(n_msg)
 
   def __str__(self, *args, **kwargs):
     '''
@@ -219,7 +218,7 @@ class Message(object):
       newMessageData[i + 170:i + 200] = _TIME_MARK
     self.messageLen = newMessageLen
     self.messageBits = newMessageData
-    self.msgCount += newMsgCount
+    self.messageCount += newMsgCount
 
   def generateGloMessage(self):
     '''
@@ -289,9 +288,8 @@ class Message(object):
     if nBits <= 8:
       self.a8[0] = value
       result = numpy.unpackbits(self.a8)
-    else:
-      self.a32[0] = value
-      result = numpy.unpackbits(self.a32.view(dtype=numpy.uint8))
+    else:  # pragma: no cover
+      assert False
     return result[-nBits:]
 
   def updateParity(self, dataBits):

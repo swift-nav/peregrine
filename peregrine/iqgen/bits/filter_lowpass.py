@@ -51,19 +51,23 @@ class LowPassFilter(FilterBase):
     '''
     super(LowPassFilter, self).__init__(3., 40.)
 
-    self.bw_hz = 1e3
-    passBand_hz = self.bw_hz / outputConfig.SAMPLE_RATE_HZ
-    stopBand_hz = self.bw_hz * 1.1 / outputConfig.SAMPLE_RATE_HZ
-    mult = 2. / outputConfig.SAMPLE_RATE_HZ
-    order, wn = cheb2ord(wp=passBand_hz * mult,
-                         ws=stopBand_hz * mult,
+    self.bw_hz = 1e6
+    passBand_hz = frequency_hz + self.bw_hz
+    stopBand_hz = frequency_hz + self.bw_hz * 1.2
+
+    nyqFreq_s = 2. / outputConfig.SAMPLE_RATE_HZ  # 1.0 /Nyquist frequency
+    wp = passBand_hz * nyqFreq_s
+    ws = stopBand_hz * nyqFreq_s
+
+    order, wn = cheb2ord(wp=wp,
+                         ws=ws,
                          gpass=self.passBandAtt_dbhz,
                          gstop=self.stopBandAtt_dbhz,
                          analog=False)
     self.order = order
     self.wn = wn
 
-    b, a = cheby2(order,  # Order of the filter
+    b, a = cheby2(order + 1,  # Order of the filter
                   # Minimum attenuation required in the stop band in dB
                   self.stopBandAtt_dbhz,
                   wn,

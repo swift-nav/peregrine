@@ -36,7 +36,7 @@ class Message(object):
     tow0 : int
       Time of week in 6-second units for the first message
     n_msg : int, optional
-      Number of messages to generate for output
+      Number of messages to pre-generate for output
     n_prefixBits : int, optional
       Number of bits to issue before the first message
     '''
@@ -61,10 +61,10 @@ class Message(object):
         self.updateParity(tmp[words * 30 - 32: words * 30], True)
       else:
         self.updateParity(tmp[0: 30], True)
-    self.messageBits[:] = tmp[-n_prefixBits:]
-    self.msgCount = 0
+      self.messageBits[:] = tmp[-n_prefixBits:]
     self.a8 = numpy.ndarray(1, dtype=numpy.uint8)
     self.a32 = numpy.ndarray(1, dtype=numpy.dtype('>u4'))
+    self.addMessages(n_msg)
 
   def __str__(self, *args, **kwargs):
     '''
@@ -118,6 +118,9 @@ class Message(object):
     newMsgCount : int
       Number of messages to generate
     '''
+    if newMsgCount == 0:
+      return
+
     newMessageLen = newMsgCount * 300 + self.messageLen
     newMessageData = numpy.ndarray(newMessageLen, dtype=numpy.uint8)
     newMessageData[:self.messageLen] = self.messageBits
@@ -128,7 +131,9 @@ class Message(object):
       newMessageData[i:i + 300] = lnav_msg
     self.messageLen = newMessageLen
     self.messageBits = newMessageData
-    self.msgCount += newMsgCount
+    self.messageCount += newMsgCount
+
+    return
 
   def generateLNavMessage(self):
     '''
@@ -143,7 +148,8 @@ class Message(object):
     msgData[1::2] = 1  # Zero + one everywhere
 
     # TLM word
-    self.fillTlmWord(msgData[0:30], 0)
+    self.fillTlmWord(msgData[0:30], self.nextMsgId)
+    self.nextMsgId += 1
     self.updateParity(msgData[0:30])
     # logger.debug("TLM: %s" % msgData[0:30])
 
@@ -271,3 +277,5 @@ class Message(object):
     dataBits[-2] = d29
     # D30 = D29*^d3^d5^d6^d8^d9^d10^d11^d13^d15^d19^d22^d23^d24
     dataBits[-1] = d30
+
+    return

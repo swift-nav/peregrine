@@ -34,7 +34,7 @@ class TCXOPoly(TCXOBase):
       over time in ppm.
     '''
     super(TCXOPoly, self).__init__()
-    self.coeffs = coeffs[:]
+    self.coeffs = tuple([x for x in coeffs])
     if coeffs:
       # Recompute drift coefficients from speed of drift into distance of drift
       new_coeffs = []
@@ -52,12 +52,6 @@ class TCXOPoly(TCXOBase):
     Provides string representation of the object
     '''
     return "TCXOPoly: coeffs=%s" % str(self.coeffs)
-
-  def __repr__(self):
-    '''
-    Provides string representation of the object
-    '''
-    return "TCXOPoly(%s)" % repr(self.coeffs)
 
   def computeTcxoTime(self, fromSample, toSample, outputConfig):
     '''

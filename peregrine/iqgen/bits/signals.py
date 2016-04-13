@@ -19,7 +19,7 @@ import scipy.constants
 
 def _calcDopplerShiftHz(frequency_hz, distance_m, velocity_mps):
   '''
-  Utility to compute doppler shift from ditance and velocity for a band
+  Utility to compute doppler shift from distance and velocity for a band
   frequency.
 
   Parameters
@@ -28,7 +28,7 @@ def _calcDopplerShiftHz(frequency_hz, distance_m, velocity_mps):
     Band frequency in hertz
   distance_m : float
     Distance to satellite in meters
-  velocity_m : float
+  velocity_mps : float
     Satellite velocity in meters per second.
 
   Return

@@ -41,8 +41,8 @@ class BandPassFilter(FilterBase):
 
     self.bw_hz = bw_hz
     self.frequency_hz = frequency_hz
-    passBand_hz = bw_hz * 0.5 / outputConfig.SAMPLE_RATE_HZ
-    stopBand_hz = bw_hz * 0.6 / outputConfig.SAMPLE_RATE_HZ
+    passBand_hz = bw_hz
+    stopBand_hz = bw_hz * 1.2
     mult = 2. / outputConfig.SAMPLE_RATE_HZ
     order, wn = cheb2ord(wp=[(frequency_hz - passBand_hz) * mult,
                              (frequency_hz + passBand_hz) * mult],
@@ -52,7 +52,7 @@ class BandPassFilter(FilterBase):
                          gstop=self.stopBandAtt_dbhz,
                          analog=False)
 
-    b, a = cheby2(order,  # Order of the filter
+    b, a = cheby2(order + 1,  # Order of the filter
                   # Minimum attenuation required in the stop band in dB
                   self.stopBandAtt_dbhz,
                   wn,

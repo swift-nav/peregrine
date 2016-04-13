@@ -46,7 +46,7 @@ class Encoder(object):
 
   def addSamples(self, sample_array):
     '''
-    Extracts samples of the supported band and coverts them into bit stream.
+    Extracts samples of the supported band and converts them into bit stream.
 
     Parameters
     ----------
@@ -58,7 +58,7 @@ class Encoder(object):
     numpy.ndarray(dtype=numpy.uint8)
       Array of type uint8 containing the encoded data.
     '''
-    return Encoder.EMPTY_RESULT
+    raise NotImplementedError()
 
   def flush(self):
     '''
@@ -70,10 +70,15 @@ class Encoder(object):
       Array of type uint8 containing the encoded data.
     '''
     if self.n_bits > 0 and self.n_bits % 8 != 0:
-      self.bits += (8 - self.n_bits % 8)
-    res = numpy.packbits(self.bits[0:self.n_bits])
-    self.n_bits = 0
-    return res
+      self.n_bits += (8 - self.n_bits % 8)
+    if self.n_bits:
+      res = numpy.packbits(self.bits[0:self.n_bits])
+      self.bits[0:self.n_bits].fill(0)
+      self.n_bits = 0
+      return res
+    else:
+      # Pack bits returns incorrect result in case of empty source bit set.
+      return Encoder.EMPTY_RESULT
 
   def encodeValues(self):
     '''
@@ -91,6 +96,7 @@ class Encoder(object):
     n_left = self.n_bits - n_offset
     res = numpy.packbits(self.bits[0: n_offset])
     self.bits[0:n_left] = self.bits[n_offset:n_offset + n_left]
+    self.bits[n_left:].fill(0)
     self.n_bits = n_left
     return res
 
