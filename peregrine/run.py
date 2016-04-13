@@ -273,14 +273,15 @@ def main():
   # Track the acquired satellites
   track_results_file = args.file + ".track_results"
   if args.skip_tracking:
-    logging.info("Skipping tracking, loading saved tracking results.")
-    try:
-      with open(track_results_file, 'rb') as f:
-        track_results = cPickle.load(f)
-    except IOError:
-      logging.critical("Couldn't open tracking results file '%s'.",
-                       track_results_file)
-      sys.exit(1)
+    if not args.skip_navigation:
+      logging.info("Skipping tracking, loading saved tracking results.")
+      try:
+        with open(track_results_file, 'rb') as f:
+          track_results = cPickle.load(f)
+      except IOError:
+        logging.critical("Couldn't open tracking results file '%s'.",
+                         track_results_file)
+        sys.exit(1)
   else:
     load_samples(samples=samples,
                  filename=args.file,
