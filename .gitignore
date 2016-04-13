@@ -50,3 +50,9 @@ pip-delete-this-directory.txt
 tests/peregrine_ci_test_data.tar.gz
 tests/test_data/
 tests/test_data_old*
+
+# Eclipse project files
+.pydevproject
+.project
+.cproject
+.settings/
