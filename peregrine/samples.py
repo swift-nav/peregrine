@@ -17,10 +17,10 @@ from peregrine.gps_constants import L1CA, L2C
 
 __all__ = ['load_samples', 'save_samples']
 
-def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits,
-                          value_lookup, channel_lookup = None):
+def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
+                          value_lookup, channel_lookup):
   '''
-  Helper method to load two-bit samples from a file.
+  Helper method to load N-bit samples from a file.
 
   Parameters
   ----------
@@ -30,24 +30,22 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits,
     Number of samples to read, ``-1`` means the whole file.
   num_skip : int
     Number of samples to discard from the beginning of the file.
-  n_rx : int
-    Number of interleaved streams in the source file
   n_bits : int
     Number of bits per sample
-  channel_lookup : array-like
-    Array to map channels
   value_lookup : array-like
     Array to map values
+  channel_lookup : array-like
+    Array to map channels
 
   Returns
   -------
   out : :class:`numpy.ndarray`, shape(`n_rx`, `num_samples`,)
     The sample data as a two-dimensional numpy array. The first dimension
-    separates codes (bands). The second dimention contains samples indexed
-    with the `value_lookup` table.
+    separates codes (bands) and indexes with the 'channel_lookup' table.
+    The second dimention contains samples indexed with the `value_lookup`
+    table.
   '''
-  if not channel_lookup:
-    channel_lookup = range(n_rx)
+  n_rx = len(channel_lookup)
 
   sample_block_size = n_bits * n_rx
   byte_offset = int(math.floor(num_skip / (8 / sample_block_size)))
@@ -79,8 +77,7 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_rx, n_bits,
     samples[channel_lookup[rx]][:] = chan
   return samples
 
-def __load_samples_one_bit(filename, num_samples, num_skip, n_rx,
-                           channel_lookup = None):
+def __load_samples_one_bit(filename, num_samples, num_skip, channel_lookup):
   '''
   Helper method to load single-bit samples from a file.
 
@@ -92,8 +89,6 @@ def __load_samples_one_bit(filename, num_samples, num_skip, n_rx,
     Number of samples to read, ``-1`` means the whole file.
   num_skip : int
     Number of samples to discard from the beginning of the file.
-  n_rx : int
-    Number of interleaved streams in the source file
   channel_lookup : array-like
     Array to map channels
 
@@ -105,11 +100,10 @@ def __load_samples_one_bit(filename, num_samples, num_skip, n_rx,
     of the values: -1, 1
   '''
   value_lookup = np.asarray((1, -1), dtype=np.int8)
-  return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 1,
+  return __load_samples_n_bits(filename, num_samples, num_skip, 1,
                                value_lookup, channel_lookup)
 
-def __load_samples_two_bits(filename, num_samples, num_skip, n_rx,
-                            channel_lookup = None):
+def __load_samples_two_bits(filename, num_samples, num_skip, channel_lookup):
   '''
   Helper method to load two-bit samples from a file.
 
@@ -121,8 +115,6 @@ def __load_samples_two_bits(filename, num_samples, num_skip, n_rx,
     Number of samples to read, ``-1`` means the whole file.
   num_skip : int
     Number of samples to discard from the beginning of the file.
-  n_rx : int
-    Number of interleaved streams in the source file
   channel_lookup : array-like
     Array to map channels
 
@@ -136,7 +128,7 @@ def __load_samples_two_bits(filename, num_samples, num_skip, n_rx,
   # Interleaved two bit samples from two receivers. First bit is a sign of the
   # sample, and the second bit is the amplitude value: 1 or 3.
   value_lookup = np.asarray((-1, -3, 1, 3), dtype=np.int8)
-  return __load_samples_n_bits(filename, num_samples, num_skip, n_rx, 2,
+  return __load_samples_n_bits(filename, num_samples, num_skip, 2,
                                value_lookup, channel_lookup)
 
 def _load_samples(filename,
@@ -290,18 +282,18 @@ def _load_samples(filename,
 
   elif file_format == '1bit_x2':
     # Interleaved single bit samples from two receivers: -1, +1
-    samples = __load_samples_one_bit(filename, num_samples, num_skip, 2,
+    samples = __load_samples_one_bit(filename, num_samples, num_skip,
                                      defaults.file_encoding_1bit_x2)
   elif file_format == '2bits':
     # Two bit samples from one receiver: -3, -1, +1, +3
-    samples = __load_samples_two_bits(filename, num_samples, num_skip, 1)
+    samples = __load_samples_two_bits(filename, num_samples, num_skip, [0])
   elif file_format == '2bits_x2':
     # Interleaved two bit samples from two receivers: -3, -1, +1, +3
-    samples = __load_samples_two_bits(filename, num_samples, num_skip, 2,
+    samples = __load_samples_two_bits(filename, num_samples, num_skip,
                                       defaults.file_encoding_2bits_x2)
   elif file_format == '2bits_x4':
     # Interleaved two bit samples from four receivers: -3, -1, +1, +3
-    samples = __load_samples_two_bits(filename, num_samples, num_skip, 4,
+    samples = __load_samples_two_bits(filename, num_samples, num_skip,
                                        defaults.file_encoding_2bits_x4)
   else:
     raise ValueError("Unknown file type '%s'" % file_format)

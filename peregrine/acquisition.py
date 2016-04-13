@@ -49,6 +49,7 @@ class Acquisition:
 
   Parameters
   ----------
+  signal: The signal to acquire
   samples : :class:`numpy.ndarray` or `None`
     Array of samples to use for acquisition. Can be `None` but in this case
     `init_samples` *must* be called with an array of samples before any other
@@ -76,15 +77,17 @@ class Acquisition:
   """
 
   def __init__(self,
+               signal,
                samples,
                sampling_freq,
                IF,
                samples_per_code,
-               code_length=defaults.code_length,
+               code_length,
                n_codes_integrate=4,
                offsets=None,
                wisdom_file=DEFAULT_WISDOM_FILE):
 
+    self.signal = signal
     self.sampling_freq = sampling_freq
     self.IF = IF
     self.samples_per_code = int(round(samples_per_code))
@@ -484,7 +487,7 @@ class Acquisition:
                                      code_phase,
                                      snr,
                                      status,
-                                     'l1ca')
+                                     self.signal)
 
       # If the acquisition was successful, log it
       if (snr > threshold):
