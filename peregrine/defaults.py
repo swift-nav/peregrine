@@ -8,15 +8,16 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-ms_to_track = 37 * 1e3
-skip_samples = 1000
-file_format = 'piksi'
+acqThreshold         = 21.0  # SNR (unitless)
+acqSanityCheck       = True  # Check for sats known to be below the horizon
+navSanityMaxResid    = 25.0  # meters per SV, normalized nav residuals
+abortIfInsane        = True  # Abort the whole attempt if sanity check fails
+useCache             = True
+cacheDir             = 'cache'
+ephemMaxAge          = 4 * 3600.0 # Reject an ephemeris entry if older than this
+
+# the size of the sample data block processed at a time
 processing_block_size = 20e6 # [samples]
-
-chipping_rate = 1.023e6  # Hz
-code_length = 1023  # chips
-
-code_period = code_length / chipping_rate
 
 # original
 sample_channel_GPS_L1 = 0
@@ -236,7 +237,6 @@ l1ca_lock_detect_params_extraopt = {"k1": 0.02, "k2": 0.8, "lp": 150, "lo": 50}
 
 # disable lock detect
 l1ca_lock_detect_params_disable = {"k1": 0.02, "k2": 1e-6, "lp": 1, "lo": 1}
-
 
 # L2C 20ms lock detect profile
 # References:

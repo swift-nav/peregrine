@@ -96,6 +96,25 @@ class TrackingLoop(object):
 
 
 def _tracking_channel_factory(parameters):
+  """
+  Tracking channel factory.
+  The right tracking channel is created depending
+  on the type of signal provided in acquisition
+  results.
+
+  Parameters
+  ----------
+  parameters : dictionary
+    Combines all relevant tracking channel parameters
+    needed to create a tracking channel instance.
+
+  Returns
+  -------
+  out : TrackingChannel
+    Tracking channel instance
+
+  """
+
   if parameters['acq'].signal == gps_constants.L1CA:
     return TrackingChannelL1CA(parameters)
   if parameters['acq'].signal == gps_constants.L2C:
@@ -103,8 +122,40 @@ def _tracking_channel_factory(parameters):
 
 
 class TrackingChannel(object):
+  """
+  Tracking channel base class.
+  Specialized signal tracking channel classes are subclassed from
+  this class. See TrackingChannelL1CA or TrackingChannelL2C as
+  examples.
+
+  Sub-classes can optionally implement :meth:'_run_preprocess',
+  :meth:'_run_postprocess' and :meth:'_get_result' methods.
+
+  The class is designed to support batch processing of sample data.
+  This is to help processing of large data sample files without the need
+  of loading the whole file into a memory.
+  The class instance keeps track of the next sample to be processed
+  in the form of an index within the original data file.
+  Each sample data batch comes with its starting index within the original
+  data file. Given the starting index of the batch and its own index
+  of the next sample to be processed, the code computes the offset
+  within the batch and starts/continues the tracking procedure from there.
+
+  """
 
   def __init__(self, params):
+    """
+    Initialize the parameters, which are common across different
+    types of tracking channels.
+
+    Parameters
+    ----------
+    params : dictionary
+      The subset of tracking channel parameters that are deemed
+      to be common across different types of tracking channels.
+
+
+    """
     for (key, value) in params.iteritems():
       setattr(self, key, value)
 
@@ -162,7 +213,6 @@ class TrackingChannel(object):
     self.code_phase_acc = 0.0
     self.samples_tracked = 0
     self.i = 0
-    #self.samples_offset = self.samples['samples_offset']
 
     self.pipelining = False    # Flag if pipelining is used
     self.pipelining_k = 0.     # Error prediction coefficient for pipelining
@@ -181,11 +231,22 @@ class TrackingChannel(object):
         raise ValueError("Invalid tracker mode %s" % str(mode))
 
   def dump(self):
+    """
+    Append intermediate tracking results to a file.
+
+    """
     fn_analysis, fn_results = self.track_result.dump(self.output_file, self.i)
     self.i = 0
     return fn_analysis, fn_results
 
   def start(self):
+    """
+    Start tracking channel.
+    For the time being only prints an informative log message about
+    the initial parameters of the tracking channel.
+
+    """
+
     logger.info("[PRN: %d (%s)] Tracking is started. "
                 "IF: %.1f, Doppler: %.1f, code phase: %.1f, "
                 "sample channel: %d sample index: %d" %
@@ -198,25 +259,103 @@ class TrackingChannel(object):
                  self.acq.sample_index))
 
   def get_index(self):
+    """
+    Return index of next sample to be processed by the tracking channel.
+    The tracking channel is designed to process the input data samples
+    in batches. A single batch is fed to multiple tracking channels.
+    To keep track of the order of samples within one tracking channel,
+    each channel maintains an index of the next sample to be processed.
+    This method is a getter method for the index.
+
+    Returns
+    -------
+    sample_index: integer
+      The next data sample to be processed.
+
+    """
     return self.sample_index
 
-  def _run_preprocess(self):  # optionally redefined in subclasses
+  def _run_preprocess(self):
+    """
+    Customize the tracking run procedure in a subclass.
+    The method can be optionally redefined in a subclass to perform
+    a subclass specific actions to happen before correlator runs
+    next integration round.
+
+    """
     pass
 
-  def _run_postprocess(self):  # optionally redefine in subclasses
+  def _run_postprocess(self):
+    """
+    Customize the tracking run procedure in a subclass.
+    The method can be optionally redefined in a subclass to perform
+    a subclass specific actions to happen after correlator runs
+    next integration round.
+
+    """
     pass
 
-  def _get_result(self):  # optionally redefine in subclasses
+  def _get_result(self):
+    """
+    Customize the tracking run procedure outcome in a subclass.
+    The method can be optionally redefined in a subclass to return
+    a subclass specific data as a result of the tracking procedure.
+
+    Returns
+    -------
+    out :
+      None is returned by default.
+
+    """
     return None
 
   def is_pickleable(self):
+    """
+    Check if object is pickleable.
+    The base class instance is always pickleable.
+    If a subclass is not pickleable, then it should redefine the method
+    and return False.
+    The need to know if an object is pickleable or not arises from the fact
+    that we try to run the tracking procedure for multiple tracking channels
+    on multiple CPU cores, if more than one core is available.
+    This is done to speed up the overall processing time. When a tracking
+    channel runs on a separate CPU core, it also runs on a separate
+    process. When the tracking of the given batch of data is over, the process
+    exits and the tracking channel state is returned to the parent process.
+    This requires serialization (pickling) of the tracking object state,
+    which might not be always trivial. This method essentially defines
+    if the tracking channels can be run in a separate processs.
+    If the object is not pickleable, then the tracking for the channel is
+    done on the same CPU, which runs the parent process. Therefore all
+    non-pickleable tracking channels are processed sequentially.
+
+    Returns
+    -------
+    out : bool
+      True if the object is pickleable, False - if not.
+
+    """
     return True
 
-  def run_parallel(self, samples):
-    handover = self.run(samples)
-    return (handover, self)
-
   def run(self, samples):
+    """
+    Run tracking channel for the given batch of data.
+    This method is an entry point for the tracking procedure.
+    Subclasses normally will not redefine the method, but instead
+    redefine the customization methods '_run_preprocess', '_run_postprocess'
+    and '_get_result' to run signal specific tracking operations.
+
+    Parameters
+    ----------
+    sample : dictionary
+      Sample data. Sample data are provided in batches
+
+    Return
+    ------
+      The return value is determined by '_get_result' customization method,
+      which can be redefined in subclasses
+
+    """
 
     self.samples = samples
 
@@ -389,7 +528,21 @@ class TrackingChannel(object):
 
 class TrackingChannelL1CA(TrackingChannel):
 
+  """
+  L1CA tracking channel.
+  """
+
   def __init__(self, params):
+    """
+    Initialize L1C/A tracking channel with L1C/A specific data.
+
+    Parameters
+    ----------
+    params : dictionary
+    L1C/A tracking initialization parameters
+
+    """
+
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(params['acq'].snr)
     cn0_0 += 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
@@ -399,9 +552,10 @@ class TrackingChannelL1CA(TrackingChannel):
     params['IF'] = params['samples'][gps_constants.L1CA]['IF']
     params['prn_code'] = caCodes[params['acq'].prn]
     params['code_freq_init'] = params['acq'].doppler * \
-        gps_constants.chip_rate / gps_constants.l1
+        gps_constants.l1ca_chip_rate / gps_constants.l1
     params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
     params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
+    params['chipping_rate'] = gps_constants.l1ca_chip_rate
 
     TrackingChannel.__init__(self, params)
 
@@ -411,6 +565,12 @@ class TrackingChannelL1CA(TrackingChannel):
     self.l2c_handover_done = False
 
   def _run_preprocess(self):
+    """
+    Run L1C/A tracking loop preprocessor operation.
+    It runs before every coherent integration round.
+
+    """
+
     # For L1 C/A there are coherent and non-coherent tracking options.
     if self.stage1 and \
        self.stage2_coherent_ms and \
@@ -436,12 +596,30 @@ class TrackingChannelL1CA(TrackingChannel):
     self.coherent_iter = self.coherent_ms
 
   def _get_result(self):
+    """
+    Get L1C/A tracking results.
+    The possible outcome of L1C/A tracking operation is
+    the L1C/A handover to L2C in the form of an AcquisitionResult object.
+
+    Returns
+    -------
+    out : AcquisitionResult
+      L2C acquisition result or None
+
+    """
+
     if self.l2c_handover_acq and not self.l2c_handover_done:
       self.l2c_handover_done = True
       return self.l2c_handover_acq
     return None
 
   def _run_postprocess(self):
+    """
+    Run L1C/A coherent integration postprocessing.
+    Runs navigation bit sync decoding operation and
+    L1C/A to L2C handover.
+    """
+
     sync, bit = self.nav_bit_sync.update(np.real(self.P), self.coherent_ms)
     if sync:
       tow = self.nav_msg.update(bit)
@@ -487,8 +665,20 @@ class TrackingChannelL1CA(TrackingChannel):
 
 
 class TrackingChannelL2C(TrackingChannel):
+  """
+  L2C tracking channel.
+  """
 
   def __init__(self, params):
+    """
+    Initialize L2C tracking channel with L2C specific data.
+
+    Parameters
+    ----------
+    params : dictionary
+    L2C tracking initialization parameters
+
+    """
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(params['acq'].snr)
     cn0_0 += 10 * np.log10(defaults.L2C_CHANNEL_BANDWIDTH_HZ)
@@ -500,7 +690,8 @@ class TrackingChannelL2C(TrackingChannel):
     params['IF'] = params['samples'][gps_constants.L2C]['IF']
     params['prn_code'] = L2CMCodes[params['acq'].prn]
     params['code_freq_init'] = params['acq'].doppler * \
-        gps_constants.chip_rate / gps_constants.l2
+        gps_constants.l2c_chip_rate / gps_constants.l2
+    params['chipping_rate'] = gps_constants.l2c_chip_rate
 
     TrackingChannel.__init__(self, params)
 
@@ -508,9 +699,22 @@ class TrackingChannelL2C(TrackingChannel):
     self.cnav_msg_decoder = CNavMsgDecoder()
 
   def is_pickleable(self):
-    return False # could not pickle cnav_msg_decoder Cython object
+    """
+    L2C tracking channel object is not pickleable due to complexity
+    of serializing cnav_msg_decoder Cython object.
+
+    out : bool
+       False - the L2C tracking object is not pickleable
+    """
+    return False
 
   def _run_postprocess(self):
+    """
+    Run L2C coherent integration postprocessing.
+    Runs navigation bit sync decoding operation.
+
+    """
+
     symbol = 0xFF if np.real(self.P) >= 0 else 0x00
     res, delay = self.cnav_msg_decoder.decode(symbol, self.cnav_msg)
     if res:
@@ -531,15 +735,18 @@ class TrackingChannelL2C(TrackingChannel):
       self.track_result.tow[self.i] = self.track_result.tow[self.i - 1] + \
           self.coherent_ms
 
-
 class Tracker(object):
+  """
+  Tracker class.
+  Encapsulates and manages the processing of tracking channels.
+
+  """
 
   def __init__(self,
                samples,
                channels,
                ms_to_track,
                sampling_freq,
-               chipping_rate=defaults.chipping_rate,
                l2c_handover=True,
                progress_bar_output='none',
                loop_filter_class=AidedTrackingLoop,
@@ -549,13 +756,51 @@ class Tracker(object):
                multi=False,
                tracker_options=None,
                output_file=None):
+    """
+    Set up tracking environment.
+    1. Check if multy CPU tracking is possible
+    2. Set up progress bar
+    3. Create tracking channels based on the provided acquistion results
+
+    Parameters
+    ----------
+    samples : dictionary
+      Samples data for all one or more data channels
+    channels : list
+      A list of acquisition results
+    ms_to_track : int
+      How many milliseconds to track [ms]
+    sampling_freq : float
+      Data sampling frequency [Hz]
+    l2c_handover : bool
+      Instructs if L1C/A to L2C handover is to be done
+    progress_bar_output : string
+      Where the progress bar updates are forwarded.
+    loop_filter_class : class
+      The type of the loop filter class to be used by tracker channels
+    correlator : class
+      The correlator class to be used by tracker channels
+    stage2_coherent_ms : dictionary
+      Stage 2 coherent integration parameters set.
+    stage2_loop_filter_params : dictionary
+      Stage 2 loop filter parameters set.
+    multi : bool
+      Enable multi core CPU utilization
+    tracker_options : dictionary
+      Enable piplining or short/long cycles tracking to simulate HW
+    output_file : string
+      The name of the output file, where the tracking results are stored.
+      The actual file name is a mangled version of this file name and
+      reflects the signal name and PRN number for which the tracking results
+      are generated.
+
+    """
 
     self.samples = samples
     self.sampling_freq = sampling_freq
     self.ms_to_track = ms_to_track
     self.tracker_options = tracker_options
     self.output_file = output_file
-    self.chipping_rate = chipping_rate
     self.l2c_handover = l2c_handover
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
@@ -601,17 +846,23 @@ class Tracker(object):
                  progressbar.Percentage(), ' ',
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
-      self.pbar = progressbar.ProgressBar(widgets=widgets,
-                                          maxval=samples['samples_total'],
-                                          attr={'samples': self.samples['samples_total'],
-                                                'sample': 0l},
-                                          fd=progress_fd)
+      self.pbar = progressbar.ProgressBar( \
+                    widgets=widgets,
+                    maxval=samples['samples_total'],
+                    attr={'samples': self.samples['samples_total'],
+                          'sample': 0l},
+                    fd=progress_fd)
     else:
       self.pbar = None
 
     self.tracking_channels = map(self._create_channel, channels)
 
   def start(self):
+    """
+    Start tracking operation for all created tracking channels.
+    Print relevant log messages, start progress bar.
+
+    """
     logger.info("Number of CPUs: %d" % (mp.cpu_count()))
 
     logger.info("Tracking %.4fs of data (%d samples)" %
@@ -625,27 +876,53 @@ class Tracker(object):
     if self.pbar:
       self.pbar.start()
 
-  def _print_name(self, name):
-    print name
-
   def stop(self):
+    """
+    Stop tracking operation of all tracking channels.
+    1. Stop progress bar.
+    2. Complete logging tracking results for all tracking channels.
+
+    Return
+    ------
+    out : list
+      A list of file names - one file name for one tracking channel.
+      Each file contains pickled TrackingResults object
+
+    """
+
     if self.pbar:
       self.pbar.finish()
 
-    # (fn_analysis, fn_results) = map(lambda chan: chan.dump(), self.tracking_channels)
     res = map(lambda chan: chan.dump(), self.tracking_channels)
 
     fn_analysis = map(lambda x: x[0], res)
     fn_results = map(lambda x: x[1], res)
 
+    def _print_name(name):
+      print name
+
     print "The tracking results were stored into:"
-    map(self._print_name, fn_analysis)
+    map(_print_name, fn_analysis)
 
     logger.info("Tracking finished")
 
     return fn_results
 
   def _create_channel(self, acq):
+    """
+    Create a new channel for the given acquisition result.
+
+    Parameters
+    ----------
+    acq : AcquisitionResults
+      Acquisition results class object
+
+    Return
+    ------
+    out : TrackingChannel
+      The new tracking channel class object
+
+    """
     if not acq:
       return
     parameters = {'acq': acq,
@@ -655,7 +932,6 @@ class Tracker(object):
                   'output_file': self.output_file,
                   'samples_to_track': self.samples_to_track,
                   'sampling_freq': self.sampling_freq,
-                  'chipping_rate': self.chipping_rate,
                   'l2c_handover': self.l2c_handover,
                   'show_progress': self.show_progress,
                   'correlator': self.correlator,
@@ -664,13 +940,43 @@ class Tracker(object):
                   'multi': self.multi}
     return _tracking_channel_factory(parameters)
 
-  def _run_parallel(self, i, samples):
-    handover = self.parallel_channels[i].run(samples)
-    return self.parallel_channels[i], handover
-
   def run_channels(self, samples):
+    """
+    Run tracking channels.
+
+    Parameters
+    ----------
+    samples : dictionary
+      Sample data together with description data
+
+    Return
+    ------
+    out : int
+      The smallest data sample index across all tracking channels.
+      The index tells the offset, from which the next sample data batch
+      is to be read from the input data file.
+
+    """
     channels = self.tracking_channels
     self.tracking_channels = []
+
+    def _run_parallel(i, samples):
+      """
+      Run a tracking channel.
+      Expected to be run in a child process.
+
+      Parameters
+      ----------
+      i : int
+        Channel index within self.parallel_channels list
+
+      Return
+      out : TrackingChannel, AcquisitionResult
+        Tracking channel state and handover result
+
+      """
+      handover = self.parallel_channels[i].run(samples)
+      return self.parallel_channels[i], handover
 
     while channels and not all(v is None for v in channels):
 
@@ -684,7 +990,7 @@ class Tracker(object):
       handover = []
 
       if self.parallel_channels:
-        res = pp.parmap(lambda i: self._run_parallel(i, samples),
+        res = pp.parmap(lambda i: _run_parallel(i, samples),
                         range(len(self.parallel_channels)),
                         nprocs = len(self.parallel_channels),
                         show_progress=False,
@@ -713,8 +1019,29 @@ class Tracker(object):
 
 
 class TrackResults:
+  """
+  Tracking results.
+  The class is designed to support accumulation of tracking
+  result up to a certain limit. Once the limit is reached
+  'dump' method is expected to be called to store the accumulated
+  tracking results to the file system.
+
+  """
 
   def __init__(self, n_points, prn, signal):
+    """
+    Init tracking results.
+    Paremeters
+    ----------
+    n_points : int
+      How many tracking results can be accumulated until they are
+      stored into the file system
+    prn : int
+      PRN number, for which the tracking results object is created
+    signal : string
+      Signal for which the tracking results object is created.
+
+    """
     self.print_start = 1
     self.status = '-'
     self.prn = prn
@@ -743,12 +1070,24 @@ class TrackResults:
     self.tow = np.empty(n_points)
     self.tow[:] = np.NAN
     self.coherent_ms = np.zeros(n_points)
-    # self.cnav_msg = swiftnav.cnav_msg.CNavMsg()
-    # self.cnav_msg_decoder = swiftnav.cnav_msg.CNavMsgDecoder()
     self.signal = signal
     self.ms_tracked = np.zeros(n_points)
 
   def dump(self, output_file, size):
+    """
+    Store tracking result to file system.
+    The tracking results are stored in two different formats:
+    CSV (test) and Python pickle (binary) format.
+
+    Parameters
+    ----------
+    output_file : string
+      The name of the output file. The actual file name is a mangled
+      version of this name and includes the PRN and signal type.
+    size : int
+      How many entries of the tracking results are to be stored into the file.
+
+    """
     output_filename, output_file_extension = os.path.splitext(output_file)
 
     # mangle the analyses file name with the tracked signal name

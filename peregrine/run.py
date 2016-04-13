@@ -13,6 +13,7 @@ import sys
 import argparse
 import cPickle
 import logging
+import json
 import numpy as np
 from operator import attrgetter
 
@@ -22,8 +23,30 @@ from peregrine.navigation import navigation
 import peregrine.tracking as tracking
 from peregrine.log import default_logging_config
 from peregrine import defaults
-from peregrine.initSettings import initSettings
-from peregrine.gps_constants import L1CA, L2C
+import peregrine.gps_constants as gps
+
+class SaveConfigAction(argparse.Action):
+
+  def __init__(self, option_strings, dest, nargs=None, **kwargs):
+    super(SaveConfigAction, self).__init__(option_strings, dest, **kwargs)
+
+  def __call__(self, parser, namespace, file_hnd, option_string=None):
+    data = vars(namespace)
+
+    json.dump(data, file_hnd, indent=2)
+    file_hnd.close()
+    namespace.no_run = True
+
+class LoadConfigAction(argparse.Action):
+
+  def __init__(self, option_strings, dest, nargs=None, **kwargs):
+    super(LoadConfigAction, self).__init__(option_strings, dest, **kwargs)
+
+  def __call__(self, parser, namespace, file_hnd, option_string=None):
+    loaded = json.load(file_hnd)
+    for k, v in loaded.iteritems():
+      setattr(namespace, k, v)
+    file_hnd.close()
 
 def unpickle_iter(filenames):
   try:
@@ -39,12 +62,111 @@ def unpickle_iter(filenames):
     for fh in f:
       fh.close()
 
+def populate_peregrine_cmd_line_arguments(parser):
+  if sys.stdout.isatty():
+    progress_bar_default = 'stdout'
+  elif sys.stderr.isatty():
+    progress_bar_default = 'stderr'
+  else:
+    progress_bar_default = 'none'
+
+  parser.add_argument("--progress-bar",
+                      metavar='FLAG',
+                      choices=['stdout', 'stderr', 'none'],
+                      default=progress_bar_default,
+                      help="Show progress bar. Default is '%s'" %
+                      progress_bar_default)
+
+  parser.add_argument("--file",
+                      help="the sample data file to process")
+
+  parser.add_argument('--no-run',
+                      action="store_true",
+                      default=False,
+                      help="Do not generate output.")
+
+  parser.add_argument('--save-config',
+                      type=argparse.FileType('wt'),
+                      metavar='FILE_NAME',
+                      help="Store configuration into file (implies --no-run)",
+                      action=SaveConfigAction)
+
+  parser.add_argument('--load-config',
+                      type=argparse.FileType('rt'),
+                      metavar='FILE_NAME',
+                      help="Restore configuration from file",
+                      action=LoadConfigAction)
+
+  inputCtrl = parser.add_argument_group('Data Source',
+                                        'Data source configuration')
+
+  inputCtrl.add_argument("--skip-samples",
+                         default=0,
+                         metavar='N_SAMPLES',
+                         help="How many samples to skip")
+
+  inputCtrl.add_argument("-f", "--file-format",
+                         choices=['piksi', 'int8', '1bit', '1bitrev',
+                                  '1bit_x2', '2bits', '2bits_x2', '2bits_x4'],
+                         metavar='FORMAT',
+                         help="The format of the sample data file "
+                         "('piksi', 'int8', '1bit', '1bitrev', "
+                         "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
+
+  inputCtrl.add_argument("--ms-to-process",
+                         metavar='MS',
+                         help="the number of milliseconds to process."
+                         "(-1: use all available data)",
+                         default="-1")
+
+  inputCtrl.add_argument("--profile",
+                         choices=['peregrine', 'custom_rate', 'low_rate',
+                                  'normal_rate', 'piksi_v3', 'high_rate'],
+                         metavar='PROFILE',
+                         help="L1C/A & L2C IF + sampling frequency profile"
+                         "('peregrine'/'custom_rate', 'low_rate', "
+                         "'normal_rate', 'piksi_v3', 'high_rate')",
+                         default='peregrine')
+
+  fpgaSim = parser.add_argument_group('FPGA simulation',
+                                      'FPGA delay control simulation')
+  fpgaExcl = fpgaSim.add_mutually_exclusive_group(required=False)
+  fpgaExcl.add_argument("--pipelining",
+                        type=float,
+                        nargs='?',
+                        metavar='PIPELINING_K',
+                        help="Use FPGA pipelining simulation. Supply optional "
+                        " coefficient (%f)" % defaults.pipelining_k,
+                        const=defaults.pipelining_k,
+                        default=None)
+
+  fpgaExcl.add_argument("--short-long-cycles",
+                        type=float,
+                        nargs='?',
+                        metavar='PIPELINING_K',
+                        help="Use FPGA short-long cycle simulation. Supply"
+                        " optional pipelining coefficient (0.)",
+                        const=0.,
+                        default=None)
+
+  signalParam = parser.add_argument_group('Signal tracking',
+                                          'Parameters for satellite vehicle'
+                                          ' signal')
+
+  signalParam.add_argument('--l1ca-profile',
+                           metavar='PROFILE',
+                           help='L1 C/A stage profile. Controls coherent'
+                                ' integration time and tuning parameters: %s.' %
+                                str(defaults.l1ca_stage_profiles.keys()),
+                           choices=defaults.l1ca_stage_profiles.keys())
+
+  return signalParam
+
 def main():
   default_logging_config()
 
   parser = argparse.ArgumentParser()
-  parser.add_argument("file",
-                      help="the sample data file to process")
+
   parser.add_argument("-a", "--skip-acquisition",
                       help="use previously saved acquisition results",
                       action="store_true")
@@ -54,54 +176,13 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
-  parser.add_argument("--ms-to-process",
-                      help="the number of milliseconds to process."
-                      "(-1: use all available data",
-                      default="-1")
-  parser.add_argument("--profile",
-                      help="L1C/A & L2C IF + sampling frequency profile"
-                      "('peregrine'/'custom_rate', 'low_rate', "
-                      "'normal_rate' (piksi_v3), 'high_rate')",
-                      default='peregrine')
-  parser.add_argument("-f", "--file-format", default=defaults.file_format,
-                      help="the format of the sample data file "
-                      "('piksi', 'int8', '1bit', '1bitrev', "
-                      "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
-  parser.add_argument('--l1ca-profile',
-                      help='L1 C/A stage profile',
-                      choices=defaults.l1ca_stage_profiles.keys())
-  if sys.stdout.isatty():
-    progress_bar_default = 'stdout'
-  elif sys.stderr.isatty():
-    progress_bar_default = 'stderr'
-  else:
-    progress_bar_default = 'none'
-  parser.add_argument("--progress-bar",
-                      metavar='FLAG',
-                      choices=['stdout', 'stderr', 'none'],
-                      default=progress_bar_default,
-                      help="Show progress bar. Default is '%s'" %
-                      progress_bar_default)
 
-  fpgaSim = parser.add_argument_group('FPGA simulation',
-                                      'FPGA delay control simulation')
+  populate_peregrine_cmd_line_arguments(parser)
 
-  fpgaSim.add_argument("--pipelining",
-                       type=float,
-                       nargs='?',
-                       help="Use FPGA pipelining simulation. Supply optional "
-                       " coefficient (%f)" % defaults.pipelining_k,
-                       const=defaults.pipelining_k,
-                       default=None)
-
-  fpgaSim.add_argument("--short-long-cycles",
-                       type=float,
-                       nargs='?',
-                       help="Use FPGA short-long cycle simulation. Supply"
-                       " optional pipelining coefficient (0.)",
-                       const=0.,
-                       default=None)
   args = parser.parse_args()
+
+  if args.no_run:
+    return 0
 
   if args.file is None:
     parser.print_help()
@@ -131,18 +212,12 @@ def main():
   else:
     tracker_options = None
 
-  settings = initSettings(freq_profile)
-  settings.fileName = args.file
-
   ms_to_process = int(args.ms_to_process)
 
-  samplesPerCode = int(round(settings.samplingFreq /
-                             (settings.codeFreqBasis / settings.codeLength)))
-
-  samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
-             L2C: {'IF': freq_profile['GPS_L2_IF']},
+  samples = {gps.L1CA: {'IF': freq_profile['GPS_L1_IF']},
+             gps.L2C: {'IF': freq_profile['GPS_L2_IF']},
              'samples_total': -1,
-             'sample_index': settings.skipNumberOfBytes}
+             'sample_index': int(args.skip_samples)}
 
   # Do acquisition
   acq_results_file = args.file + ".acq_results"
@@ -155,17 +230,27 @@ def main():
                        acq_results_file)
       sys.exit(1)
   else:
-    # Get 11ms of acquisition samples for fine frequency estimation
-    load_samples(samples=samples,
-                 num_samples=11 * samplesPerCode,
-                 filename=args.file,
-                 file_format=args.file_format)
+    for signal in [gps.L1CA]:
 
-    acq = Acquisition(samples[L1CA]['samples'],
-                      freq_profile['sampling_freq'],
-                      freq_profile['GPS_L1_IF'],
-                      defaults.code_period * freq_profile['sampling_freq'])
-    acq_results = acq.acquisition(progress_bar_output=args.progress_bar)
+      samplesPerCode = int(round(freq_profile['sampling_freq'] /
+                       (gps.l1ca_chip_rate / gps.l1ca_code_length)))
+
+      # Get 11ms of acquisition samples for fine frequency estimation
+      load_samples(samples=samples,
+                   num_samples=11 * samplesPerCode,
+                   filename=args.file,
+                   file_format=args.file_format)
+
+      acq = Acquisition(signal,
+                        samples[signal]['samples'],
+                        freq_profile['sampling_freq'],
+                        freq_profile['GPS_L1_IF'],
+                        gps.l1ca_code_period * freq_profile['sampling_freq'],
+                        gps.l1ca_code_length)
+      # only one signal - L1CA is expected to be acquired at the moment
+      # TODO: add handling of acquisition results from GLONASS once GLONASS
+      # acquisition is supported.
+      acq_results = acq.acquisition(progress_bar_output=args.progress_bar)
 
     print "Acquisition is over!"
 
@@ -205,6 +290,8 @@ def main():
       ms_to_process = int(
           1e3 * samples['samples_total'] / freq_profile['sampling_freq'])
 
+    # Create the tracker object, which also create one tracking
+    # channel per each acquisition result in 'acq_results' list.
     tracker = tracking.Tracker(samples=samples,
                                channels=acq_results,
                                ms_to_track=ms_to_process,
@@ -215,9 +302,20 @@ def main():
                                tracker_options=tracker_options,
                                output_file=args.file,
                                progress_bar_output=args.progress_bar)
+    # The tracking channels are designed to support batch processing.
+    # In the batch processing mode the data samples are provided in
+    # batches (chunks) of 'defaults.processing_block_size' bytes size.
+    # The loop below runs all tracking channels for each batch as it
+    # reads it from the samples file.
     tracker.start()
     condition = True
     while condition:
+      # Each tracking channel remembers its own data samples offset within
+      # 'samples' such that when new batch of data is provided, it
+      # starts precisely, where it finished at the previous batch
+      # processing round.
+      # 'sample_index' is set to the smallest offset within 'samples'
+      # array across all tracking channels.
       sample_index = tracker.run_channels(samples)
       if sample_index == samples['sample_index']:
         condition = False
@@ -235,7 +333,8 @@ def main():
   if not args.skip_navigation:
     track_results_generator = lambda: unpickle_iter(fn_results)
     for track_results in track_results_generator():
-      nav_solns = navigation(track_results_generator, settings)
+      nav_solns = navigation(track_results_generator,
+                             freq_profile['sampling_freq'])
       nav_results = []
       for s, t in nav_solns:
         nav_results += [(t, s.pos_llh, s.vel_ned)]

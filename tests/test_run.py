@@ -40,7 +40,9 @@ NEW_NAV_RES = SAMPLES_PATH + SAMPLES_FNAME + '.nav_results'
 def test_acquisition():
 
   # Replace argv with args to skip tracking and navigation.
-  with patch.object(sys, 'argv', ['peregrine', SAMPLES, '-t', '-n']):
+  with patch.object(sys, 'argv',
+                    ['peregrine', '--file', SAMPLES,
+                     '--file-format', 'piksi', '-t', '-n']):
 
     try:
       peregrine.run.main()
