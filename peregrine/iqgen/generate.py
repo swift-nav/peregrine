@@ -8,19 +8,24 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import sys
-import traceback
 
 """
 The :mod:`peregrine.iqgen.generate` module contains classes and functions
 related to main loop of samples generation.
 
 """
+
+from peregrine.iqgen.bits.satellite_gps import GPSSatellite
+from peregrine.iqgen.bits.satellite_glo import GLOSatellite
 from peregrine.iqgen.bits.filter_lowpass import LowPassFilter
 from peregrine.iqgen.bits.filter_bandpass import BandPassFilter
 
+from peregrine.iqgen.bits.amplitude_base import NoiseParameters
+
 from peregrine.iqgen.bits import signals
 
+import sys
+import traceback
 import logging
 import scipy
 import numpy
@@ -40,7 +45,7 @@ class Task(object):
   def __init__(self,
                outputConfig,
                signalSources,
-               noiseSigma,
+               noiseParams,
                tcxo,
                signalFilters,
                generateDebug):
@@ -51,8 +56,8 @@ class Task(object):
       Output profile
     signalSources : array-like
       List of satellites
-    noiseSigma : float
-      Noise sigma value
+    noiseParams : NoiseParameters
+      Noise parameters container
     tcxo : object
       TCXO control object
     signalFilters : array-like
@@ -65,7 +70,7 @@ class Task(object):
     self.signalSources = signalSources
     self.signalFilters = signalFilters
     self.generateDebug = generateDebug
-    self.noiseSigma = noiseSigma
+    self.noiseParams = noiseParams
     self.tcxo = tcxo
     self.signals = scipy.ndarray(shape=(4, outputConfig.SAMPLE_BATCH_SIZE),
                                  dtype=numpy.float)
@@ -112,19 +117,12 @@ class Task(object):
     numpy.ndarray(shape=(4, nSamples), dtype=numpy.float)
       Noise values
     '''
-    noiseSigma = self.noiseSigma
-    if noiseSigma is not None:
+    noiseParams = self.noiseParams
+    noise = None
+    if noiseParams is not None:
       # Initialize signal array with noise
-      noiseType = 1
-      if noiseType == 1:
-        noise = noiseSigma * scipy.randn(4, nSamples)
-      else:
-        noise = numpy.random.normal(loc=0.,
-                                    scale=noiseSigma,
-                                    size=(4, nSamples))
-      # print self.noise
-    else:
-      noise = None
+      noiseSigma = noiseParams.getNoiseSigma()
+      noise = noiseSigma * scipy.randn(4, nSamples) if noiseSigma else None
     return noise
 
   def perform(self):
@@ -152,6 +150,7 @@ class Task(object):
       if tcxoTimeDrift_s:
         userTimeAll_s += tcxoTimeDrift_s
 
+    noiseParams = self.noiseParams
     noise = self.noise
     sigs = self.signals
     sigs.fill(0.)
@@ -171,6 +170,7 @@ class Task(object):
       t = signalSource.getBatchSignals(userTimeAll_s,
                                        sigs,
                                        outputConfig,
+                                       noiseParams,
                                        generateDebug)
       # Debugging output
       if generateDebug:
@@ -194,7 +194,7 @@ class Worker(multiprocessing.Process):
   def __init__(self,
                outputConfig,
                signalSources,
-               noiseSigma,
+               noiseParams,
                tcxo,
                signalFilters,
                generateDebug):
@@ -205,7 +205,7 @@ class Worker(multiprocessing.Process):
     self.totalExecTime_s = 0.
     self.outputConfig = outputConfig
     self.signalSources = signalSources
-    self.noiseSigma = noiseSigma
+    self.noiseParams = noiseParams
     self.tcxo = tcxo
     self.signalFilters = signalFilters
     self.generateDebug = generateDebug
@@ -213,7 +213,7 @@ class Worker(multiprocessing.Process):
   def run(self):
     task = Task(self.outputConfig,
                 self.signalSources,
-                noiseSigma=self.noiseSigma,
+                noiseParams=self.noiseParams,
                 tcxo=self.tcxo,
                 signalFilters=self.signalFilters,
                 generateDebug=self.generateDebug)
@@ -225,7 +225,7 @@ class Worker(multiprocessing.Process):
         # EOF reached
         break
       (userTime0_s, nSamples, firstSampleIndex) = inputRequest
-      # print "Received params", userTime0_s, nSamples, firstSampleIndex
+
       opDuration_s = time.clock() - opStartTime_s
       self.totalWaitTime_s += opDuration_s
       startTime_s = time.clock()
@@ -245,6 +245,7 @@ class Worker(multiprocessing.Process):
         sys.exit(1)
       duration_s = time.clock() - startTime_s
       self.totalExecTime_s += duration_s
+
     statistics = (self.totalWaitTime_s, self.totalExecTime_s)
     self.queueOut.put(statistics)
     self.queueIn.close()
@@ -277,7 +278,7 @@ def generateSamples(outputFile,
                     time0S,
                     nSamples,
                     outputConfig,
-                    SNR=None,
+                    noiseSigma=None,
                     tcxo=None,
                     filterType="none",
                     logFile=None,
@@ -300,7 +301,7 @@ def generateSamples(outputFile,
     Total number of samples to generate.
   outputConfig : object
     Output parameters
-  SNR : float, optional
+  noiseSigma : float, optional
     When specified, adds random noise to the output.
   tcxo : object, optional
     When specified, controls TCXO drift
@@ -313,16 +314,20 @@ def generateSamples(outputFile,
   #
   # Print out parameters
   #
-  print "Generating samples, sample rate={} Hz, interval={} seconds, SNR={}".format(
-        outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ, SNR)
-  print "Jobs: ", threadCount
+  logger.info("Generating samples, sample rate={} Hz, interval={} seconds".format(
+      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
+  logger.debug("Jobs: %d" % threadCount)
 
   _t0 = time.clock()
   _count = 0l
 
   # Check which bands are enabled, configure band-specific parameters
-  bands = [outputConfig.GPS.L1, outputConfig.GPS.L2]  # Supported bands
+  bands = [outputConfig.GPS.L1,
+           outputConfig.GPS.L2,
+           outputConfig.GLONASS.L1,
+           outputConfig.GLONASS.L2]  # Supported bands
   lpf = [None] * len(bands)
+  lpfFA_db = [0.] * len(bands)  # Filter attenuation levels
   bandsEnabled = [False] * len(bands)
 
   bandPass = False
@@ -339,44 +344,37 @@ def generateSamples(outputFile,
   for band in bands:
     for sv in sv_list:
       bandsEnabled[band.INDEX] |= sv.isBandEnabled(band.INDEX, outputConfig)
+    sv = None
 
     filterObject = None
+    ifHz = 0.
+    if hasattr(band, "INTERMEDIATE_FREQUENCY_HZ"):
+      ifHz = band.INTERMEDIATE_FREQUENCY_HZ
+    elif hasattr(band, "INTERMEDIATE_FREQUENCIES_HZ"):
+      ifHz = band.INTERMEDIATE_FREQUENCIES_HZ[0]
+    else:
+      raise ValueError("Unknown band type")
+
     if lowPass:
-      filterObject = LowPassFilter(outputConfig,
-                                   band.INTERMEDIATE_FREQUENCY_HZ)
+      filterObject = LowPassFilter(outputConfig, ifHz)
     elif bandPass:
-      filterObject = BandPassFilter(outputConfig,
-                                    band.INTERMEDIATE_FREQUENCY_HZ)
+      filterObject = BandPassFilter(outputConfig, ifHz)
     if filterObject:
       lpf[band.INDEX] = filterObject
+      lpfFA_db[band.INDEX] = filterObject.getPassBandAtt()
       logger.debug("Band %d filter NBW is %s" %
                    (band.INDEX, str(filterObject)))
 
-  if SNR is not None:
-    sourcePower = 0.
-    for sv in sv_list:
-      svMeanPower = sv.getAmplitude().computeMeanPower()
-      sourcePower += svMeanPower
-      logger.debug("[%s] Estimated mean power is %f" %
-                   (sv.getSvName(), svMeanPower))
-    meanPower = sourcePower / len(sv_list)
-    meanAmplitude = scipy.sqrt(meanPower)
-    logger.debug("Estimated total signal power is %f, mean %f, mean amplitude %f" %
-                 (sourcePower, meanPower, meanAmplitude))
-
-    # Nsigma and while noise amplitude computation: check if the Nsigma is
-    # actually a correct value for white noise with normal distribution.
-
-    # Number of samples for 1023 MHz
-    freqTimesTau = outputConfig.SAMPLE_RATE_HZ / 1.023e6
-    noiseVariance = freqTimesTau * meanPower / (4. * 10. ** (float(SNR) / 10.))
-    noiseSigma = numpy.sqrt(noiseVariance)
-    logger.info("Selected noise sigma %f (variance %f) for SNR %f" %
-                (noiseSigma, noiseVariance, float(SNR)))
+  if noiseSigma is not None:
+    noiseVariance = noiseSigma * noiseSigma
+    noiseParams = NoiseParameters(outputConfig.SAMPLE_RATE_HZ, noiseSigma)
+    logger.info("Selected noise sigma %f (variance %f)" %
+                (noiseSigma, noiseVariance))
 
   else:
-    noiseVariance = None
-    noiseSigma = None
+    noiseVariance = 0.
+    noiseSigma = 0.
+    noiseParams = NoiseParameters(outputConfig.SAMPLE_RATE_HZ, 0.)
     logger.info("SNR is not provided, noise is not generated.")
 
   #
@@ -388,41 +386,63 @@ def generateSamples(outputFile,
     _svTime0_s = 0
     _dist0_m = _sv.doppler.computeDistanceM(_svTime0_s)
     _speed_mps = _sv.doppler.computeSpeedMps(_svTime0_s)
-    _bit = signals.GPS.L1CA.getSymbolIndex(_svTime0_s)
-    _c1 = signals.GPS.L1CA.getCodeChipIndex(_svTime0_s)
-    _c2 = signals.GPS.L2C.getCodeChipIndex(_svTime0_s)
-    _d1 = signals.GPS.L1CA.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    _d2 = signals.GPS.L2C.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    svMeanPower = _sv.getAmplitude().computeMeanPower()
+    # svMeanPower = _sv.getAmplitude().computeMeanPower()
+    if isinstance(_sv, GPSSatellite):
+      band1Index = outputConfig.GPS.L1.INDEX
+      band2Index = outputConfig.GPS.L2.INDEX
+      band1IncreaseDb = 60. - lpfFA_db[band1Index]  # GPS L1 C/A
+      # GPS L2C CM - only half of power is used: -3dB
+      band2IncreaseDb = 60. - 3. - lpfFA_db[band2Index]
+      signal1 = signals.GPS.L1CA
+      signal2 = signals.GPS.L2C
+      _msg1 = _sv.getL1CAMessage()
+      _msg2 = _sv.getL2CMessage()
+      _l2ct = _sv.getL2CLCodeType()
+    elif isinstance(_sv, GLOSatellite):
+      band1Index = outputConfig.GLONASS.L1.INDEX
+      band2Index = outputConfig.GLONASS.L2.INDEX
+      band1IncreaseDb = 60. - lpfFA_db[band1Index]  # GLONASS L1
+      band2IncreaseDb = 60. - lpfFA_db[band2Index]  # GLONASS L2
+      signal1 = signals.GLONASS.L1S[_sv.prn]
+      signal2 = signals.GLONASS.L2S[_sv.prn]
+      _msg1 = _sv.getL1Message()
+      _msg2 = _sv.getL2Message()
+      _l2ct = None
+    else:
+      pass
     # SNR for a satellite. Depends on sampling rate.
     if noiseVariance:
-      svSNR = svMeanPower / (4. * noiseVariance) * freqTimesTau
+      svSNR_db = _sv.getAmplitude().computeSNR(noiseParams)
+      svCNoL1 = svSNR_db + band1IncreaseDb - encoder.getAttenuationLevel()
+      svCNoL2 = svSNR_db + band2IncreaseDb - encoder.getAttenuationLevel()
     else:
-      svSNR = 1e6
-    svSNR_db = 10. * numpy.log10(svSNR)
-    # Filters lower the power according to their attenuation levels
-    l1FA_db = lpf[0].getPassBandAtt() if lpf[0] else 0.
-    l2FA_db = lpf[1].getPassBandAtt() if lpf[1] else 0.
-    # CNo for L1
-    svCNoL1 = svSNR_db + 10. * numpy.log10(1.023e6) - l1FA_db
-    # CNo for L2, half power used (-3dB)
-    svCNoL2 = svSNR_db + 10. * numpy.log10(1.023e6) - 3. - l2FA_db
+      svSNR_db = 60.
+      svCNoL1 = svCNoL2 = 120
+
+    _d1 = signal1.calcDopplerShiftHz(_dist0_m, _speed_mps)
+    _d2 = signal2.calcDopplerShiftHz(_dist0_m, _speed_mps)
+    _f1 = signal1.CENTER_FREQUENCY_HZ
+    _f2 = signal2.CENTER_FREQUENCY_HZ
+    _bit = signal1.getSymbolIndex(_svTime0_s)
+    _c1 = signal1.getCodeChipIndex(_svTime0_s)
+    _c2 = signal2.getCodeChipIndex(_svTime0_s)
 
     print "{} = {{".format(_svNo)
     print "  .amplitude:  {}".format(_amp)
     print "  .doppler:    {}".format(_sv.doppler)
-    print "  .l1_message: {}".format(_sv.getL1CAMessage())
-    print "  .l2_message: {}".format(_sv.getL2CMessage())
-    print "  .l2_cl_type: {}".format(_sv.getL2CLCodeType())
-    print "  .SNR (dBHz): {}".format(svSNR_db)
-    print "  .L1 CNo:     {}".format(svCNoL1)
-    print "  .L2 CNo:     {}".format(svCNoL2)
+    print "  .l1_message: {}".format(_msg1)
+    print "  .l2_message: {}".format(_msg2)
+    if _l2ct:
+      print "  .l2_cl_type: {}".format(_l2ct)
     print "  .epoc:"
+    print "    .SNR (dB):   {}".format(svSNR_db)
+    print "    .L1 CNo:     {}".format(svCNoL1)
+    print "    .L2 CNo:     {}".format(svCNoL2)
     print "    .distance:   {} m".format(_dist0_m)
     print "    .speed:      {} m/s".format(_speed_mps)
+    print "    .l1_doppler: {} hz @ {}".format(_d1, _f1)
+    print "    .l2_doppler: {} hz @ {}".format(_d2, _f2)
     print "    .symbol:     {}".format(_bit)
-    print "    .l1_doppler: {} hz".format(_d1)
-    print "    .l2_doppler: {} hz".format(_d2)
     print "    .l1_chip:    {}".format(_c1)
     print "    .l2_chip:    {}".format(_c2)
     print "}"
@@ -446,7 +466,7 @@ def generateSamples(outputFile,
   if threadCount > 0:
     workerPool = [Worker(outputConfig,
                          sv_list,
-                         noiseSigma,
+                         noiseParams,
                          tcxo,
                          lpf,
                          debugFlag) for _ in range(threadCount)]
@@ -458,7 +478,7 @@ def generateSamples(outputFile,
     workerPool = None
     task = Task(outputConfig,
                 sv_list,
-                noiseSigma=noiseSigma,
+                noiseParams=noiseParams,
                 tcxo=tcxo,
                 signalFilters=lpf,
                 generateDebug=debugFlag)

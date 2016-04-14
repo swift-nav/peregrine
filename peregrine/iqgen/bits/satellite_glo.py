@@ -9,14 +9,13 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 """
-The :mod:`peregrine.iqgen.bits.satellite_gps` module contains classes and
-functions related to GPS satellite configuration.
+The :mod:`peregrine.iqgen.bits.satellite_glo` module contains classes and
+functions related to GLONASS satellite configuration.
 
 """
 import peregrine.iqgen.bits.signals as signals
 from peregrine.iqgen.bits.message_const import Message
-from peregrine.iqgen.bits.prn_gps_l1ca import PrnCode as GPS_L1CA_Code
-from peregrine.iqgen.bits.prn_gps_l2c import PrnCode as GPS_L2C_Code
+from peregrine.iqgen.bits.prn_glo_l1l2 import PrnCode as GLO_CA_Code
 from peregrine.iqgen.bits.satellite_base import Satellite
 
 import numpy
@@ -24,9 +23,9 @@ import numpy
 DEFAULT_MESSAGE = Message(1)
 
 
-class GPSSatellite(Satellite):
+class GLOSatellite(Satellite):
   '''
-  GPS satellite object.
+  GLONASS satellite object.
   '''
 
   def __init__(self, prnNo):
@@ -38,31 +37,29 @@ class GPSSatellite(Satellite):
     prnNo : int
       GPS satellite number for selecting PRN.
     '''
-    super(GPSSatellite, self).__init__("GPS{}".format(prnNo))
+    super(GLOSatellite, self).__init__("GLONASS{}".format(prnNo))
     self.prn = prnNo
-    self.l2clCodeType = '01'
-    self.l1caCode = GPS_L1CA_Code(prnNo)
-    self.l2cCode = GPS_L2C_Code(prnNo, self.l2clCodeType)
-    self.l1caEnabled = False
-    self.l2cEnabled = False
-    self.l1caMessage = DEFAULT_MESSAGE
-    self.l2cMessage = DEFAULT_MESSAGE
+    self.caCode = GLO_CA_Code(prnNo)
+    self.l1Enabled = False
+    self.l2Enabled = False
+    self.l1Message = DEFAULT_MESSAGE
+    self.l2Message = DEFAULT_MESSAGE
     self.time0S = 0.
     self.pr0M = 0.
     self.phaseShift = 0.
 
-  def setL1CAEnabled(self, enableFlag):
+  def setL1Enabled(self, enableFlag):
     '''
-    Enables or disable GPS L1 C/A sample generation
+    Enables or disable GLONASS L1 C/A sample generation
 
     Parameters
     ----------
     enableFlag : boolean
       Flag to enable (True) or disable (False) GPS L1 C/A samples
     '''
-    self.l1caEnabled = enableFlag
+    self.l1Enabled = enableFlag
 
-  def isL1CAEnabled(self):
+  def isL1Enabled(self):
     '''
     Tests if L1 C/A signal generation is enabled
 
@@ -71,20 +68,20 @@ class GPSSatellite(Satellite):
     bool
       True, when L1 C/A signal generation is enabled, False otherwise
     '''
-    return self.l1caEnabled
+    return self.l1Enabled
 
-  def setL2CEnabled(self, enableFlag):
+  def setL2Enabled(self, enableFlag):
     '''
-    Enables or disable GPS L2 C sample generation
+    Enables or disable GLONASS L2 C sample generation
 
     Parameters
     ----------
     enableFlag : boolean
       Flag to enable (True) or disable (False) GPS L2 C samples
     '''
-    self.l2cEnabled = enableFlag
+    self.l2Enabled = enableFlag
 
-  def isL2CEnabled(self):
+  def isL2Enabled(self):
     '''
     Tests if L2 C signal generation is enabled
 
@@ -93,17 +90,9 @@ class GPSSatellite(Satellite):
     bool
       True, when L2 C signal generation is enabled, False otherwise
     '''
-    return self.l2cEnabled
+    return self.l2Enabled
 
-  def setL2CLCodeType(self, clCodeType):
-    if self.l2clCodeType != clCodeType:
-      self.l2cCode = GPS_L2C_Code(self.prn, clCodeType)
-      self.l2clCodeType = clCodeType
-
-  def getL2CLCodeType(self):
-    return self.l2clCodeType
-
-  def setL1CAMessage(self, message):
+  def setL1Message(self, message):
     '''
     Configures data source for L1 C/A signal.
 
@@ -112,9 +101,10 @@ class GPSSatellite(Satellite):
     message : object
       Message object that will provide symbols for L1 C/A signal.
     '''
-    self.l1caMessage = message
+    self.l1Message = message
+    self.l2Message = message
 
-  def setL2CMessage(self, message):
+  def setL2Message(self, message):
     '''
     Configures data source for L2 C signal.
 
@@ -123,9 +113,9 @@ class GPSSatellite(Satellite):
     message : object
       Message object that will provide symbols for L2 C signal.
     '''
-    self.l2cMessage = message
+    pass
 
-  def getL1CAMessage(self):
+  def getL1Message(self):
     '''
     Returns configured message object for GPS L1 C/A band
 
@@ -134,9 +124,9 @@ class GPSSatellite(Satellite):
     object
       L1 C/A message object
     '''
-    return self.l1caMessage
+    return self.l1Message
 
-  def getL2CMessage(self):
+  def getL2Message(self):
     '''
     Returns configured message object for GPS L2 C band
 
@@ -145,7 +135,7 @@ class GPSSatellite(Satellite):
     object
       L2 C message object
     '''
-    return self.l2cMessage
+    return self.l1Message
 
   def getBatchSignals(self, userTimeAll_s, samples, outputConfig, noiseParams, debug):
     '''
@@ -168,39 +158,41 @@ class GPSSatellite(Satellite):
       Debug information
     '''
     result = []
-    if (self.l1caEnabled):
-      intermediateFrequency_hz = outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-      frequencyIndex = outputConfig.GPS.L1.INDEX
+    if (self.l1Enabled):
+      band = outputConfig.GLONASS.L1
+      intermediateFrequency_hz = band.INTERMEDIATE_FREQUENCIES_HZ[self.prn]
+      frequencyIndex = band.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
                                          noiseParams,
-                                         signals.GPS.L1CA,
+                                         signals.GLONASS.L1S[self.prn],
                                          intermediateFrequency_hz,
-                                         self.l1caMessage,
-                                         self.l1caCode,
+                                         self.l1Message,
+                                         self.caCode,
                                          outputConfig,
                                          debug)
       numpy.add(samples[frequencyIndex],
                 values[0],
                 out=samples[frequencyIndex])
-      debugData = {'type': "GPSL1", 'doppler': values[1]}
+      debugData = {'type': "GLOL1", 'doppler': values[1]}
       result.append(debugData)
-    if (self.l2cEnabled):
-      intermediateFrequency_hz = outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
-      frequencyIndex = outputConfig.GPS.L2.INDEX
+    if (self.l2Enabled):
+      band = outputConfig.GLONASS.L2
+      intermediateFrequency_hz = band.INTERMEDIATE_FREQUENCIES_HZ[self.prn]
+      frequencyIndex = band.INDEX
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
                                          noiseParams,
-                                         signals.GPS.L2C,
+                                         signals.GLONASS.L2S[self.prn],
                                          intermediateFrequency_hz,
-                                         self.l2cMessage,
-                                         self.l2cCode,
+                                         self.l2Message,
+                                         self.caCode,
                                          outputConfig,
                                          debug)
       numpy.add(samples[frequencyIndex],
                 values[0],
                 out=samples[frequencyIndex])
-      debugData = {'type': "GPSL2", 'doppler': values[1]}
+      debugData = {'type': "GLOL2", 'doppler': values[1]}
       result.append(debugData)
     return result
 
@@ -220,10 +212,10 @@ class GPSSatellite(Satellite):
       True, if the band is supported and enabled; False otherwise.
     '''
     result = None
-    if bandIndex == outputConfig.GPS.L1.INDEX:
-      result = self.isL1CAEnabled()
-    elif bandIndex == outputConfig.GPS.L2.INDEX:
-      result = self.isL2CEnabled()
+    if bandIndex == outputConfig.GLONASS.L1.INDEX:
+      result = self.isL1Enabled()
+    elif bandIndex == outputConfig.GLONASS.L2.INDEX:
+      result = self.isL2Enabled()
     else:
       result = False
     return result
