@@ -53,8 +53,11 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
   s_file = np.memmap(filename, offset=byte_offset, dtype=np.uint8, mode='r')
 
   if num_samples > 0:
-    # Number of samples is defined: trim the source from end
-    s_file = s_file[:(num_samples * sample_block_size + 7) / 8]
+    # Number of samples is defined
+    num_bytes = int((num_samples * sample_block_size + 7) / 8)
+    if num_bytes < len(s_file):
+      # Trim the source from end
+      s_file = s_file[:num_bytes]
 
   num_samples = len(s_file) * 8 / sample_block_size
 
