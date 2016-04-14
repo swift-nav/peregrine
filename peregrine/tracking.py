@@ -206,7 +206,8 @@ class TrackingChannel(object):
     self.code_phase = 0.0
     self.carr_phase = 0.0
     self.samples_per_chip = int(round(self.sampling_freq / self.chipping_rate))
-    self.sample_index = self.acq.sample_index
+    self.sample_index = params['samples']['sample_index']
+    self.sample_index += self.acq.sample_index
     self.sample_index += self.acq.code_phase * self.samples_per_chip
     self.sample_index = int(math.floor(self.sample_index))
     self.carr_phase_acc = 0.0
@@ -768,8 +769,9 @@ class Tracker(object):
       Samples data for all one or more data channels
     channels : list
       A list of acquisition results
-    ms_to_track : int
-      How many milliseconds to track [ms]
+    ms_to_track : float
+      How many milliseconds to track [ms].
+      If set to '-1', then use all samples.
     sampling_freq : float
       Data sampling frequency [Hz]
     l2c_handover : bool
@@ -813,7 +815,7 @@ class Tracker(object):
 
     self.loop_filter_class = loop_filter_class
 
-    if self.ms_to_track:
+    if self.ms_to_track >= 0:
       self.samples_to_track = self.ms_to_track * sampling_freq / 1e3
       if samples['samples_total'] < self.samples_to_track:
         logger.warning("Samples set too short for requested tracking length (%.4fs)"
@@ -839,6 +841,7 @@ class Tracker(object):
 
     # Setup our progress bar if we need it
     if self.show_progress:
+      self.init_sample_index = samples['sample_index']
       widgets = ['  Tracking ',
                  progressbar.Attribute(['sample', 'samples'],
                                        '(sample: %d/%d)',
@@ -1013,7 +1016,8 @@ class Tracker(object):
     min_index = min(indicies)
 
     if self.pbar:
-      self.pbar.update(min_index, attr={'sample': min_index})
+      self.pbar.update(min_index - self.init_sample_index,
+                       attr={'sample': min_index})
 
     return min_index
 

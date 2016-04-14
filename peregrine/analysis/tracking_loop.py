@@ -140,13 +140,13 @@ def main():
 
   if ms_to_process < 0:
     # use all available data
-    ms_to_process = int(1e3 * samples['samples_total'] / sampling_freq)
+    ms_to_process = 1e3 * samples['samples_total'] / sampling_freq
 
   print "==================== Tracking parameters ============================="
   print "File:                                   %s" % args.file
   print "File format:                            %s" % args.file_format
   print "PRN to track [1-32]:                    %s" % args.prn
-  print "Time to process [ms]:                   %s" % ms_to_process
+  print "Time to process [s]:                    %s" % (ms_to_process / 1e3)
   print "L1 IF [Hz]:                             %f" % freq_profile['GPS_L1_IF']
   print "L2 IF [Hz]:                             %f" % freq_profile['GPS_L2_IF']
   print "Sampling frequency [Hz]:                %f" % sampling_freq
