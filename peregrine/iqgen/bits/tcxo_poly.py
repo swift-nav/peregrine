@@ -53,12 +53,6 @@ class TCXOPoly(TCXOBase):
     '''
     return "TCXOPoly: coeffs=%s" % str(self.coeffs)
 
-  def __repr__(self):
-    '''
-    Provides string representation of the object
-    '''
-    return "TCXOPoly(%s)" % repr(self.coeffs)
-
   def computeTcxoTime(self, fromSample, toSample, outputConfig):
     '''
     Method generates time vector for the given sample index range depending on

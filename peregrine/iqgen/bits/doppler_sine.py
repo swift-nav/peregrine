@@ -65,21 +65,6 @@ class Doppler(DopplerBase):
         format(self.distance0_m, self.tec_epm2, self.speed0_mps,
                self.amplutude_mps, self.period_s, self.codeDopplerIgnored)
 
-  def __repr__(self):
-    '''
-    Constructs python expression presentation of object.
-
-    Returns
-    -------
-    string
-      Python expression presentation of object
-    '''
-    return "Doppler({}, {}, {}, {}, {})".format(self.distance0_m,
-                                                self.tec_epm2,
-                                                self.speed0_mps,
-                                                self.amplutude_mps,
-                                                self.period_s)
-
   def computeDistanceM(self, svTime_s):
     '''
     Computes doppler shift in meters.

@@ -29,18 +29,24 @@ class LowRateConfig(object):
     Sample rate in hertz for data generation.
   SAMPLE_BATCH_SIZE : int
     Size of the sample batch in samples.
+  N_GROUPS : int
+    Number of groups in the configuration
+  GROUP_DELAYS: tuple(float * 4)
+    Group delays for the configuration
   GPS : object
     GPS band information
   Galileo : object
     Galileo band information
   Beidou : object
     Beidou band information
-  Glonass : object
+  GLONASS : object
     Glonass band information
   '''
   NAME = "Low rate configuration for fast tests"
   SAMPLE_RATE_HZ = 24.84375e5
   SAMPLE_BATCH_SIZE = 100000
+  N_GROUPS = 4
+  GROUP_DELAYS = (0., 0., 0., 0.)
 
   class GPS(object):
 
@@ -107,18 +113,24 @@ class NormalRateConfig(object):
     Sample rate in hertz for data generation.
   SAMPLE_BATCH_SIZE : int
     Size of the sample batch in samples.
+  N_GROUPS : int
+    Number of groups in the configuration
+  GROUP_DELAYS: tuple(float * 4)
+    Group delays for the configuration
   GPS : object
     GPS band information
   Galileo : object
     Galileo band information
   Beidou : object
     Beidou band information
-  Glonass : object
+  GLONASS : object
     Glonass band information
   '''
   NAME = "Normal rate configuration equivalent to decimated data output"
   SAMPLE_RATE_HZ = 24.84375e6
   SAMPLE_BATCH_SIZE = 100000
+  N_GROUPS = LowRateConfig.N_GROUPS
+  GROUP_DELAYS = LowRateConfig.GROUP_DELAYS
 
   class GPS(object):
     '''
@@ -187,12 +199,24 @@ class HighRateConfig(object):
     Sample rate in hertz for data generation.
   SAMPLE_BATCH_SIZE : int
     Size of the sample batch in samples.
+  N_GROUPS : int
+    Number of groups in the configuration
+  GROUP_DELAYS: tuple(float * 4)
+    Group delays for the configuration
   GPS : object
     GPS band information
+  Galileo : object
+    Galileo band information
+  Beidou : object
+    Beidou band information
+  GLONASS : object
+    Glonass band information
   '''
   NAME = "High rate configuration equivalent to full rate data output"
   SAMPLE_RATE_HZ = 99.375e6
   SAMPLE_BATCH_SIZE = 100000
+  N_GROUPS = NormalRateConfig.N_GROUPS
+  GROUP_DELAYS = NormalRateConfig.GROUP_DELAYS
 
   GPS = NormalRateConfig.GPS
   GLONASS = NormalRateConfig.GLONASS
@@ -212,12 +236,18 @@ class CustomRateConfig(object):
     Sample rate in hertz for data generation.
   SAMPLE_BATCH_SIZE : int
     Size of the sample batch in samples.
+  N_GROUPS : int
+    Number of groups in the configuration
+  GROUP_DELAYS: tuple(float * 4)
+    Group delays for the configuration
   GPS : object
     GPS band information
   '''
   NAME = "Custom configuration for fast tests"
   SAMPLE_RATE_HZ = freq_profile_peregrine['sampling_freq']
   SAMPLE_BATCH_SIZE = 100000
+  N_GROUPS = NormalRateConfig.N_GROUPS
+  GROUP_DELAYS = NormalRateConfig.GROUP_DELAYS
 
   class GPS(object):
 
