@@ -63,7 +63,7 @@ def runIqGen(lens, snr, dop, acc):
       if float(words[2]) != float(snr):
         print "snr unexpected"
         sys.exit(1)
-  if cn0 == None or l2dop == None or l2chip == None:
+  if cn0 is None or l2dop is None or l2chip is None:
     print "iqgen output parse error"
     sys.exit(1)
   return lens, snr, l2dop, acc, l2chip, cn0, cmd
