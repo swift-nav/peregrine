@@ -84,18 +84,21 @@ freq_profile_peregrine = {
 freq_profile_low_rate = {
     'GPS_L1_IF': 1026375.0,
     'GPS_L2_IF': 7.4e5,
+    'GLO_L1_IF': 12e5,
     'sampling_freq': 24.84375e5}
 
 # 'normal_rate' frequencies profile
 freq_profile_normal_rate = {
     'GPS_L1_IF': 10263750.0,
     'GPS_L2_IF': 7.4e6,
+    'GLO_L1_IF': 12e6,
     'sampling_freq': 24.84375e6}
 
 # 'high_rate' frequencies profile
 freq_profile_high_rate = {
-    'GPS_L1_IF': 14.58e6,
-    'GPS_L2_IF': 7.4e6,
+    'GPS_L1_IF': freq_profile_normal_rate['GPS_L1_IF'],
+    'GPS_L2_IF': freq_profile_normal_rate['GPS_L2_IF'],
+    'GLO_L1_IF': freq_profile_normal_rate['GLO_L1_IF'],
     'sampling_freq': 99.375e6}
 
 freq_profile_lookup = {
