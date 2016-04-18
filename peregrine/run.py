@@ -18,12 +18,15 @@ import numpy as np
 from operator import attrgetter
 
 from peregrine.samples import load_samples
-from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
+from peregrine.acquisition import Acquisition, load_acq_results,\
+                                  save_acq_results
 from peregrine.navigation import navigation
 import peregrine.tracking as tracking
 from peregrine.log import default_logging_config
 from peregrine import defaults
 import peregrine.gps_constants as gps
+import peregrine.glo_constants as glo
+
 
 class SaveConfigAction(argparse.Action):
 
@@ -37,6 +40,7 @@ class SaveConfigAction(argparse.Action):
     file_hnd.close()
     namespace.no_run = True
 
+
 class LoadConfigAction(argparse.Action):
 
   def __init__(self, option_strings, dest, nargs=None, **kwargs):
@@ -47,6 +51,7 @@ class LoadConfigAction(argparse.Action):
     for k, v in loaded.iteritems():
       setattr(namespace, k, v)
     file_hnd.close()
+
 
 def unpickle_iter(filenames):
   try:
@@ -61,6 +66,7 @@ def unpickle_iter(filenames):
   finally:
     for fh in f:
       fh.close()
+
 
 def populate_peregrine_cmd_line_arguments(parser):
   if sys.stdout.isatty():
@@ -162,6 +168,7 @@ def populate_peregrine_cmd_line_arguments(parser):
 
   return signalParam
 
+
 def main():
   default_logging_config()
 
@@ -175,6 +182,9 @@ def main():
                       action="store_true")
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
+                      action="store_true")
+  parser.add_argument("--skip-glonass",
+                      help="skip glonass",
                       action="store_true")
 
   populate_peregrine_cmd_line_arguments(parser)
@@ -216,6 +226,7 @@ def main():
 
   samples = {gps.L1CA: {'IF': freq_profile['GPS_L1_IF']},
              gps.L2C: {'IF': freq_profile['GPS_L2_IF']},
+             glo.GLO_L1: {'IF': freq_profile['GLO_L1_IF']},
              'samples_total': -1,
              'sample_index': int(args.skip_samples)}
 
@@ -230,10 +241,22 @@ def main():
                        acq_results_file)
       sys.exit(1)
   else:
-    for signal in [gps.L1CA]:
-
-      samplesPerCode = int(round(freq_profile['sampling_freq'] /
-                       (gps.l1ca_chip_rate / gps.l1ca_code_length)))
+    acq_results = []
+    for signal in [gps.L1CA, glo.GLO_L1]:
+      if signal == gps.L1CA:
+        code_period = gps.l1ca_code_period
+        code_len = gps.l1ca_code_length
+        i_f = freq_profile['GPS_L1_IF']
+        samplesPerCode = int(round(freq_profile['sampling_freq'] /
+                         (gps.l1ca_chip_rate / gps.l1ca_code_length)))
+      else:
+        if args.skip_glonass:
+          continue
+        code_period = glo.glo_code_period
+        code_len = glo.glo_code_len
+        i_f = freq_profile['GLO_L1_IF']
+        samplesPerCode = int(round(freq_profile['sampling_freq'] /
+                         (glo.glo_chip_rate / glo.glo_code_len)))
 
       # Get 11ms of acquisition samples for fine frequency estimation
       load_samples(samples=samples,
@@ -244,13 +267,10 @@ def main():
       acq = Acquisition(signal,
                         samples[signal]['samples'],
                         freq_profile['sampling_freq'],
-                        freq_profile['GPS_L1_IF'],
-                        gps.l1ca_code_period * freq_profile['sampling_freq'],
-                        gps.l1ca_code_length)
-      # only one signal - L1CA is expected to be acquired at the moment
-      # TODO: add handling of acquisition results from GLONASS once GLONASS
-      # acquisition is supported.
-      acq_results = acq.acquisition(progress_bar_output=args.progress_bar)
+                        i_f,
+                        code_period * freq_profile['sampling_freq'],
+                        code_len)
+      acq_results += acq.acquisition(progress_bar_output=args.progress_bar)
 
     print "Acquisition is over!"
 
@@ -347,7 +367,8 @@ def main():
             nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
         with open(nav_results_file, 'wb') as f:
           cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-        print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
+        print "and %d more are cPickled in '%s'." % (len(nav_results) - 1,
+                                                     nav_results_file)
       else:
         print "No navigation results."
 

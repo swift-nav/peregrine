@@ -14,8 +14,10 @@ import numpy as np
 import math
 import defaults
 from peregrine.gps_constants import L1CA, L2C
+from peregrine.glo_constants import GLO_L1
 
 __all__ = ['load_samples', 'save_samples']
+
 
 def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
                           value_lookup, channel_lookup):
@@ -77,6 +79,7 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
     samples[channel_lookup[rx]][:] = chan
   return samples
 
+
 def __load_samples_one_bit(filename, num_samples, num_skip, channel_lookup):
   '''
   Helper method to load single-bit samples from a file.
@@ -102,6 +105,7 @@ def __load_samples_one_bit(filename, num_samples, num_skip, channel_lookup):
   value_lookup = np.asarray((1, -1), dtype=np.int8)
   return __load_samples_n_bits(filename, num_samples, num_skip, 1,
                                value_lookup, channel_lookup)
+
 
 def __load_samples_two_bits(filename, num_samples, num_skip, channel_lookup):
   '''
@@ -131,10 +135,11 @@ def __load_samples_two_bits(filename, num_samples, num_skip, channel_lookup):
   return __load_samples_n_bits(filename, num_samples, num_skip, 2,
                                value_lookup, channel_lookup)
 
+
 def _load_samples(filename,
-                 num_samples = defaults.processing_block_size,
-                 num_skip = 0,
-                 file_format = 'piksi'):
+                 num_samples=defaults.processing_block_size,
+                 num_skip=0,
+                 file_format='piksi'):
   """
   Load sample data from a file.
 
@@ -272,7 +277,7 @@ def _load_samples(filename,
     samples *= 2
     samples -= 1
     if file_format == '1bitrev':
-        samples = np.reshape(samples, (-1, 8))[:, ::-1].flatten();
+      samples = np.reshape(samples, (-1, 8))[:, ::-1].flatten()
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
@@ -299,6 +304,7 @@ def _load_samples(filename,
     raise ValueError("Unknown file type '%s'" % file_format)
 
   return samples
+
 
 def __get_samples_total(filename, file_format, sample_index):
   if file_format == 'int8':
@@ -341,10 +347,11 @@ def __get_samples_total(filename, file_format, sample_index):
 
   return samples_total
 
+
 def load_samples(samples,
                  filename,
-                 num_samples = defaults.processing_block_size,
-                 file_format = 'piksi'):
+                 num_samples=defaults.processing_block_size,
+                 file_format='piksi'):
 
   if samples['samples_total'] == -1:
     samples['samples_total'] = __get_samples_total(filename,
@@ -357,8 +364,11 @@ def load_samples(samples,
   samples[L1CA]['samples'] = signal[defaults.sample_channel_GPS_L1]
   if len(signal) > 1:
     samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
+  if len(signal) > 2:
+    samples[GLO_L1]['samples'] = signal[defaults.sample_channel_GLO_L1]
 
   return samples
+
 
 def save_samples(filename, samples, file_format='int8'):
   """

@@ -17,7 +17,7 @@ cacheDir             = 'cache'
 ephemMaxAge          = 4 * 3600.0 # Reject an ephemeris entry if older than this
 
 # the size of the sample data block processed at a time
-processing_block_size = 20e6 # [samples]
+processing_block_size = 20e6  # [samples]
 
 # original
 sample_channel_GPS_L1 = 0
@@ -75,18 +75,21 @@ freq_profile_peregrine = {
 freq_profile_low_rate = {
     'GPS_L1_IF': 14.58e5,
     'GPS_L2_IF': 7.4e5,
+    'GLO_L1_IF': 12e5,
     'sampling_freq': 24.84375e5}
 
 # 'normal_rate' frequencies profile
 freq_profile_normal_rate = {
     'GPS_L1_IF': 14.58e6,
     'GPS_L2_IF': 7.4e6,
+    'GLO_L1_IF': 12e6,
     'sampling_freq': 24.84375e6}
 
-# 'normal_rate' frequencies profile
+# 'high_rate' frequencies profile
 freq_profile_high_rate = {
     'GPS_L1_IF': freq_profile_normal_rate['GPS_L1_IF'],
     'GPS_L2_IF': freq_profile_normal_rate['GPS_L2_IF'],
+    'GLO_L1_IF': freq_profile_normal_rate['GLO_L1_IF'],
     'sampling_freq': 99.375e6}
 
 L1CA_CHANNEL_BANDWIDTH_HZ = 1000
