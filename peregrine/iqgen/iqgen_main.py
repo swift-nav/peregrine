@@ -94,6 +94,37 @@ AMP_MAP = {'amplitude': AmplitudeBase.UNITS_AMPLITUDE,
            'snr-db': AmplitudeBase.UNITS_SNR_DB}
 
 
+def computeTimeDelay(doppler, symbol_index, chip_index, signal):
+  '''
+  Helper function to compute signal delay to match given symbol and chip
+  indexes.
+
+  Parameters
+  ----------
+  doppler : object
+    Doppler object
+  symbol_index : long
+    Index of the symbol or pseudosymbol
+  chip_index : long
+    Chip index
+  signal : object
+    Signal object
+
+  Returns
+  -------
+  float
+     User's time in seconds when the user starts receiving the given symbol
+     and code.
+  '''
+  if symbol_index == 0 and chip_index == 0:
+    return 0.
+
+  symbolDelay_s = (1. / signal.SYMBOL_RATE_HZ) * symbol_index
+  chipDelay_s = (1. / signal.CODE_CHIP_RATE_HZ) * chip_index
+  distance_m = doppler.computeDistanceM(symbolDelay_s + chipDelay_s)
+  return distance_m / scipy.constants.c
+
+
 def computeDistanceDelay(delay_symbols, delay_chips, signal):
   '''
   Helper function to compute signal delay to match given symbol and chip
@@ -770,7 +801,6 @@ def selectEncoder(encoderType, outputConfig, enabledBands):
 
   enabledGPS = enabledGPSL1 or enabledGPSL2
   enabledGLONASS = enabledGLONASSL1 or enabledGLONASSL2
-
   # Configure data encoder
   if encoderType == "1bit":
     if enabledGPS and enabledGLONASS:
@@ -870,8 +900,34 @@ def main(args=None):
   # Check which signals are enabled on each of satellite to select proper
   # output encoder
   enabledBands = computeEnabledBands(args.gps_sv, outputConfig)
+
+  enabledGPSL1 = enabledBands[outputConfig.GPS.L1.NAME]
+  enabledGPSL2 = enabledBands[outputConfig.GPS.L2.NAME]
+
   # Configure data encoder
   encoder = selectEncoder(args.encoder, outputConfig, enabledBands)
+
+  if enabledGPSL1:
+    signal = signals.GPS.L1CA
+  elif enabledGPSL2:
+    signal = signals.GPS.L2C
+  else:
+    signal = signals.GPS.L1CA
+
+  # Compute time delay for the needed bit/chip number
+  # This delay is computed for the first satellite
+  initial_symbol_idx = 0  # Initial symbol index
+  initial_chip_idx = 0  # Initial chip index
+  if args.chip_delay is not None:
+    initial_chip_idx = args.chip_delay
+  if args.symbol_delay is not None:
+    initial_chip_idx = args.symbol_delay
+
+  time0_s = computeTimeDelay(args.gps_sv[0].doppler,
+                             initial_symbol_idx,
+                             initial_chip_idx,
+                             signal)
+  logger.debug("Computed symbol/chip delay={} seconds".format(time0_s))
 
   startTime_s = time.time()
   n_samples = long(outputConfig.SAMPLE_RATE_HZ * args.generate)
@@ -880,7 +936,6 @@ def main(args=None):
                format(n_samples, args.generate))
 
   pbar = makeProgressBar(args.progress_bar, n_samples)
-  time0_s = 0.
 
   generateSamples(args.output,
                   args.gps_sv,
