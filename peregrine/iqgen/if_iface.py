@@ -16,6 +16,18 @@ related to radio interface parameters
 
 from peregrine.defaults import freq_profile_peregrine
 
+# Fixed band names
+GPS_L1_NAME = "GPS_L1"
+GPS_L2_NAME = "GPS_L2"
+GLONASS_L1_NAME = "GLO_L1"
+GLONASS_L2_NAME = "GLO_L2"
+GALILEO_E1_NAME = 'GALILEO_E1'
+GALILEO_E5B_NAME = 'GALILEO_E5b'
+GALILEO_E6_NAME = 'GALILEO_E6'
+BEIDOU_B1_NAME = 'BEIDOU_B1'
+BEIDOU_B2_NAME = 'BEIDOU_B2'
+BEIDOU_B3_NAME = 'BEIDOU_B3'
+
 
 class LowRateConfig(object):
   '''
@@ -53,10 +65,12 @@ class LowRateConfig(object):
     class L1(object):
       INTERMEDIATE_FREQUENCY_HZ = 14.58e5
       INDEX = 0
+      NAME = GPS_L1_NAME
 
     class L2(object):
       INTERMEDIATE_FREQUENCY_HZ = 7.4e+5
       INDEX = 1
+      NAME = GPS_L2_NAME
 
   class GLONASS(object):
 
@@ -65,40 +79,48 @@ class LowRateConfig(object):
           [float(1200000 + b * 562500) for b in range(7)] + \
           [float(1200000 + b * 562500) for b in range(-7, 0)]
       INDEX = 2
+      NAME = GLONASS_L1_NAME
 
     class L2(object):
       INTERMEDIATE_FREQUENCIES_HZ = \
           [float(1100000 + b * 437500) for b in range(7)] + \
           [float(1100000 + b * 437500) for b in range(-7, 0)]
       INDEX = 3
+      NAME = GLONASS_L2_NAME
 
   class Galileo(object):
 
     class E1(object):
       INTERMEDIATE_FREQUENCY_HZ = 14.58e5
       INDEX = 0
+      NAME = GALILEO_E1_NAME
 
     class E6(object):
       INTERMEDIATE_FREQUENCY_HZ = 43.75e5
       INDEX = 2
+      NAME = GALILEO_E6_NAME
 
     class E5b(object):
       INTERMEDIATE_FREQUENCY_HZ = 27.86e5
       INDEX = 3
+      NAME = GALILEO_E5B_NAME
 
   class Beidou(object):
 
     class B1(object):
       INTERMEDIATE_FREQUENCY_HZ = 28.902e5
       INDEX = 0
+      NAME = BEIDOU_B1_NAME
 
     class B2:
       INTERMEDIATE_FREQUENCY_HZ = 27.86e5
       INDEX = 3
+      NAME = BEIDOU_B2_NAME
 
     class B3(object):
       INTERMEDIATE_FREQUENCY_HZ = 33.52e5
       INDEX = 2
+      NAME = BEIDOU_B3_NAME
 
 
 class NormalRateConfig(object):
@@ -139,10 +161,12 @@ class NormalRateConfig(object):
     class L1(object):
       INTERMEDIATE_FREQUENCY_HZ = 14.58e+6
       INDEX = 0
+      NAME = GPS_L1_NAME
 
     class L2(object):
       INTERMEDIATE_FREQUENCY_HZ = 7.4e+6
       INDEX = 1
+      NAME = GPS_L2_NAME
 
   class GLONASS(object):
 
@@ -151,40 +175,48 @@ class NormalRateConfig(object):
           [float(12000000l + b * 562500l) for b in range(7)] + \
           [float(12000000l + b * 562500l) for b in range(-7, 0)]
       INDEX = 2
+      NAME = GLONASS_L1_NAME
 
     class L2(object):
       INTERMEDIATE_FREQUENCIES_HZ = \
           [float(11000000l + b * 437500l) for b in range(7)] + \
           [float(11000000l + b * 437500l) for b in range(-7, 0)]
       INDEX = 3
+      NAME = GLONASS_L2_NAME
 
   class Galileo(object):
 
     class E1(object):
       INTERMEDIATE_FREQUENCY_HZ = 14.58e6
       INDEX = 0
+      NAME = GALILEO_E1_NAME
 
     class E6(object):
       INTERMEDIATE_FREQUENCY_HZ = 43.75e6
       INDEX = 2
+      NAME = GALILEO_E6_NAME
 
     class E5b(object):
       INTERMEDIATE_FREQUENCY_HZ = 27.86e6
       INDEX = 3
+      NAME = GALILEO_E5B_NAME
 
   class Beidou(object):
 
     class B1(object):
       INTERMEDIATE_FREQUENCY_HZ = 28.902e6
       INDEX = 0
+      NAME = BEIDOU_B1_NAME
 
     class B2:
       INTERMEDIATE_FREQUENCY_HZ = 27.86e6
       INDEX = 3
+      NAME = BEIDOU_B2_NAME
 
     class B3(object):
       INTERMEDIATE_FREQUENCY_HZ = 33.52e6
       INDEX = 2
+      NAME = BEIDOU_B3_NAME
 
 
 class HighRateConfig(object):
@@ -254,7 +286,25 @@ class CustomRateConfig(object):
     class L1(object):
       INTERMEDIATE_FREQUENCY_HZ = freq_profile_peregrine['GPS_L1_IF']
       INDEX = 0
+      NAME = GPS_L1_NAME
 
     class L2(object):
       INTERMEDIATE_FREQUENCY_HZ = freq_profile_peregrine['GPS_L2_IF']
       INDEX = 1
+      NAME = GPS_L2_NAME
+
+  class GLONASS(object):
+
+    class L1(object):
+      INTERMEDIATE_FREQUENCIES_HZ = \
+          [float(6000000l + b * 562500l) for b in range(7)] + \
+          [float(6000000l + b * 562500l) for b in range(-7, 0)]
+      INDEX = 2
+      NAME = GLONASS_L1_NAME
+
+    class L2(object):
+      INTERMEDIATE_FREQUENCIES_HZ = \
+          [float(6000000l + b * 437500l) for b in range(7)] + \
+          [float(6000000l + b * 437500l) for b in range(-7, 0)]
+      INDEX = 3
+      NAME = GLONASS_L2_NAME

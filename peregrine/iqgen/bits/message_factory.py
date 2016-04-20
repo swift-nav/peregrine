@@ -67,7 +67,7 @@ class ObjectFactory(object):
 
   def __BlockMessage_ToMap(self, obj):
     data = {'type': 'BlockMessage',
-            'data': obj.messageData}
+            'bits': obj.bits}
     return data
 
   def __CNAVMessage_ToMap(self, obj):
@@ -104,8 +104,8 @@ class ObjectFactory(object):
     return data
 
   def __MapTo_BlockMessage(self, data):
-    messageData = data['data']
-    return BlockMessage(messageData)
+    bits = data['bits']
+    return BlockMessage(bits)
 
   def __MapTo_CNAVMessage(self, data):
     prn = data['prn']

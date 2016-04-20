@@ -16,9 +16,9 @@ functions related to GPS L1 C/A PRN processing
 
 """
 
-import peregrine.include.generateCAcode
+from peregrine.include.generateCAcode import caCodes as L1CACodes
 
-caCodes = peregrine.include.generateCAcode.caCodes
+caCodes = (L1CACodes < 0).astype(numpy.uint8)
 
 
 class PrnCode(object):
@@ -38,11 +38,7 @@ class PrnCode(object):
       SV identifier
     '''
     super(PrnCode, self).__init__()
-    self.caCode = caCodes[prnNo - 1][:]
-    tmp = numpy.asarray(self.caCode, dtype=numpy.int8)
-    tmp -= 1
-    tmp /= -2
-    self.binCode = tmp
+    self.binCode = caCodes[prnNo - 1]
     self.prnNo = prnNo
     self.bitLookup = numpy.asarray([1, -1], dtype=numpy.int8)
 

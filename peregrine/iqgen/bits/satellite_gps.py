@@ -96,11 +96,27 @@ class GPSSatellite(Satellite):
     return self.l2cEnabled
 
   def setL2CLCodeType(self, clCodeType):
+    '''
+    Change L1 CL code type if needed
+
+    Parameters
+    ----------
+    clCodeType : string
+      L2 CL code type: '00', '01' or '11'
+    '''
     if self.l2clCodeType != clCodeType:
       self.l2cCode = GPS_L2C_Code(self.prn, clCodeType)
       self.l2clCodeType = clCodeType
 
   def getL2CLCodeType(self):
+    '''
+    Get L2 CL code type
+
+    Returns
+    -------
+    string
+      L2 CL code type: '00', '01' or '11'
+    '''
     return self.l2clCodeType
 
   def setL1CAMessage(self, message):

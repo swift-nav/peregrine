@@ -43,7 +43,7 @@ class TCXOSine(TCXOBase):
     self.initial_ppm = initial_ppm
     self.amplitude_ppm = amplitude_ppm
     self.period_s = period_s
-    self.c0 = -2. * scipy.constants.pi * amplitude_ppm * 1e-6
+    self.c0 = -amplitude_ppm * 1e-6 * self.period_s / (2. * scipy.constants.pi)
     self.c1 = 2. * scipy.constants.pi / period_s
     self.c2 = initial_ppm * 1e-6
 
@@ -52,13 +52,6 @@ class TCXOSine(TCXOBase):
     Provides string representation of the object
     '''
     return "TCXOSine: initial_ppm=%f amplitude_ppm=%f period_s=%f" % \
-           (self.initial_ppm, self.amplitude_ppm, self.period_s)
-
-  def __repr__(self):
-    '''
-    Provides string representation of the object
-    '''
-    return "TCXOSine(%f, %f, %f)" % \
            (self.initial_ppm, self.amplitude_ppm, self.period_s)
 
   def computeTcxoTime(self, fromSample, toSample, outputConfig):
@@ -86,13 +79,13 @@ class TCXOSine(TCXOBase):
     time0_s = fromSample / outputConfig.SAMPLE_RATE_HZ
     timeX_s = toSample / outputConfig.SAMPLE_RATE_HZ
 
-    timeAll_s = numpy.linspace(time0_s * c1,
-                               timeX_s * c1,
+    timeAll_s = numpy.linspace(time0_s,
+                               timeX_s,
                                toSample - fromSample,
                                endpoint=False,
                                dtype=numpy.float)
 
-    result = numpy.cos(timeAll_s)
+    result = numpy.cos(timeAll_s * c1)
     result += -1.
     result *= c0
     if c2:

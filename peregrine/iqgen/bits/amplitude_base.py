@@ -206,7 +206,7 @@ class AmplitudeBase(object):
       snrDb = 10 * numpy.log10(snr)
     elif units == AmplitudeBase.UNITS_SNR_DB:
       snrDb = value
-    else:
+    else:  # pragma: no cover
       assert False
     return snrDb
 
@@ -240,6 +240,6 @@ class AmplitudeBase(object):
       snrDb = value
       snr = 10. ** (0.1 * snrDb)
       amp = numpy.sqrt(4. * snr / freqTimesTau) * noiseSigma
-    else:
+    else:  # pragma: no cover
       assert False
     return amp
