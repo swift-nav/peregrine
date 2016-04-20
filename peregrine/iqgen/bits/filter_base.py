@@ -24,9 +24,9 @@ class FilterBase(object):
     Parameters
     ----------
     passBandAtt_dbhz : float
-      Pass band attenutation in dB*Hz
+      Pass band attenuation in dB*Hz
     stopBandAtt_dbhz: float
-      Stop band attenutation in dB*Hz
+      Stop band attenuation in dB*Hz
     '''
     self.passBandAtt_dbhz = passBandAtt_dbhz
     self.stopBandAtt_dbhz = stopBandAtt_dbhz

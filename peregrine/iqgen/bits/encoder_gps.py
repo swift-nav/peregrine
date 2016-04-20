@@ -14,7 +14,6 @@ functions related to generating GPS signal output.
 
 """
 
-from peregrine.iqgen.bits.encoder_base import Encoder
 from peregrine.iqgen.bits.encoder_1bit import BandBitEncoder
 from peregrine.iqgen.bits.encoder_1bit import TwoBandsBitEncoder
 from peregrine.iqgen.bits.encoder_2bits import BandTwoBitsEncoder
