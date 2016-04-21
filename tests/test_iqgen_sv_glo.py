@@ -22,7 +22,7 @@ from peregrine.iqgen.bits.message_glo import Message as GLOMessage
 import numpy
 
 
-def test_GPSSv_init():
+def test_GLOSv_init():
   '''
   GLONASS SV initialization test
   '''
@@ -34,7 +34,7 @@ def test_GPSSv_init():
   assert isinstance(sv.doppler, DopplerBase)
 
 
-def test_GPSSV_bands():
+def test_GLOSV_bands():
   '''
   GLONASS SV band configurations
   '''
@@ -58,9 +58,9 @@ def test_GPSSV_bands():
   assert sv.isL2Enabled()
 
 
-def test_GPSSV_messages():
+def test_GLOSV_messages():
   '''
-  GPS SV messages test
+  GLONASS SV messages test
   '''
   sv = GLOSatellite(1)
   assert sv.l1Message == sv.getL1Message()
@@ -75,9 +75,9 @@ def test_GPSSV_messages():
   assert sv.l2Message == sv.getL2Message() != msg2
 
 
-def test_GPSSV_str():
+def test_GLOSV_str():
   '''
-  GPS SV string representation
+  GLONASS SV string representation
   '''
   sv = GLOSatellite(3)
   value = str(sv)
@@ -85,9 +85,9 @@ def test_GPSSV_str():
   assert value.find('3') >= 0
 
 
-def test_SVBase_getBatchSignals0():
+def test_GLOSv_getBatchSignals0():
   '''
-  GPS SV signal generation: not enabled
+  GLONASS SV signal generation: not enabled
   '''
   sv = GLOSatellite(1)
   start = 0.
@@ -106,9 +106,9 @@ def test_SVBase_getBatchSignals0():
   assert (samples == 0).all()
 
 
-def test_SVBase_getBatchSignals1():
+def test_GLOSv_getBatchSignals1():
   '''
-  GPS SV signal generation: not available
+  GLONASS SV signal generation: not available
   '''
   sv = GLOSatellite(1)
   start = 0.
@@ -127,7 +127,7 @@ def test_SVBase_getBatchSignals1():
   assert (samples == 0).all()
 
 
-def test_SVBase_getBatchSignals2():
+def test_GLOSv_getBatchSignals2():
   '''
   GLONASS SV signal generation: L1
   '''
@@ -154,7 +154,7 @@ def test_SVBase_getBatchSignals2():
   assert (samples[3] == 0).all()
 
 
-def test_SVBase_getBatchSignals3():
+def test_GLOSv_getBatchSignals3():
   '''
   GLONASS SV signal generation: L2
   '''
