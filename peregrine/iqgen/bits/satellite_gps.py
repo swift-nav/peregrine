@@ -96,11 +96,27 @@ class GPSSatellite(Satellite):
     return self.l2cEnabled
 
   def setL2CLCodeType(self, clCodeType):
+    '''
+    Change L1 CL code type if needed
+
+    Parameters
+    ----------
+    clCodeType : string
+      L2 CL code type: '00', '01' or '11'
+    '''
     if self.l2clCodeType != clCodeType:
       self.l2cCode = GPS_L2C_Code(self.prn, clCodeType)
       self.l2clCodeType = clCodeType
 
   def getL2CLCodeType(self):
+    '''
+    Get L2 CL code type
+
+    Returns
+    -------
+    string
+      L2 CL code type: '00', '01' or '11'
+    '''
     return self.l2clCodeType
 
   def setL1CAMessage(self, message):
@@ -147,7 +163,13 @@ class GPSSatellite(Satellite):
     '''
     return self.l2cMessage
 
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig, debug):
+  def getBatchSignals(self,
+                      userTimeAll_s,
+                      samples,
+                      outputConfig,
+                      noiseParams,
+                      band,
+                      debug):
     '''
     Generates signal samples.
 
@@ -159,6 +181,10 @@ class GPSSatellite(Satellite):
       Array to which samples are added.
     outputConfig : object
       Output configuration object.
+    noiseParams : NoiseParameters
+      Noise parameters object
+    band : Band
+      Band description object.
     debug : bool
       Debug flag
 
@@ -168,48 +194,48 @@ class GPSSatellite(Satellite):
       Debug information
     '''
     result = []
-    if (self.l1caEnabled):
-      intermediateFrequency_hz = outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-      frequencyIndex = outputConfig.GPS.L1.INDEX
+    if (self.l1caEnabled and band == outputConfig.GPS.L1):
+      intermediateFrequency_hz = band.INTERMEDIATE_FREQUENCY_HZ
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
+                                         noiseParams,
                                          signals.GPS.L1CA,
                                          intermediateFrequency_hz,
                                          self.l1caMessage,
                                          self.l1caCode,
                                          outputConfig,
                                          debug)
-      numpy.add(samples[frequencyIndex],
+      numpy.add(samples[band.INDEX],
                 values[0],
-                out=samples[frequencyIndex])
+                out=samples[band.INDEX])
       debugData = {'type': "GPSL1", 'doppler': values[1]}
       result.append(debugData)
-    if (self.l2cEnabled):
-      intermediateFrequency_hz = outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
-      frequencyIndex = outputConfig.GPS.L2.INDEX
+    if (self.l2cEnabled and band == outputConfig.GPS.L2):
+      intermediateFrequency_hz = band.INTERMEDIATE_FREQUENCY_HZ
       values = self.doppler.computeBatch(userTimeAll_s,
                                          self.amplitude,
+                                         noiseParams,
                                          signals.GPS.L2C,
                                          intermediateFrequency_hz,
                                          self.l2cMessage,
                                          self.l2cCode,
                                          outputConfig,
                                          debug)
-      numpy.add(samples[frequencyIndex],
+      numpy.add(samples[band.INDEX],
                 values[0],
-                out=samples[frequencyIndex])
+                out=samples[band.INDEX])
       debugData = {'type': "GPSL2", 'doppler': values[1]}
       result.append(debugData)
     return result
 
-  def isBandEnabled(self, bandIndex, outputConfig):
+  def isBandEnabled(self, band, outputConfig):
     '''
     Checks if particular band is supported and enabled.
 
     Parameters
     ----------
-    bandIndex : int
-      Signal band index
+    band : Band
+      Band description object.
     outputConfig : object
       Output configuration
 
@@ -218,9 +244,9 @@ class GPSSatellite(Satellite):
       True, if the band is supported and enabled; False otherwise.
     '''
     result = None
-    if bandIndex == outputConfig.GPS.L1.INDEX:
+    if band == outputConfig.GPS.L1:
       result = self.isL1CAEnabled()
-    elif bandIndex == outputConfig.GPS.L2.INDEX:
+    elif band == outputConfig.GPS.L2:
       result = self.isL2CEnabled()
     else:
       result = False

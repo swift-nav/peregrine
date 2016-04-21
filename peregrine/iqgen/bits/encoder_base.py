@@ -29,7 +29,7 @@ class Encoder(object):
 
   EMPTY_RESULT = numpy.ndarray(0, dtype=numpy.uint8)  # Internal empty array
 
-  def __init__(self, bufferSize=1000):
+  def __init__(self, bufferSize=1000, attDb=0.):
     '''
     Constructs encoder.
 
@@ -37,13 +37,16 @@ class Encoder(object):
     ----------
     bufferSize : int, optional
       Size of the internal buffer to batch-process samples
+    attDb : float, optional
+      Encoder attenuation level, optional
     '''
     self.bits = numpy.ndarray(bufferSize, dtype=numpy.int8)
     self.n_bits = 0
+    self.attDb = attDb
 
   def addSamples(self, sample_array):
     '''
-    Extracts samples of the supported band and coverts them into bit stream.
+    Extracts samples of the supported band and converts them into bit stream.
 
     Parameters
     ----------
@@ -55,7 +58,7 @@ class Encoder(object):
     numpy.ndarray(dtype=numpy.uint8)
       Array of type uint8 containing the encoded data.
     '''
-    return Encoder.EMPTY_RESULT
+    raise NotImplementedError()
 
   def flush(self):
     '''
@@ -67,16 +70,21 @@ class Encoder(object):
       Array of type uint8 containing the encoded data.
     '''
     if self.n_bits > 0 and self.n_bits % 8 != 0:
-      self.bits += (8 - self.n_bits % 8)
-    res = numpy.packbits(self.bits[0:self.n_bits])
-    self.n_bits = 0
-    return res
+      self.n_bits += (8 - self.n_bits % 8)
+    if self.n_bits:
+      res = numpy.packbits(self.bits[0:self.n_bits])
+      self.bits[0:self.n_bits].fill(0)
+      self.n_bits = 0
+      return res
+    else:
+      # Pack bits returns incorrect result in case of empty source bit set.
+      return Encoder.EMPTY_RESULT
 
   def encodeValues(self):
     '''
     Converts buffered bit data into packed array.
 
-    The method coverts multiple of 8 bits into single output byte.
+    The method converts multiple of 8 bits into single output byte.
 
     Returns
     -------
@@ -88,6 +96,7 @@ class Encoder(object):
     n_left = self.n_bits - n_offset
     res = numpy.packbits(self.bits[0: n_offset])
     self.bits[0:n_left] = self.bits[n_offset:n_offset + n_left]
+    self.bits[n_left:].fill(0)
     self.n_bits = n_left
     return res
 
@@ -103,3 +112,14 @@ class Encoder(object):
     '''
     if len(self.bits) < self.n_bits + extraBits:
       self.bits.resize(self.n_bits + extraBits)
+
+  def getAttenuationLevel(self):
+    '''
+    Method provides encoder attenuation level in dB.
+
+    Returns
+    -------
+    float
+      Encoder attenuation level. Positive value expected.
+    '''
+    return self.attDb

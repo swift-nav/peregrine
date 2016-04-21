@@ -8,24 +8,28 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import sys
-import traceback
 
 """
 The :mod:`peregrine.iqgen.generate` module contains classes and functions
 related to main loop of samples generation.
 
 """
+
+from peregrine.iqgen.bits.satellite_gps import GPSSatellite
 from peregrine.iqgen.bits.filter_lowpass import LowPassFilter
 from peregrine.iqgen.bits.filter_bandpass import BandPassFilter
 
+from peregrine.iqgen.bits.amplitude_base import NoiseParameters
+
 from peregrine.iqgen.bits import signals
 
+import sys
+import traceback
 import logging
 import scipy
 import numpy
 import time
-
+import copy
 import multiprocessing
 
 logger = logging.getLogger(__name__)
@@ -40,23 +44,31 @@ class Task(object):
   def __init__(self,
                outputConfig,
                signalSources,
-               noiseSigma,
+               noiseParams,
                tcxo,
                signalFilters,
+               groupDelays,
+               bands,
                generateDebug):
     '''
+    Task object constructor.
+
     Parameters
     ----------
     outputConfig : object
       Output profile
     signalSources : array-like
       List of satellites
-    noiseSigma : float
-      Noise sigma value
+    noiseParams : NoiseParameters
+      Noise parameters container
     tcxo : object
       TCXO control object
     signalFilters : array-like
       Output signal filter objects
+    groupDelays : bool
+      Flag if group delays are enabled
+    bands : list
+      List of bands to generate
     generateDebug : bool
       Flag if additional debug output is required
     '''
@@ -65,12 +77,17 @@ class Task(object):
     self.signalSources = signalSources
     self.signalFilters = signalFilters
     self.generateDebug = generateDebug
-    self.noiseSigma = noiseSigma
+    self.noiseParams = noiseParams
     self.tcxo = tcxo
-    self.signals = scipy.ndarray(shape=(4, outputConfig.SAMPLE_BATCH_SIZE),
+    self.signals = scipy.ndarray(shape=(outputConfig.N_GROUPS,
+                                        outputConfig.SAMPLE_BATCH_SIZE),
                                  dtype=numpy.float)
-    self.noise = self.createNoise(outputConfig.SAMPLE_BATCH_SIZE)
     self.nSamples = outputConfig.SAMPLE_BATCH_SIZE
+    self.noise = self.createNoise()
+    self.groupDelays = groupDelays
+    self.bands = bands
+    self.firstSampleIndex = 0l
+    self.userTime0_s = 0.
 
   def update(self, userTime0_s, nSamples, firstSampleIndex):
     '''
@@ -91,52 +108,65 @@ class Task(object):
     self.userTime0_s = userTime0_s
     self.firstSampleIndex = firstSampleIndex
 
-    if (self.nSamples != nSamples):
-      newSignals = numpy.ndarray((4, nSamples), dtype=float)
-      newNoise = self.createNoise(nSamples)
+    if self.nSamples != nSamples:
       self.nSamples = nSamples
-      self.signals = newSignals
-      self.noise = newNoise
+      self.signals = numpy.ndarray((self.outputConfig.N_GROUPS,
+                                    nSamples), dtype=float)
+      self.noise = self.createNoise()
 
-  def createNoise(self, nSamples):
+  def createNoise(self):
     '''
     Generate noise array for a given noise sigma.
 
-    Parameters
-    ----------
-    nSamples : int
-      Length of the samples vectors
+    Returns
+    -------
+    numpy.ndarray(shape=(outputConfig.N_GROUPS, nSamples), dtype=numpy.float)
+      Noise values
+    '''
+    noise = None
+    noiseParams = self.noiseParams
+
+    if noiseParams is not None:
+      # Initialize signal array with noise
+      noiseSigma = noiseParams.getNoiseSigma()
+      noise = noiseSigma * scipy.randn(self.outputConfig.N_GROUPS,
+                                       self.nSamples) if noiseSigma else None
+    return noise
+
+  def computeTcxoVector(self):
+    '''
+    Computes TCXO time drift vector if enabled.
 
     Returns
     -------
-    numpy.ndarray(shape=(4, nSamples), dtype=numpy.float)
-      Noise values
+    numpy.array or None
+      Computed TCXO time drift as a vector or None if TCXO is not enabled
     '''
-    noiseSigma = self.noiseSigma
-    if noiseSigma is not None:
-      # Initialize signal array with noise
-      noiseType = 1
-      if noiseType == 1:
-        noise = noiseSigma * scipy.randn(4, nSamples)
-      else:
-        noise = numpy.random.normal(loc=0.,
-                                    scale=noiseSigma,
-                                    size=(4, nSamples))
-      # print self.noise
-    else:
-      noise = None
-    return noise
-
-  def perform(self):
-    outputConfig = self.outputConfig
-    signalSources = self.signalSources
-    signalFilters = self.signalFilters
     tcxo = self.tcxo
-    firstSampleIndex = self.firstSampleIndex
-    finalSampleIndex = firstSampleIndex + self.nSamples
+    if tcxo:
+      firstSampleIndex = self.firstSampleIndex
+      finalSampleIndex = firstSampleIndex + self.nSamples
+      outputConfig = self.outputConfig
+      tcxoTimeDrift_s = tcxo.computeTcxoTime(firstSampleIndex,
+                                             finalSampleIndex,
+                                             outputConfig)
+    else:
+      tcxoTimeDrift_s = None
+    return tcxoTimeDrift_s
 
-    generateDebug = self.generateDebug
+  def computeTimeVector(self):
+    '''
+    Computes time vector for the batch.
 
+    Returns
+    -------
+    numpy.array
+      Computed time vector for computing sampling time
+    '''
+    outputConfig = self.outputConfig
+
+    # Group delay shifts all time stamps backwards, this shift is performed
+    # before TCXO drift is applied, as group delays are not controlled by TCXO
     userTime0_s = self.userTime0_s
     userTimeX_s = userTime0_s + float(self.nSamples) / \
         float(outputConfig.SAMPLE_RATE_HZ)
@@ -144,21 +174,66 @@ class Task(object):
                                    userTimeX_s,
                                    self.nSamples,
                                    endpoint=False)
+    return userTimeAll_s
 
-    if tcxo:
-      tcxoTimeDrift_s = tcxo.computeTcxoTime(firstSampleIndex,
-                                             finalSampleIndex,
-                                             outputConfig)
-      if tcxoTimeDrift_s:
-        userTimeAll_s += tcxoTimeDrift_s
+  def computeGroupTimeVectors(self, userTimeAll_s):
+    '''
+    Computes group time vector from a single source and output configuration.
 
-    noise = self.noise
-    sigs = self.signals
+    Parameters
+    ----------
+    userTimeAll_s : numpy.array
+      Time vector
+
+    Returns
+    -------
+    list[numpy.array] * self.outputConfig.N_GROUPS
+      If the group delays are enabled, each element offsets initial time vector
+      by an appropriate group delay, otherwise all entries point to original
+      time vector without modifications. 
+    '''
+    outputConfig = self.outputConfig
+    if self.groupDelays:
+      # In case of group delays the time vector shall be adjusted for each
+      # signal group. This makes impossible parallel processing of multiple
+      # signals with the same time vector.
+      bandTimeAll_s = [userTimeAll_s + outputConfig.GROUP_DELAYS[x]
+                       for x in range(outputConfig.N_GROUPS)]
+    else:
+      bandTimeAll_s = [userTimeAll_s] * outputConfig.N_GROUPS
+
+    return bandTimeAll_s
+
+  def perform(self):
+    '''
+    Main processing loop.
+    '''
+    outputConfig = self.outputConfig
+    signalSources = self.signalSources
+    signalFilters = self.signalFilters
+    noiseParams = self.noiseParams
+    generateDebug = self.generateDebug
+    noise = self.noise  # Noise matrix if present
+    sigs = self.signals  # Signal matrix
+
+    # Compute time stamps in linear time space
+    userTimeAll_s = self.computeTimeVector()
+
+    # Compute TCXO time drift and apply if appropriate
+    tcxoTimeDrift_s = self.computeTcxoVector()
+    if tcxoTimeDrift_s is not None:
+      userTimeAll_s += tcxoTimeDrift_s
+
+    # Compute band time vectors with group delays
+    bandTimeAll_s = self.computeGroupTimeVectors(userTimeAll_s)
+
+    # Prepare signal matrix
     sigs.fill(0.)
     if noise is not None:
       # Initialize signal array with noise
       sigs += noise
 
+    # Debug data
     if generateDebug:
       signalData = []
       debugData = {'time': userTimeAll_s, 'signalData': signalData}
@@ -167,21 +242,25 @@ class Task(object):
 
     # Sum up signals for all SVs
     for signalSource in signalSources:
-      # Add signal from source (satellite) to signal accumulator
-      t = signalSource.getBatchSignals(userTimeAll_s,
-                                       sigs,
-                                       outputConfig,
-                                       generateDebug)
-      # Debugging output
-      if generateDebug:
-        svDebug = {'name': signalSource.getSvName(), 'data': t}
-        signalData.append(svDebug)
-      t = None
+      for band in self.bands:
+        if signalSource.isBandEnabled(band, outputConfig):
+          # Add signal from source (satellite) to signal accumulator
+          t = signalSource.getBatchSignals(bandTimeAll_s[band.INDEX],
+                                           sigs,
+                                           outputConfig,
+                                           noiseParams,
+                                           band,
+                                           generateDebug)
+          # Debugging output
+          if generateDebug:
+            svDebug = {'name': signalSource.getName(), 'data': t}
+            signalData.append(svDebug)
 
-    if signalFilters is list:
+          t = None
+
+    if isinstance(signalFilters, list):
       # Filter signal values through LPF, BPF or another
-      for i in range(len(self.filters)):
-        filterObject = signalFilters[i]
+      for i, filterObject in enumerate(signalFilters):
         if filterObject is not None:
           sigs[i][:] = filterObject.filter(sigs[i])
 
@@ -190,14 +269,45 @@ class Task(object):
 
 
 class Worker(multiprocessing.Process):
+  '''
+  Remote process worker. The object encapsulates Task logic for running in a
+  separate address space.
+  '''
+  STATUS_CONTINUE = 0
+  STATUS_DONE = 1
+  STATUS_ERROR = 2
 
   def __init__(self,
                outputConfig,
                signalSources,
-               noiseSigma,
+               noiseParams,
                tcxo,
                signalFilters,
+               groupDelays,
+               bands,
                generateDebug):
+    '''
+    Worker object constructor.
+
+    Parameters
+    ----------
+    outputConfig : object
+      Output profile
+    signalSources : array-like
+      List of satellites
+    noiseParams : NoiseParameters
+      Noise parameters container
+    tcxo : object
+      TCXO control object
+    signalFilters : array-like
+      Output signal filter objects
+    groupDelays : bool
+      Flag if group delays are enabled
+    bands : list
+      List of bands to generate
+    generateDebug : bool
+      Flag if additional debug output is required
+    '''
     super(Worker, self).__init__()
     self.queueIn = multiprocessing.Queue()
     self.queueOut = multiprocessing.Queue()
@@ -205,70 +315,168 @@ class Worker(multiprocessing.Process):
     self.totalExecTime_s = 0.
     self.outputConfig = outputConfig
     self.signalSources = signalSources
-    self.noiseSigma = noiseSigma
+    self.noiseParams = noiseParams
     self.tcxo = tcxo
     self.signalFilters = signalFilters
+    self.groupDelays = groupDelays
+    self.bands = bands
     self.generateDebug = generateDebug
 
-  def run(self):
+  def run_once(self, task):
+    '''
+    Performs single event processing iteration
+
+    The method reads task parameters from the queue, invokes task processing
+    and forwards the result into output queue
+
+    Parameters
+    ----------
+    task : Task
+      Task object for actual data generation
+
+    Returns
+    -------
+    int
+      Operation status. Can be one of:
+      - Worker.STATUS_CONTINUE -- Normal event has been received and processed
+      - Worker.STATUS_DONE -- STOP event has been received
+      - Worker.STATUS_ERROR -- Error has been encountered
+    '''
+    opStartTime_s = time.clock()
+    inputRequest = self.queueIn.get()
+    if inputRequest is None:
+      # EOF reached
+      statistics = (self.totalWaitTime_s, self.totalExecTime_s)
+      self.queueOut.put(statistics)
+      return -1
+    (userTime0_s, nSamples, firstSampleIndex) = inputRequest
+
+    opDuration_s = time.clock() - opStartTime_s
+    self.totalWaitTime_s += opDuration_s
+    startTime_s = time.clock()
+    try:
+      task.update(userTime0_s, nSamples, firstSampleIndex)
+      result = task.perform()
+      result = copy.deepcopy(result)
+      self.queueOut.put(result)
+    except:
+      exType, exValue, exTraceback = sys.exc_info()
+      traceback.print_exception(
+          exType, exValue, exTraceback, file=sys.stderr)
+      self.queueOut.put(None)
+      return 1
+    duration_s = time.clock() - startTime_s
+    self.totalExecTime_s += duration_s
+    return 0
+
+  def createTask(self):
+    '''
+    Creates task encapsulated task object for operation
+    '''
     task = Task(self.outputConfig,
                 self.signalSources,
-                noiseSigma=self.noiseSigma,
+                noiseParams=self.noiseParams,
                 tcxo=self.tcxo,
                 signalFilters=self.signalFilters,
+                groupDelays=self.groupDelays,
+                bands=self.bands,
                 generateDebug=self.generateDebug)
+    return task
+
+  def run(self):
+    '''
+    Event loop for multiprocessing operation
+    '''
+    task = self.createTask()
+    result = Worker.STATUS_DONE
 
     while True:
-      opStartTime_s = time.clock()
-      inputRequest = self.queueIn.get()
-      if inputRequest is None:
-        # EOF reached
+      result = self.run_once(task)
+      if result == Worker.STATUS_DONE or result == Worker.STATUS_ERROR:
         break
-      (userTime0_s, nSamples, firstSampleIndex) = inputRequest
-      # print "Received params", userTime0_s, nSamples, firstSampleIndex
-      opDuration_s = time.clock() - opStartTime_s
-      self.totalWaitTime_s += opDuration_s
-      startTime_s = time.clock()
-      try:
-        task.update(userTime0_s, nSamples, firstSampleIndex)
-        result = task.perform()
-        import copy
-        result = copy.deepcopy(result)
-        self.queueOut.put(result)
-      except:
-        exType, exValue, exTraceback = sys.exc_info()
-        traceback.print_exception(
-            exType, exValue, exTraceback, file=sys.stderr)
-        self.queueOut.put(None)
-        self.queueIn.close()
-        self.queueOut.close()
-        sys.exit(1)
-      duration_s = time.clock() - startTime_s
-      self.totalExecTime_s += duration_s
-    statistics = (self.totalWaitTime_s, self.totalExecTime_s)
-    self.queueOut.put(statistics)
-    self.queueIn.close()
-    self.queueOut.close()
-    sys.exit(0)
+
+    sys.exit(0 if result == Worker.STATUS_DONE else 1)
 
 
-def computeTimeIntervalS(outputConfig):
+def printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder):
   '''
-  Helper for computing generation interval duration in seconds.
+  Print some relevant information to console.
 
   Parameters
   ----------
+  sv_list : list
+    List of signal sources
   outputConfig : object
-    Output configuration.
-
-  Returns
-  -------
-  float
-    Generation interval duration in seconds
+    Output configuration object
+  lpfFA_db : list
+    Filter attenuation levels for each band
+  encoder : Encoder
+    Encoder object
   '''
-  deltaTime_s = float(outputConfig.SAMPLE_BATCH_SIZE) / \
-      outputConfig.SAMPLE_RATE_HZ
-  return deltaTime_s
+  for _sv in sv_list:
+    _svNo = _sv.getName()
+    _amp = _sv.amplitude
+    _svTime0_s = 0
+    _dist0_m = _sv.doppler.computeDistanceM(_svTime0_s)
+    _speed_mps = _sv.doppler.computeSpeedMps(_svTime0_s)
+    # svMeanPower = _sv.getAmplitude().computeMeanPower()
+    if isinstance(_sv, GPSSatellite):
+      band1 = outputConfig.GPS.L1
+      band2 = outputConfig.GPS.L2
+      band1IncreaseDb = 60. - lpfFA_db[band1.INDEX]  # GPS L1 C/A
+      # GPS L2C CM - only half of power is used: -3dB
+      band2IncreaseDb = 60. - 3. - lpfFA_db[band2.INDEX]
+      signal1 = signals.GPS.L1CA
+      signal2 = signals.GPS.L2C
+      _msg1 = _sv.getL1CAMessage()
+      _msg2 = _sv.getL2CMessage()
+      _l2ct = _sv.getL2CLCodeType()
+    else:
+      pass
+    # SNR for a satellite. Depends on sampling rate.
+    if noiseParams.getNoiseSigma():
+      svSNR_db = _sv.getAmplitude().computeSNR(noiseParams)
+      svCNoL1 = svSNR_db + band1IncreaseDb - encoder.getAttenuationLevel()
+      svCNoL2 = svSNR_db + band2IncreaseDb - encoder.getAttenuationLevel()
+    else:
+      svSNR_db = 60.
+      svCNoL1 = svCNoL2 = 120
+
+    _d1 = signal1.calcDopplerShiftHz(_dist0_m, _speed_mps)
+    _d2 = signal2.calcDopplerShiftHz(_dist0_m, _speed_mps)
+    _f1 = signal1.CENTER_FREQUENCY_HZ
+    _f2 = signal2.CENTER_FREQUENCY_HZ
+    _bit = signal1.getSymbolIndex(_svTime0_s)
+    _c1 = signal1.getCodeChipIndex(_svTime0_s)
+    _c2 = signal2.getCodeChipIndex(_svTime0_s)
+
+    print "{} = {{".format(_svNo)
+    print "  .amplitude:  {}".format(_amp)
+    print "  .doppler:    {}".format(_sv.doppler)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "  .l1_message: {}".format(_msg1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "  .l2_message: {}".format(_msg2)
+    if _l2ct:
+      print "  .l2_cl_type: {}".format(_l2ct)
+    print "  .epoc:"
+    print "    .SNR (dB):   {}".format(svSNR_db)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .L1 CNo:     {}".format(svCNoL1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "    .L2 CNo:     {}".format(svCNoL2)
+    print "    .distance:   {} m".format(_dist0_m)
+    print "    .speed:      {} m/s".format(_speed_mps)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .l1_doppler: {} hz @ {}".format(_d1, _f1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "    .l2_doppler: {} hz @ {}".format(_d2, _f2)
+    print "    .symbol:     {}".format(_bit)
+    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .l1_chip:    {}".format(_c1)
+    if _sv.isBandEnabled(band2, outputConfig):
+      print "    .l2_chip:    {}".format(_c2)
+    print "}"
 
 
 def generateSamples(outputFile,
@@ -277,9 +485,10 @@ def generateSamples(outputFile,
                     time0S,
                     nSamples,
                     outputConfig,
-                    SNR=None,
+                    noiseSigma=None,
                     tcxo=None,
                     filterType="none",
+                    groupDelays=None,
                     logFile=None,
                     threadCount=0,
                     pbar=None):
@@ -300,175 +509,127 @@ def generateSamples(outputFile,
     Total number of samples to generate.
   outputConfig : object
     Output parameters
-  SNR : float, optional
+  noiseSigma : float, optional
     When specified, adds random noise to the output.
   tcxo : object, optional
     When specified, controls TCXO drift
   filterType : string, optional
     Controls IIR/FIR signal post-processing. Disabled by default.
-  debugLog : bool, optional
-    Control generation of additional debug output. Disabled by default.
+  groupDelays : bool
+    Flag if group delays are enabled.
+  logFile : object
+    Debug information destination file.
+  threadCount : int
+    Number of parallel threads for multi-process computation.
+  pbar : object
+    Progress bar object
   '''
-
-  #
-  # Print out parameters
-  #
-  print "Generating samples, sample rate={} Hz, interval={} seconds, SNR={}".format(
-        outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ, SNR)
-  print "Jobs: ", threadCount
 
   _t0 = time.clock()
   _count = 0l
 
   # Check which bands are enabled, configure band-specific parameters
-  bands = [outputConfig.GPS.L1, outputConfig.GPS.L2]  # Supported bands
-  lpf = [None] * len(bands)
-  bandsEnabled = [False] * len(bands)
+  bands = [outputConfig.GPS.L1,
+           outputConfig.GPS.L2]  # Supported bands
+  lpf = [None] * outputConfig.N_GROUPS
+  lpfFA_db = [0.] * outputConfig.N_GROUPS  # Filter attenuation levels
+  bandsEnabled = [False] * outputConfig.N_GROUPS
 
-  bandPass = False
-  lowPass = False
-  if filterType == 'lowpass':
-    lowPass = True
-  elif filterType == 'bandpass':
-    bandPass = True
-  elif filterType == 'none':
-    pass
-  else:
-    raise ValueError("Invalid filter type %s" % repr(filter))
+  bandPass = filterType == 'bandpass'
+  lowPass = filterType == 'lowpass'
 
   for band in bands:
     for sv in sv_list:
-      bandsEnabled[band.INDEX] |= sv.isBandEnabled(band.INDEX, outputConfig)
+      bandsEnabled[band.INDEX] |= sv.isBandEnabled(band, outputConfig)
+    sv = None
 
     filterObject = None
+    ifHz = 0.
+    if hasattr(band, "INTERMEDIATE_FREQUENCY_HZ"):
+      ifHz = band.INTERMEDIATE_FREQUENCY_HZ
+    elif hasattr(band, "INTERMEDIATE_FREQUENCIES_HZ"):
+      ifHz = band.INTERMEDIATE_FREQUENCIES_HZ[0]
+    else:  # pragma: no coverage
+      assert False
+
     if lowPass:
-      filterObject = LowPassFilter(outputConfig,
-                                   band.INTERMEDIATE_FREQUENCY_HZ)
+      filterObject = LowPassFilter(outputConfig, ifHz)
     elif bandPass:
-      filterObject = BandPassFilter(outputConfig,
-                                    band.INTERMEDIATE_FREQUENCY_HZ)
+      filterObject = BandPassFilter(outputConfig, ifHz)
     if filterObject:
       lpf[band.INDEX] = filterObject
+      lpfFA_db[band.INDEX] = filterObject.getPassBandAtt()
       logger.debug("Band %d filter NBW is %s" %
                    (band.INDEX, str(filterObject)))
 
-  if SNR is not None:
-    sourcePower = 0.
-    for sv in sv_list:
-      svMeanPower = sv.getAmplitude().computeMeanPower()
-      sourcePower += svMeanPower
-      logger.debug("[%s] Estimated mean power is %f" %
-                   (sv.getSvName(), svMeanPower))
-    meanPower = sourcePower / len(sv_list)
-    meanAmplitude = scipy.sqrt(meanPower)
-    logger.debug("Estimated total signal power is %f, mean %f, mean amplitude %f" %
-                 (sourcePower, meanPower, meanAmplitude))
-
-    # Nsigma and while noise amplitude computation: check if the Nsigma is
-    # actually a correct value for white noise with normal distribution.
-
-    # Number of samples for 1023 MHz
-    freqTimesTau = outputConfig.SAMPLE_RATE_HZ / 1.023e6
-    noiseVariance = freqTimesTau * meanPower / (4. * 10. ** (float(SNR) / 10.))
-    noiseSigma = numpy.sqrt(noiseVariance)
-    logger.info("Selected noise sigma %f (variance %f) for SNR %f" %
-                (noiseSigma, noiseVariance, float(SNR)))
+  if noiseSigma is not None:
+    noiseVariance = noiseSigma * noiseSigma
+    noiseParams = NoiseParameters(outputConfig.SAMPLE_RATE_HZ, noiseSigma)
+    logger.info("Selected noise sigma %f (variance %f)" %
+                (noiseSigma, noiseVariance))
 
   else:
-    noiseVariance = None
-    noiseSigma = None
+    noiseVariance = 0.
+    noiseSigma = 0.
+    noiseParams = NoiseParameters(outputConfig.SAMPLE_RATE_HZ, 0.)
     logger.info("SNR is not provided, noise is not generated.")
 
-  #
+  # Print out parameters
+  logger.info("Generating samples, sample rate={} Hz, interval={} seconds".format(
+      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
+  logger.debug("Jobs: %d" % threadCount)
   # Print out SV parameters
-  #
-  for _sv in sv_list:
-    _svNo = _sv.getSvName()
-    _amp = _sv.amplitude
-    _svTime0_s = 0
-    _dist0_m = _sv.doppler.computeDistanceM(_svTime0_s)
-    _speed_mps = _sv.doppler.computeSpeedMps(_svTime0_s)
-    _bit = signals.GPS.L1CA.getSymbolIndex(_svTime0_s)
-    _c1 = signals.GPS.L1CA.getCodeChipIndex(_svTime0_s)
-    _c2 = signals.GPS.L2C.getCodeChipIndex(_svTime0_s)
-    _d1 = signals.GPS.L1CA.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    _d2 = signals.GPS.L2C.calcDopplerShiftHz(_dist0_m, _speed_mps)
-    svMeanPower = _sv.getAmplitude().computeMeanPower()
-    # SNR for a satellite. Depends on sampling rate.
-    if noiseVariance:
-      svSNR = svMeanPower / (4. * noiseVariance) * freqTimesTau
-    else:
-      svSNR = 1e6
-    svSNR_db = 10. * numpy.log10(svSNR)
-    # Filters lower the power according to their attenuation levels
-    l1FA_db = lpf[0].getPassBandAtt() if lpf[0] else 0.
-    l2FA_db = lpf[1].getPassBandAtt() if lpf[1] else 0.
-    # CNo for L1
-    svCNoL1 = svSNR_db + 10. * numpy.log10(1.023e6) - l1FA_db
-    # CNo for L2, half power used (-3dB)
-    svCNoL2 = svSNR_db + 10. * numpy.log10(1.023e6) - 3. - l2FA_db
-
-    print "{} = {{".format(_svNo)
-    print "  .amplitude:  {}".format(_amp)
-    print "  .doppler:    {}".format(_sv.doppler)
-    print "  .l1_message: {}".format(_sv.getL1CAMessage())
-    print "  .l2_message: {}".format(_sv.getL2CMessage())
-    print "  .l2_cl_type: {}".format(_sv.getL2CLCodeType())
-    print "  .SNR (dBHz): {}".format(svSNR_db)
-    print "  .L1 CNo:     {}".format(svCNoL1)
-    print "  .L2 CNo:     {}".format(svCNoL2)
-    print "  .epoc:"
-    print "    .distance:   {} m".format(_dist0_m)
-    print "    .speed:      {} m/s".format(_speed_mps)
-    print "    .symbol:     {}".format(_bit)
-    print "    .l1_doppler: {} hz".format(_d1)
-    print "    .l2_doppler: {} hz".format(_d2)
-    print "    .l1_chip:    {}".format(_c1)
-    print "    .l2_chip:    {}".format(_c2)
-    print "}"
+  printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder)
 
   userTime_s = float(time0S)
 
-  deltaUserTime_s = computeTimeIntervalS(outputConfig)
+  deltaUserTime_s = (float(outputConfig.SAMPLE_BATCH_SIZE) /
+                     float(outputConfig.SAMPLE_RATE_HZ))
   debugFlag = logFile is not None
 
   if debugFlag:
     logFile.write("Index,Time")
     for sv in sv_list:
-      svName = sv.getSvName()
-      if sv.isL1CAEnabled():
-        logFile.write(",%s/L1/doppler" % svName)
-      if sv.isL2CEnabled():
-        logFile.write(",%s/L2/doppler" % svName)
+      svName = sv.getName()
+      for band in bands:
+        if sv.isBandEnabled(band, outputConfig):
+          logFile.write(",%s/%s" % (svName, band.NAME))
     # End of line
     logFile.write("\n")
 
   if threadCount > 0:
+    # Parallel execution: create worker pool
     workerPool = [Worker(outputConfig,
                          sv_list,
-                         noiseSigma,
+                         noiseParams,
                          tcxo,
                          lpf,
+                         groupDelays,
+                         bands,
                          debugFlag) for _ in range(threadCount)]
 
     for worker in workerPool:
       worker.start()
+    # Each worker in the pool permits 2 tasks in the queue.
     maxTaskListSize = threadCount * 2
   else:
+    # Synchronous execution: single worker
     workerPool = None
     task = Task(outputConfig,
                 sv_list,
-                noiseSigma=noiseSigma,
+                noiseParams=noiseParams,
                 tcxo=tcxo,
                 signalFilters=lpf,
+                groupDelays=groupDelays,
+                bands=bands,
                 generateDebug=debugFlag)
     maxTaskListSize = 1
 
-  workerPutIndex = 0
-  workerGetIndex = 0
-  activeTasks = 0
+  workerPutIndex = 0  # Worker index for adding task parameters with RR policy
+  workerGetIndex = 0  # Worker index for getting task results with RR policy
+  activeTasks = 0     # Number of active generation tasks
 
-  totalSampleCounter = 0
+  totalSampleCounter = 0l
   taskQueuedCounter = 0
   taskReceivedCounter = 0
 
@@ -478,23 +639,29 @@ def generateSamples(outputFile,
   while True:
     while activeTasks < maxTaskListSize and totalSampleCounter < nSamples:
       # We have space in the task backlog and not all batchIntervals are issued
-      userTime0_s = userTime_s
-      userTimeX_s = userTime_s + deltaUserTime_s
-      sampleCount = outputConfig.SAMPLE_BATCH_SIZE
 
-      if totalSampleCounter + sampleCount > nSamples:
+      userTime0_s = userTime_s
+
+      if totalSampleCounter + outputConfig.SAMPLE_BATCH_SIZE > nSamples:
         # Last interval may contain less than full batch size of samples
         sampleCount = nSamples - totalSampleCounter
-        userTimeX_s = userTime0_s + float(sampleCount) / \
-            outputConfig.SAMPLE_RATE_HZ
+        userTimeX_s = userTime0_s + (float(sampleCount) /
+                                     float(outputConfig.SAMPLE_RATE_HZ))
+      else:
+        # Normal internal: full batch size
+        userTimeX_s = userTime_s + deltaUserTime_s
+        sampleCount = outputConfig.SAMPLE_BATCH_SIZE
 
+      # Parameters: time interval start, number of samples, sample index
+      # counter for debug output
       params = (userTime0_s, sampleCount, totalSampleCounter)
-      # print ">>> ", userTime0_s, sampleCount, totalSampleCounter,
-      # workerPutIndex
       if workerPool is not None:
+        # Parallel execution: add the next task parameters into the worker's
+        # pool queue. Worker pool uses RR policy.
         workerPool[workerPutIndex].queueIn.put(params)
         workerPutIndex = (workerPutIndex + 1) % threadCount
       else:
+        # Synchronous execution: update task parameters for the next interval
         task.update(userTime0_s, sampleCount, totalSampleCounter)
       activeTasks += 1
 
@@ -512,16 +679,15 @@ def generateSamples(outputFile,
 
     try:
       if workerPool is not None:
-        # Wait for the first task
+        # Parallel execution: wait for the next task result
         worker = workerPool[workerGetIndex]
         waitStartTime_s = time.time()
-        # print "waiting data from worker", workerGetIndex
         result = worker.queueOut.get()
-        # print "Data received from worker", workerGetIndex
         workerGetIndex = (workerGetIndex + 1) % threadCount
         waitDuration_s = time.time() - waitStartTime_s
         totalWaitTime_s += waitDuration_s
       else:
+        # Synchronous execution: execute task and get result
         result = task.perform()
     except:
       exType, exValue, exTraceback = sys.exc_info()
@@ -531,12 +697,12 @@ def generateSamples(outputFile,
     activeTasks -= 1
 
     if result is None:
-      print "Error in processor; aborting."
+      logger.error("Error in processor; aborting.")
       break
 
+    # Unpack result values.
     (inputParams, signalSamples, debugData) = result
     (_userTime0_s, _sampleCount, _firstSampleIndex) = inputParams
-    # print "<<< ", _userTime0_s, _sampleCount, _firstSampleIndex
 
     if logFile is not None:
       # Data from all satellites is collected. Now we can dump the debug matrix
@@ -547,10 +713,8 @@ def generateSamples(outputFile,
         logFile.write("{},{}".format(_firstSampleIndex + smpl_idx,
                                      userTimeAll_s[smpl_idx]))
         for svIdx in range(len(signalData)):
-          # signalSourceName = signalData[svIdx]['name']
           signalSourceData = signalData[svIdx]['data']
           for band in signalSourceData:
-            # bandType = band['type']
             doppler = band['doppler']
             logFile.write(",{}".format(doppler[smpl_idx]))
         # End of line
@@ -565,29 +729,31 @@ def generateSamples(outputFile,
       _count += len(encodedSamples)
       encodedSamples.tofile(outputFile)
       encodedSamples = None
-    encodeDuration_s = time.time() - encodeStartTime_s
-    totalEncodeTime_s += encodeDuration_s
+
+    totalEncodeTime_s += time.time() - encodeStartTime_s
 
     if pbar:
       pbar.update(_firstSampleIndex + _sampleCount)
 
-  logger.debug("MAIN: Encode duration: %f" % totalEncodeTime_s)
-  logger.debug("MAIN: wait duration: %f" % totalWaitTime_s)
+  # Generation completed.
 
+  # Flush any pending data in encoder
   encodedSamples = encoder.flush()
   if len(encodedSamples) > 0:
     encodedSamples.tofile(outputFile)
 
+  # Close debug log file
   if debugFlag:
     logFile.close()
 
+  # Terminate all worker processes
   if workerPool is not None:
-    for worker in workerPool:
+    for i, worker in enumerate(workerPool):
       worker.queueIn.put(None)
     for worker in workerPool:
       try:
         statistics = worker.queueOut.get(timeout=2)
-        print "Statistics:", statistics
+        logger.info("Worker [%d] statistics: %s" % (i, str(statistics)))
       except:
         exType, exValue, exTraceback = sys.exc_info()
         traceback.print_exception(
@@ -596,3 +762,7 @@ def generateSamples(outputFile,
       worker.queueOut.close()
       worker.terminate()
       worker.join()
+
+  # Print some statistical debug information
+  logger.debug("MAIN: Encode duration: %f" % totalEncodeTime_s)
+  logger.debug("MAIN: wait duration: %f" % totalWaitTime_s)

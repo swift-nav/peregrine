@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python
 # Copyright (C) 2016 Swift Navigation Inc.
 # Contact: Valeri Atamaniouk <valeri@swiftnav.com>
 #
@@ -14,6 +14,7 @@ The :mod:`peregrine.iqgen.iqgen_main` module contains classes and functions
 related to parameter processing.
 
 """
+import sys
 import time
 import argparse
 import scipy.constants
@@ -37,6 +38,7 @@ from peregrine.iqgen.bits.doppler_sine import sineDoppler
 # Amplitude objects
 from peregrine.iqgen.bits.amplitude_poly import AmplitudePoly
 from peregrine.iqgen.bits.amplitude_sine import AmplitudeSine
+from peregrine.iqgen.bits.amplitude_base import AmplitudeBase
 
 # TCXO objects
 from peregrine.iqgen.bits.tcxo_poly import TCXOPoly
@@ -57,10 +59,6 @@ from peregrine.iqgen.bits.message_block import Message as BlockMessage
 from peregrine.iqgen.bits.message_cnav import Message as CNavMessage
 from peregrine.iqgen.bits.message_lnav import Message as LNavMessage
 
-# PRN code generators
-from peregrine.iqgen.bits.prn_gps_l1ca import PrnCode as GPS_L1CA_Code
-from peregrine.iqgen.bits.prn_gps_l2c import PrnCode as GPS_L2C_Code
-
 # Bit stream encoders
 from peregrine.iqgen.bits.encoder_gps import GPSL1BitEncoder
 from peregrine.iqgen.bits.encoder_gps import GPSL2BitEncoder
@@ -74,10 +72,18 @@ from peregrine.iqgen.generate import generateSamples
 from peregrine.iqgen.bits.satellite_factory import factoryObject as satelliteFO
 from peregrine.iqgen.bits.tcxo_factory import factoryObject as tcxoFO
 
+from peregrine.log import default_logging_config
+
 logger = logging.getLogger(__name__)
 
+AMP_MAP = {'amplitude': AmplitudeBase.UNITS_AMPLITUDE,
+           'power': AmplitudeBase.UNITS_POWER,
+           'snr': AmplitudeBase.UNITS_SNR,
+           'snr-db': AmplitudeBase.UNITS_SNR_DB}
 
-def computeTimeDelay(doppler, symbol_index, chip_index, signal, code):
+
+
+def computeTimeDelay(doppler, symbol_index, chip_index, signal):
   '''
   Helper function to compute signal delay to match given symbol and chip
   indexes.
@@ -92,8 +98,6 @@ def computeTimeDelay(doppler, symbol_index, chip_index, signal, code):
     Chip index
   signal : object
     Signal object
-  code : object
-    Code object
 
   Returns
   -------
@@ -130,7 +134,10 @@ def prepareArgsParser():
         namespace.gps_sv = []
 
       # Add SV to the tail of the list.
-      sv = GPSSatellite(int(values))
+      if option_string == '--gps-sv':
+        sv = GPSSatellite(int(values))
+      else:
+        raise ValueError("Option value is not supported: %s" % option_string)
       namespace.gps_sv.append(sv)
 
       # Reset all configuration parameters
@@ -152,6 +159,7 @@ def prepareArgsParser():
 
       # Amplitude parameters
       namespace.amplitude_type = "poly"
+      namespace.amplitude_unis = "snr-db"
       namespace.amplitude_a0 = None
       namespace.amplitude_a1 = None
       namespace.amplitude_a2 = None
@@ -183,18 +191,21 @@ def prepareArgsParser():
     def doUpdate(self, sv, parser, namespace, values, option_string):
       l1caEnabled = False
       l2cEnabled = False
-      if namespace.bands == "l1ca":
+      if namespace.bands == "l1ca" or namespace.bands == 'l1':
         l1caEnabled = True
-      elif namespace.bands == "l2c":
+      elif namespace.bands == "l2c" or namespace.bands == 'l2':
         l2cEnabled = True
-      elif namespace.bands == "l1ca+l2c":
+      elif namespace.bands == "l1ca+l2c" or namespace.bands == 'l1+l2':
         l1caEnabled = True
         l2cEnabled = True
       else:
         raise ValueError()
-      sv.setL2CLCodeType(namespace.l2cl_code_type)
-      sv.setL1CAEnabled(l1caEnabled)
-      sv.setL2CEnabled(l2cEnabled)
+      if isinstance(sv, GPSSatellite):
+        sv.setL2CLCodeType(namespace.l2cl_code_type)
+        sv.setL1CAEnabled(l1caEnabled)
+        sv.setL2CEnabled(l2cEnabled)
+      else:
+        raise ValueError("Unsupported object type in SV list")
 
   class UpdateDopplerType(UpdateSv):
 
@@ -202,10 +213,13 @@ def prepareArgsParser():
       super(UpdateDopplerType, self).__init__(option_strings, dest, **kwargs)
 
     def doUpdate(self, sv, parser, namespace, values, option_string):
-      if sv.l1caEnabled:
-        frequency_hz = signals.GPS.L1CA.CENTER_FREQUENCY_HZ
-      elif sv.l2cEnabled:
-        frequency_hz = signals.GPS.L2C.CENTER_FREQUENCY_HZ
+      if isinstance(sv, GPSSatellite):
+        if sv.l1caEnabled:
+          frequency_hz = signals.GPS.L1CA.CENTER_FREQUENCY_HZ
+        elif sv.l2cEnabled:
+          frequency_hz = signals.GPS.L2C.CENTER_FREQUENCY_HZ
+        else:
+          raise ValueError("Signal band must be specified before doppler")
       else:
         raise ValueError("Signal band must be specified before doppler")
 
@@ -239,7 +253,8 @@ def prepareArgsParser():
       super(DisableCodeDoppler, self).__init__(option_strings, dest, **kwargs)
 
     def doUpdate(self, sv, parser, namespace, values, option_string):
-      sv.getDoppler().setCodeDopplerDisabled(True)
+      print "CD=", namespace.ignore_code_doppler, values, option_string
+      sv.setCodeDopplerIgnored(namespace.ignore_code_doppler)
 
   class UpdateAmplitudeType(UpdateSv):
 
@@ -247,6 +262,8 @@ def prepareArgsParser():
       super(UpdateAmplitudeType, self).__init__(option_strings, dest, **kwargs)
 
     def doUpdate(self, sv, parser, namespace, values, option_string):
+      amplitude_units = AMP_MAP[namespace.amplitude_units]
+
       if namespace.amplitude_type == "poly":
         coeffs = []
         hasHighOrder = False
@@ -259,7 +276,7 @@ def prepareArgsParser():
             hasHighOrder = True
           elif hasHighOrder:
             coeffs.append(0.)
-        amplitude = AmplitudePoly(tuple(coeffs))
+        amplitude = AmplitudePoly(amplitude_units, tuple(coeffs))
       elif namespace.amplitude_type == "sine":
         initial = 1.
         ampl = 0.5
@@ -271,17 +288,19 @@ def prepareArgsParser():
         if namespace.amplitude_period is not None:
           period_s = namespace.amplitude_period
 
-        amplitude = AmplitudeSine(initial, ampl, period_s)
+        amplitude = AmplitudeSine(amplitude_units, initial, ampl, period_s)
       else:
         raise ValueError("Unsupported amplitude type")
       sv.setAmplitude(amplitude)
 
-  class UpdateTcxoType(UpdateSv):
+  class UpdateTcxoType(argparse.Action):
 
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
       super(UpdateTcxoType, self).__init__(option_strings, dest, **kwargs)
 
-    def doUpdate(self, sv, parser, namespace, values, option_string):
+    def __call__(self, parser, namespace, values, option_string=None):
+      setattr(namespace, self.dest, values)
+
       if namespace.tcxo_type == "poly":
         coeffs = []
         hasHighOrder = False
@@ -301,14 +320,14 @@ def prepareArgsParser():
         period_s = 1.
         if namespace.tcxo_a0 is not None:
           ampl = namespace.tcxo_a0
-        if namespace.amplitude_a1 is not None:
-          ampl = namespace._a1
+        if namespace.tcxo_a1 is not None:
+          ampl = namespace.tcxo_a1
         if namespace.tcxo_period is not None:
           period_s = namespace.tcxo_period
 
         tcxo = TCXOSine(initial, ampl, period_s)
       else:
-        raise ValueError("Unsupported amplitude type")
+        raise ValueError("Unsupported TCXO type")
       namespace.tcxo = tcxo
 
   class UpdateMessageType(UpdateSv):
@@ -327,12 +346,19 @@ def prepareArgsParser():
         messageL1 = ZeroOneMessage()
         messageL2 = messageL1
       elif namespace.message_type == "crc":
-        messageL1 = LNavMessage(sv.prn)
-        messageL2 = CNavMessage(sv.prn)
+        if isinstance(sv, GPSSatellite):
+          messageL1 = LNavMessage(sv.prn)
+          messageL2 = CNavMessage(sv.prn)
+        else:
+          raise ValueError(
+              "Message type is not supported for a satellite type")
       else:
         raise ValueError("Unsupported message type")
-      sv.setL1CAMessage(messageL1)
-      sv.setL2CMessage(messageL2)
+      if isinstance(sv, GPSSatellite):
+        sv.setL1CAMessage(messageL1)
+        sv.setL2CMessage(messageL2)
+      else:
+        raise ValueError("Unsupported object type in SV list")
 
   class UpdateMessageFile(UpdateSv):
 
@@ -349,8 +375,11 @@ def prepareArgsParser():
       numpy.negative(data, out=data)
       message = BlockMessage(data)
 
-      sv.setL1CAMessage(message)
-      sv.setL2CMessage(message)
+      if isinstance(sv, GPSSatellite):
+        sv.setL1CAMessage(message)
+        sv.setL2CMessage(message)
+      else:
+        raise ValueError("Unsupported object type in SV list")
 
   class SaveConfigAction(argparse.Action):
 
@@ -370,9 +399,10 @@ def prepareArgsParser():
               'chip_delay': namespace.chip_delay,
               'symbol_delay': namespace.symbol_delay,
               'generate': namespace.generate,
-              'snr': namespace.snr,
+              'noise_sigma': namespace.noise_sigma,
               'filter_type': namespace.filter_type,
-              'tcxo': tcxoFO.toMapForm(namespace.tcxo)
+              'tcxo': tcxoFO.toMapForm(namespace.tcxo),
+              'group_delays': namespace.group_delays
               }
       json.dump(data, values, indent=2)
       values.close()
@@ -390,11 +420,12 @@ def prepareArgsParser():
       namespace.chip_delay = loaded['chip_delay']
       namespace.symbol_delay = loaded['symbol_delay']
       namespace.generate = loaded['generate']
-      namespace.snr = loaded['snr']
+      namespace.noise_sigma = loaded['noise_sigma']
       namespace.filter_type = loaded['filter_type']
       namespace.tcxo = tcxoFO.fromMapForm(loaded['tcxo'])
       namespace.gps_sv = [
           satelliteFO.fromMapForm(sv) for sv in loaded['gps_sv']]
+      namespace.group_delays = loaded['group_delays']
       values.close()
 
   parser = argparse.ArgumentParser(
@@ -405,121 +436,145 @@ def prepareArgsParser():
                       action=AddSv)
   parser.add_argument('--bands',
                       default="l1ca",
-                      choices=["l1ca", "l2c", "l1ca+l2c"],
+                      choices=["l1ca", "l2c", "l1ca+l2c", "l1", "l2", "l1+l2"],
                       help="Signal bands to enable",
                       action=UpdateBands)
-  parser.add_argument('--l2cl-code-type',
-                      default='01',
-                      choices=['01', '1', '0'],
-                      help="GPS L2 CL code type",
-                      action=UpdateBands)
-  parser.add_argument('--doppler-type',
-                      default="zero",
-                      choices=["zero", "const", "linear", "sine"],
-                      help="Configure doppler type",
-                      action=UpdateDopplerType)
-  parser.add_argument('--doppler-value',
-                      type=float,
-                      help="Doppler shift in hertz (initial)",
-                      action=UpdateDopplerType)
-  parser.add_argument('--doppler-speed',
-                      type=float,
-                      help="Doppler shift change in hertz/second",
-                      action=UpdateDopplerType)
-  parser.add_argument('--distance',
-                      type=float,
-                      help="Distance in meters for signal delay (initial)",
-                      action=UpdateDopplerType)
-  parser.add_argument('--tec',
-                      type=float,
-                      help="Ionosphere TEC for signal delay"
-                           " (electrons per meter^2)",
-                      action=UpdateDopplerType)
-  parser.add_argument('--doppler-amplitude',
-                      type=float,
-                      help="Doppler change amplitude (hertz)",
-                      action=UpdateDopplerType)
-  parser.add_argument('--doppler-period',
-                      type=float,
-                      help="Doppler change period (seconds)",
-                      action=UpdateDopplerType)
-  parser.add_argument('--ignore-code-doppler',
-                      help="Disable doppler for code and data processing",
-                      action=DisableCodeDoppler)
-  parser.add_argument('--amplitude-type',
-                      default="poly",
-                      choices=["poly", "sine"],
-                      help="Configure amplitude type: polynomial or sine.",
-                      action=UpdateAmplitudeType)
-  parser.add_argument('--amplitude-a0',
-                      type=float,
-                      help="Amplitude coefficient (a0 for polynomial;"
-                           " offset for sine)",
-                      action=UpdateAmplitudeType)
-  parser.add_argument('--amplitude-a1',
-                      type=float,
-                      help="Amplitude coefficient (a1 for polynomial,"
-                           " amplitude for size)",
-                      action=UpdateAmplitudeType)
-  parser.add_argument('--amplitude-a2',
-                      type=float,
-                      help="Amplitude coefficient (a2 for polynomial)",
-                      action=UpdateAmplitudeType)
-  parser.add_argument('--amplitude-a3',
-                      type=float,
-                      help="Amplitude coefficient (a3 for polynomial)",
-                      action=UpdateAmplitudeType)
-  parser.add_argument('--amplitude-period',
-                      type=float,
-                      help="Amplitude period in seconds for sine",
-                      action=UpdateAmplitudeType)
-  parser.add_argument('--message-type', default="zero",
-                      choices=["zero", "one", "zero+one", "crc"],
-                      help="Message type",
-                      action=UpdateMessageType)
-  parser.add_argument('--message-file',
-                      type=argparse.FileType('rb'),
-                      help="Source file for message contents.",
-                      action=UpdateMessageFile)
-  parser.add_argument('--symbol_delay',
-                      type=int,
-                      help="Initial symbol index")
-  parser.add_argument('--chip_delay',
-                      type=int,
-                      help="Initial chip index")
+  dopplerGrp = parser.add_argument_group("Doppler Control",
+                                         "Doppler control parameters")
+  dopplerGrp.add_argument('--doppler-type',
+                          default="zero",
+                          choices=["zero", "const", "linear", "sine"],
+                          help="Configure doppler type",
+                          action=UpdateDopplerType)
+  dopplerGrp.add_argument('--doppler-value',
+                          type=float,
+                          help="Doppler shift in hertz (initial)",
+                          action=UpdateDopplerType)
+  dopplerGrp.add_argument('--doppler-speed',
+                          type=float,
+                          help="Doppler shift change in hertz/second",
+                          action=UpdateDopplerType)
+
+  delayGrp = parser.add_argument_group("Signal Delay Control",
+                                       "Signal delay control parameters")
+
+  delayGrp.add_argument('--distance',
+                        type=float,
+                        help="Distance in meters for signal delay (initial)",
+                        action=UpdateDopplerType)
+  delayGrp.add_argument('--tec',
+                        type=float,
+                        help="Ionosphere TEC for signal delay"
+                        " (electrons per meter^2)",
+                        action=UpdateDopplerType)
+  dopplerGrp.add_argument('--doppler-amplitude',
+                          type=float,
+                          help="Doppler change amplitude (hertz)",
+                          action=UpdateDopplerType)
+  dopplerGrp.add_argument('--doppler-period',
+                          type=float,
+                          help="Doppler change period (seconds)",
+                          action=UpdateDopplerType)
+  dopplerGrp.add_argument('--ignore-code-doppler',
+                          type=bool,
+                          help="Disable doppler for code and data processing",
+                          action=DisableCodeDoppler)
+  amplitudeGrp = parser.add_argument_group("Amplitude Control",
+                                           "Amplitude control parameters")
+  amplitudeGrp.add_argument('--amplitude-type',
+                            default="poly",
+                            choices=["poly", "sine"],
+                            help="Configure amplitude type: polynomial or sine.",
+                            action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-units',
+                            default="snr-db",
+                            choices=["snr-db", "snr", "amplitude", "power"],
+                            help="Configure amplitude units: SNR in dB; SNR;"
+                                 " amplitude; power.",
+                            action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-a0',
+                            type=float,
+                            help="Amplitude coefficient (a0 for polynomial;"
+                            " offset for sine)",
+                            action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-a1',
+                            type=float,
+                            help="Amplitude coefficient (a1 for polynomial,"
+                            " amplitude for size)",
+                            action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-a2',
+                            type=float,
+                            help="Amplitude coefficient (a2 for polynomial)",
+                            action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-a3',
+                            type=float,
+                            help="Amplitude coefficient (a3 for polynomial)",
+                            action=UpdateAmplitudeType)
+  amplitudeGrp.add_argument('--amplitude-period',
+                            type=float,
+                            help="Amplitude period in seconds for sine",
+                            action=UpdateAmplitudeType)
+  messageGrp = parser.add_argument_group("Message Data Control",
+                                         "Message data control parameters")
+  messageGrp.add_argument('--message-type', default="zero",
+                          choices=["zero", "one", "zero+one", "crc"],
+                          help="Message type",
+                          action=UpdateMessageType)
+  messageGrp.add_argument('--message-file',
+                          type=argparse.FileType('rb'),
+                          help="Source file for message contents.",
+                          action=UpdateMessageFile)
+  messageGrp.add_argument('--l2cl-code-type',
+                          default='01',
+                          choices=['01', '1', '0'],
+                          help="GPS L2 CL code type",
+                          action=UpdateBands)
+  delayGrp.add_argument('--symbol_delay',
+                        type=int,
+                        help="Initial symbol index")
+  delayGrp.add_argument('--chip_delay',
+                        type=int,
+                        help="Initial chip index")
   parser.add_argument('--filter-type',
                       default='none',
                       choices=['none', 'lowpass', 'bandpass'],
                       help="Enable filter")
-  parser.add_argument('--snr',
+  parser.add_argument('--noise-sigma',
                       type=float,
-                      help="SNR for noise generation")
-  parser.add_argument('--tcxo-type',
-                      choices=["poly", "sine"],
-                      help="TCXO drift type",
-                      action=UpdateTcxoType)
-  parser.add_argument('--tcxo-a0',
-                      type=float,
-                      help="TCXO a0 coefficient for polynomial TCXO drift"
-                           " or initial shift for sine TCXO drift",
-                      action=UpdateTcxoType)
-  parser.add_argument('--tcxo-a1',
-                      type=float,
-                      help="TCXO a1 coefficient for polynomial TCXO drift"
-                           " or amplitude for sine TCXO drift",
-                      action=UpdateTcxoType)
-  parser.add_argument('--tcxo-a2',
-                      type=float,
-                      help="TCXO a2 coefficient for polynomial TCXO drift",
-                      action=UpdateTcxoType)
-  parser.add_argument('--tcxo-a3',
-                      type=float,
-                      help="TCXO a3 coefficient for polynomial TCXO drift",
-                      action=UpdateTcxoType)
-  parser.add_argument('--tcxo-period',
-                      type=float,
-                      help="TCXO period in seconds for sine TCXO drift",
-                      action=UpdateTcxoType)
+                      default=1.,
+                      help="Noise sigma for noise generation")
+  tcxoGrp = parser.add_argument_group("TCXO Control",
+                                      "TCXO control parameters")
+
+  tcxoGrp.add_argument('--tcxo-type',
+                       choices=["poly", "sine"],
+                       help="TCXO drift type",
+                       action=UpdateTcxoType)
+  tcxoGrp.add_argument('--tcxo-a0',
+                       type=float,
+                       help="TCXO a0 coefficient for polynomial TCXO drift"
+                       " or initial shift for sine TCXO drift",
+                       action=UpdateTcxoType)
+  tcxoGrp.add_argument('--tcxo-a1',
+                       type=float,
+                       help="TCXO a1 coefficient for polynomial TCXO drift"
+                       " or amplitude for sine TCXO drift",
+                       action=UpdateTcxoType)
+  tcxoGrp.add_argument('--tcxo-a2',
+                       type=float,
+                       help="TCXO a2 coefficient for polynomial TCXO drift",
+                       action=UpdateTcxoType)
+  tcxoGrp.add_argument('--tcxo-a3',
+                       type=float,
+                       help="TCXO a3 coefficient for polynomial TCXO drift",
+                       action=UpdateTcxoType)
+  tcxoGrp.add_argument('--tcxo-period',
+                       type=float,
+                       help="TCXO period in seconds for sine TCXO drift",
+                       action=UpdateTcxoType)
+  parser.add_argument('--group-delays',
+                      type=bool,
+                      help="Enable/disable group delays simulation between bands")
   parser.add_argument('--debug',
                       type=argparse.FileType('wb'),
                       help="Debug output file")
@@ -559,17 +614,169 @@ def prepareArgsParser():
                       default=False,
                       help="Do not generate output.")
 
+  if sys.stdout.isatty():
+    progress_bar_default = 'stdout'
+  elif sys.stderr.isatty():
+    progress_bar_default = 'stderr'
+  else:
+    progress_bar_default = 'none'
+  parser.add_argument("--progress-bar",
+                      metavar='FLAG',
+                      choices=['stdout', 'stderr', 'none'],
+                      default=progress_bar_default,
+                      help="Show progress bar. Default is '%s'" %
+                      progress_bar_default)
+
   parser.set_defaults(tcxo=TCXOPoly(()))
 
   return parser
 
 
-def main():
-  from peregrine.log import default_logging_config
+def selectOutputConfig(profileName):
+  if profileName == "low_rate":
+    outputConfig = LowRateConfig
+  elif profileName == "normal_rate":
+    outputConfig = NormalRateConfig
+  elif profileName == "high_rate":
+    outputConfig = HighRateConfig
+  elif profileName == "custom_rate":
+    outputConfig = CustomRateConfig
+  else:
+    raise ValueError()
+  return outputConfig
+
+
+def printOutputConfig(outputConfig, args):
+  '''
+  Configuration print
+  '''
+  print "Output configuration:"
+  print "  Description:     ", outputConfig.NAME
+  print "  Sampling rate:   ", outputConfig.SAMPLE_RATE_HZ
+  print "  Batch size:      ", outputConfig.SAMPLE_BATCH_SIZE
+  print "  GPS L1 IF:       ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+  print "  GPS L2 IF:       ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
+  print "Other parameters:"
+  print "  TCXO:           ", args.tcxo
+  print "  noise sigma:    ", args.noise_sigma
+  print "  satellites:     ", [sv.getName() for sv in args.gps_sv]
+  print "  group delays:    ", args.group_delays
+
+
+def computeEnabledBands(signalSources, outputConfig):
+  '''
+  Computes enabled bands from the signal source list
+
+  Parameters
+  ----------
+  signalSources : array-like
+    List of SV objects to query
+  outputConfig : object
+    Output configuration object with bands
+
+  Returns
+  -------
+  map
+    Map with band names as keys and boolean flags as values
+  '''
+  result = {}
+  bands = [outputConfig.GPS.L1,
+           outputConfig.GPS.L2]
+  for band in bands:
+    bandEnabled = False
+    for sv in signalSources:
+      if sv.isBandEnabled(band, outputConfig):
+        bandEnabled = True
+        break
+    result[band.NAME] = bandEnabled
+
+  return result
+
+
+def selectEncoder(encoderType, outputConfig, enabledBands):
+  '''
+  Selects an appropriate encoder based on enabled bands and configuration
+
+  Parameters
+  ----------
+  encoderType : string
+    User-requested sample encoding format
+  outputConfig : object
+    Band configuration
+  enabledBands : map
+    Map contains flags for supported bands
+  '''
+  enabledGPSL1 = enabledBands[outputConfig.GPS.L1.NAME]
+  enabledGPSL2 = enabledBands[outputConfig.GPS.L2.NAME]
+
+  enabledGPS = enabledGPSL1 or enabledGPSL2
+  # Configure data encoder
+  if encoderType == "1bit":
+    if enabledGPS:
+      if enabledGPSL1 and enabledGPSL2:
+        encoder = GPSL1L2BitEncoder(outputConfig)
+      elif enabledGPSL2:
+        encoder = GPSL2BitEncoder(outputConfig)
+      else:
+        encoder = GPSL1BitEncoder(outputConfig)
+  elif encoderType == "2bits":
+    if enabledGPS:
+      if enabledGPSL1 and enabledGPSL2:
+        encoder = GPSL1L2TwoBitsEncoder(outputConfig)
+      elif enabledGPSL2:
+        encoder = GPSL2TwoBitsEncoder(outputConfig)
+      else:
+        encoder = GPSL1TwoBitsEncoder(outputConfig)
+  else:
+    raise ValueError("Encoder type is not supported")
+
+  return encoder
+
+
+def makeProgressBar(progressBarOutput, nSamples):
+  '''
+  Helper for initializing progress bar object
+
+  Parameters
+  ----------
+  progressBarOutput : string
+    Output object type for progress bar. Can be 'stderr' or 'stdout'.
+  nSamples : long
+    Total number of samples for object initialization
+
+  Returns
+  -------
+  progressbar.ProgressBar or None
+    Returns ProgressBar object if enabled, or None
+  '''
+  pbar = None
+  if hasProgressBar:
+    if progressBarOutput == 'stdout':
+      show_progress = True
+      progress_fd = sys.stdout
+    elif progressBarOutput == 'stderr':
+      show_progress = True
+      progress_fd = sys.stderr
+    else:
+      show_progress = False
+      progress_fd = -1
+    if show_progress:
+      widgets = ['Generating ',
+                 progressbar.Counter(), ' ',
+                 progressbar.Percentage(), ' ',
+                 progressbar.ETA(), ' ',
+                 progressbar.Bar()]
+      pbar = progressbar.ProgressBar(widgets=widgets,
+                                     maxval=nSamples,
+                                     fd=progress_fd).start()
+  return pbar
+
+
+def main(args=None):
   default_logging_config()
 
   parser = prepareArgsParser()
-  args = parser.parse_args()
+  args = parser.parse_args(args)
 
   if args.no_run:
     return 0
@@ -578,64 +785,25 @@ def main():
     parser.print_help()
     return 0
 
-  if args.profile == "low_rate":
-    outputConfig = LowRateConfig
-  elif args.profile == "normal_rate":
-    outputConfig = NormalRateConfig
-  elif args.profile == "high_rate":
-    outputConfig = HighRateConfig
-  elif args.profile == "custom_rate":
-    outputConfig = CustomRateConfig
-  else:
-    raise ValueError()
-
-  print "Output configuration:"
-  print "  Description:    ", outputConfig.NAME
-  print "  Sampling rate:  ", outputConfig.SAMPLE_RATE_HZ
-  print "  Batch size:     ", outputConfig.SAMPLE_BATCH_SIZE
-  print "  GPS L1 IF:      ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  print "  GPS L2 IF:      ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
-  print "Other parameters:"
-  print "  TCXO:           ", args.tcxo
-  print "  SNR:            ", args.snr
-  print "  tSatellites:    ", args.gps_sv
+  outputConfig = selectOutputConfig(args.profile)
+  printOutputConfig(outputConfig, args)
 
   # Check which signals are enabled on each of satellite to select proper
   # output encoder
-  enabledGPSL1 = False
-  enabledGPSL2 = False
+  enabledBands = computeEnabledBands(args.gps_sv, outputConfig)
 
-  for sv in args.gps_sv:
-    enabledGPSL1 |= sv.isBandEnabled(outputConfig.GPS.L1.INDEX, outputConfig)
-    enabledGPSL2 |= sv.isBandEnabled(outputConfig.GPS.L2.INDEX, outputConfig)
+  enabledGPSL1 = enabledBands[outputConfig.GPS.L1.NAME]
+  enabledGPSL2 = enabledBands[outputConfig.GPS.L2.NAME]
 
   # Configure data encoder
-  if args.encoder == "1bit":
-    if enabledGPSL1 and enabledGPSL2:
-      encoder = GPSL1L2BitEncoder(outputConfig)
-    elif enabledGPSL2:
-      encoder = GPSL2BitEncoder(outputConfig)
-    else:
-      encoder = GPSL1BitEncoder(outputConfig)
-  elif args.encoder == "2bits":
-    if enabledGPSL1 and enabledGPSL2:
-      encoder = GPSL1L2TwoBitsEncoder(outputConfig)
-    elif enabledGPSL2:
-      encoder = GPSL2TwoBitsEncoder(outputConfig)
-    else:
-      encoder = GPSL1TwoBitsEncoder(outputConfig)
-  else:
-    raise ValueError("Encoder type is not supported")
+  encoder = selectEncoder(args.encoder, outputConfig, enabledBands)
 
   if enabledGPSL1:
     signal = signals.GPS.L1CA
-    code = GPS_L1CA_Code
   elif enabledGPSL2:
     signal = signals.GPS.L2C
-    code = GPS_L2C_Code
   else:
     signal = signals.GPS.L1CA
-    code = GPS_L1CA_Code
 
   # Compute time delay for the needed bit/chip number
   # This delay is computed for the first satellite
@@ -649,8 +817,7 @@ def main():
   time0_s = computeTimeDelay(args.gps_sv[0].doppler,
                              initial_symbol_idx,
                              initial_chip_idx,
-                             signal,
-                             code)
+                             signal)
   logger.debug("Computed symbol/chip delay={} seconds".format(time0_s))
 
   startTime_s = time.time()
@@ -659,16 +826,7 @@ def main():
   logger.debug("Generating {} samples for {} seconds".
                format(n_samples, args.generate))
 
-  if hasProgressBar:
-    widgets = ['Generating ',
-               progressbar.Counter(), ' ',
-               progressbar.Percentage(), ' ',
-               progressbar.ETA(), ' ',
-               progressbar.Bar()]
-    pbar = progressbar.ProgressBar(widgets=widgets,
-                                   maxval=n_samples).start()
-  else:
-    pbar = None
+  pbar = makeProgressBar(args.progress_bar, n_samples)
 
   generateSamples(args.output,
                   args.gps_sv,
@@ -677,14 +835,15 @@ def main():
                   n_samples,
                   outputConfig,
                   tcxo=args.tcxo,
-                  SNR=args.snr,
+                  noiseSigma=args.noise_sigma,
                   filterType=args.filter_type,
+                  groupDelays=args.group_delays,
                   logFile=args.debug,
                   threadCount=args.jobs,
                   pbar=pbar)
   args.output.close()
-  # if pbar:
-  # pbar.finish()
+  if pbar is not None:
+    pbar.finish()
 
   duration_s = time.time() - startTime_s
   ratio = n_samples / duration_s

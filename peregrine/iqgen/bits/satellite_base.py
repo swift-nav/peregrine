@@ -15,6 +15,7 @@ functions related to satellite base object.
 """
 from peregrine.iqgen.bits.doppler_poly import zeroDoppler
 from peregrine.iqgen.bits.amplitude_poly import AmplitudePoly
+from peregrine.iqgen.bits.amplitude_base import AmplitudeBase
 
 
 class Satellite(object):
@@ -37,7 +38,7 @@ class Satellite(object):
     super(Satellite, self).__init__()
     self.svName = svName
     self.doppler = zeroDoppler(0., 0., 1.)
-    self.amplitude = AmplitudePoly(())
+    self.amplitude = AmplitudePoly(AmplitudeBase.UNITS_AMPLITUDE, ())
 
   def getDoppler(self):
     '''
@@ -61,7 +62,7 @@ class Satellite(object):
     '''
     self.doppler = doppler
 
-  def getSvName(self):
+  def getName(self):
     '''
     Returns satellite name.
 
@@ -95,12 +96,18 @@ class Satellite(object):
     return self.amplitude
 
   def __str__(self):
-    return self.getSvName()
+    '''
+    Returns string representation of SV object
+    '''
+    return self.getName()
 
-  def __repr__(self):
-    return self.getSvName()
-
-  def getBatchSignals(self, userTimeAll_s, samples, outputConfig):
+  def getBatchSignals(self,
+                      userTimeAll_s,
+                      samples,
+                      outputConfig,
+                      noiseParams,
+                      band,
+                      debug):
     '''
     Generates signal samples.
 
@@ -112,6 +119,12 @@ class Satellite(object):
       Array to which samples are added.
     outputConfig : object
       Output configuration object.
+    noiseParams : NoiseParameters
+      Noise parameters object.
+    band : Band
+      Band description object.
+    debug : bool
+      Debug flag
 
     Returns
     -------
@@ -120,14 +133,14 @@ class Satellite(object):
     '''
     raise NotImplementedError()
 
-  def isBandEnabled(self, bandIndex, outputConfig):
+  def isBandEnabled(self, band, outputConfig):
     '''
     Checks if particular band is supported and enabled.
 
     Parameters
     ----------
-    bandIndex : int
-      Signal band index
+    band : Band
+      Band description object.
     outputConfig : object
       Output configuration
 
@@ -135,4 +148,28 @@ class Satellite(object):
     bool
       True, if the band is supported and enabled; False otherwise.
     '''
-    return False
+    raise NotImplementedError()
+
+  def isCodeDopplerIgnored(self):
+    '''
+    Checks if code doppler is ignored
+
+    Returns
+    -------
+    bool
+      True, when code doppler is ignored, False otherwise
+    '''
+    return self.doppler.isCodeDopplerIgnored()
+
+  def setCodeDopplerIgnored(self, flag):
+    '''
+    Checks if code doppler is ignored
+
+    Parameters
+    ----------
+    flag : bool
+      Flag to control code doppler: True - to ignore code doppler, 
+      False - normal operation 
+
+    '''
+    self.doppler.setCodeDopplerIgnored(flag)

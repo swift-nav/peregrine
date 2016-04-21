@@ -19,6 +19,8 @@ import numpy
 
 from peregrine.include.generateL2CMcode import L2CMCodes
 
+caCodes = (L2CMCodes < 0).astype(numpy.uint8)
+
 
 class PrnCode(object):
   '''
@@ -42,30 +44,10 @@ class PrnCode(object):
         SV identifier
       '''
       super(PrnCode.CM_Code, self).__init__()
-      self.caCode = L2CMCodes[prnNo - 1][:]
-      self.binCode = numpy.ndarray(
-          PrnCode.CM_Code.CODE_LENGTH, dtype=numpy.bool)
-      self.binCode[:] = numpy.asarray(self.caCode) < 0
-      self.prnNo = prnNo
+      self.binCode = caCodes[prnNo - 1]
 
     def getCodeBits(self):
       return self.binCode
-
-    def getCodeBit(self, codeBitIndex):
-      '''
-      Returns chip value by index.
-
-      Parameters
-      ----------
-      chipIndex : long
-        Chip index
-
-      Returns
-      -------
-      int
-        Chip value by index
-      '''
-      return self.caCode[codeBitIndex % self.CODE_LENGTH]
 
   class CL_Code(object):
     '''
@@ -86,9 +68,8 @@ class PrnCode(object):
         Type of the code: '01', '1', '0'
       '''
       super(PrnCode.CL_Code, self).__init__()
-      self.prnNo = prnNo
-      self.binCode = numpy.ndarray(
-          PrnCode.CL_Code.CODE_LENGTH, dtype=numpy.bool)
+      self.binCode = numpy.ndarray(PrnCode.CL_Code.CODE_LENGTH,
+                                   dtype=numpy.bool)
       if codeType == '01':
         self.binCode.fill(False)
         self.binCode[1::2].fill(True)
@@ -102,27 +83,6 @@ class PrnCode(object):
 
     def getCodeBits(self):
       return self.binCode
-
-    def getCodeBit(self, codeBitIndex):
-      '''
-      Returns chip value by index.
-
-      Currently GPS L2 CL code can be pseudo-random
-
-      Parameters
-      ----------
-      chipIndex : long
-        Chip index
-
-      Returns
-      -------
-      int
-        Chip value by index
-      '''
-      if (codeBitIndex & 1 != 0):
-        return -1
-      else:
-        return 1
 
   CODE_LENGTH = CL_Code.CODE_LENGTH * 2
   CODE_FREQUENCY_HZ = 1023e3
@@ -139,13 +99,13 @@ class PrnCode(object):
       Type of the code: '01', '1', '0'
     '''
     super(PrnCode, self).__init__()
-    self.cl = PrnCode.CL_Code(prnNo, clCodeType)
-    self.cm = PrnCode.CM_Code(prnNo)
+    cl = PrnCode.CL_Code(prnNo, clCodeType)
+    cm = PrnCode.CM_Code(prnNo)
     self.bitLookup = numpy.asarray([1, -1], dtype=numpy.int8)
     tmp = numpy.ndarray(PrnCode.CL_Code.CODE_LENGTH * 2, dtype=numpy.uint8)
-    tmp[1::2] = self.cl.getCodeBits()
+    tmp[1::2] = cl.getCodeBits()
     for i in range(0, PrnCode.CL_Code.CODE_LENGTH * 2, PrnCode.CM_Code.CODE_LENGTH * 2):
-      tmp[i:i + PrnCode.CM_Code.CODE_LENGTH * 2:2] = self.cm.getCodeBits()
+      tmp[i:i + PrnCode.CM_Code.CODE_LENGTH * 2:2] = cm.getCodeBits()
     self.binCode = tmp
     self.prnNo = prnNo
 
@@ -182,25 +142,8 @@ class PrnCode(object):
       Vector of data bits modulated by chips
     '''
     chipBits = self.getCodeBits(chipIndex_all)
-    tmp = dataBits.copy()
     oddChips = chipIndex_all & 1 == 0
-    # print "idx=", chipIndex_all
-    # print "odd=", oddChips
-    # print "TMP1", tmp
-    tmp = tmp & oddChips
-    # print "TMP2", tmp
-    combined = numpy.bitwise_xor(chipBits, tmp)
-    # numpy.take degrades performance a lot over time.
-    # result = numpy.take(self.bitLookup, combined)
+    oddChipDataBits = dataBits & oddChips
+    combined = numpy.bitwise_xor(chipBits, oddChipDataBits)
     result = self.bitLookup[combined]
     return result
-
-  def __getCodeBit(self, codeBitIndex):
-    '''
-    For GPS L2C code bits are taken from CM and CL codes in turn.
-    '''
-    idx = long(codeBitIndex)
-    if idx & 1 != 0:
-      return self.cl.getCodeBit(idx / 2)
-    else:
-      return self.cm.getCodeBit(idx / 2)

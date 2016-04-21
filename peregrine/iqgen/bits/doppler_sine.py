@@ -65,21 +65,6 @@ class Doppler(DopplerBase):
         format(self.distance0_m, self.tec_epm2, self.speed0_mps,
                self.amplutude_mps, self.period_s, self.codeDopplerIgnored)
 
-  def __repr__(self):
-    '''
-    Constructs python expression presentation of object.
-
-    Returns
-    -------
-    string
-      Python expression presentation of object
-    '''
-    return "Doppler({}, {}, {}, {}, {})".format(self.distance0_m,
-                                                self.tec_epm2,
-                                                self.speed0_mps,
-                                                self.amplutude_mps,
-                                                self.period_s)
-
   def computeDistanceM(self, svTime_s):
     '''
     Computes doppler shift in meters.
@@ -166,7 +151,7 @@ class Doppler(DopplerBase):
     doppler_hz = numpy.sin(D_2 * userTimeAll_s) * D_1
     if D_0:
       doppler_hz += D_0
-    doppler_hz *= -carrierSignal.CENTER_FREQUENCY_HZ / scipy.constants.c
+    doppler_hz *= -float(carrierSignal.CENTER_FREQUENCY_HZ) / scipy.constants.c
     return doppler_hz
 
 
@@ -192,8 +177,12 @@ def sineDoppler(distance0_m, tec_epm2, frequency_hz, doppler0_hz, dopplerAmplitu
   Doppler
     object that implments constant acceleration logic.
   '''
-  dopplerCoeff = -scipy.constants.c / frequency_hz
-  speed0_mps = dopplerCoeff * doppler0_hz
+  dopplerCoeff = -scipy.constants.c / float(frequency_hz)
+  speed0_mps = dopplerCoeff * float(doppler0_hz)
   amplitude_mps = dopplerCoeff * dopplerAmplitude_hz
 
-  return Doppler(distance0_m, tec_epm2, speed0_mps, amplitude_mps, dopplerPeriod_s)
+  return Doppler(float(distance0_m),
+                 tec_epm2,
+                 speed0_mps,
+                 amplitude_mps,
+                 dopplerPeriod_s)

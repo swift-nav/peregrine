@@ -16,8 +16,8 @@ functions related to generating stub GPS CNAV messages.
 import numpy
 from swiftnav.cnav_msg import CNavRawMsg
 import logging
-G1 = 0171  # generator polinomial for p1
-G2 = 0133  # generator polinomial for p2
+G1 = 0171  # generator polynomial for p1
+G2 = 0133  # generator polynomial for p2
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class Message(object):
     self.n_prefixBits = n_prefixBits
 
     self.encoder = ConvEncoder27()
-    self.msgCount = 0
+    self.messageCount = 0
     self.messageLen = n_prefixBits * 2
     self.symbolData = numpy.zeros(self.messageLen, dtype=numpy.uint8)
 
@@ -219,4 +219,4 @@ class Message(object):
       newSymbolData[i:i + 600] = encoded
     self.messageLen = newMessageLen
     self.symbolData = newSymbolData
-    self.msgCount += newMsgCount
+    self.messageCount += newMsgCount

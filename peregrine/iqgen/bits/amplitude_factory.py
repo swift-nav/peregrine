@@ -45,24 +45,29 @@ class ObjectFactory(object):
       raise ValueError("Invalid object type")
 
   def __PolyAmplitude_ToMap(self, obj):
-    data = {'type': 'PolyAmplitude', 'coeffs': obj.coeffs}
+    data = {'type': 'PolyAmplitude',
+            'coeffs': obj.coeffs,
+            'units': obj.units}
     return data
 
   def __SineAmplitude_ToMap(self, obj):
     data = {'type': 'SineAmplitude',
             'initial': obj.initial,
             'amplitude': obj.amplitude,
-            'period': obj.period_s}
+            'period': obj.period_s,
+            'units': obj.units}
     return data
 
   def __MapTo_PolyAmplitude(self, data):
     coeffs = data['coeffs']
-    return PolyAmplitude(coeffs)
+    units = data['units']
+    return PolyAmplitude(units, coeffs)
 
   def __MapTo_SineAmplitude(self, data):
     initial = data['initial']
     amplitude = data['amplitude']
     period = data['period']
-    return SineAmplitude(initial, amplitude, period)
+    units = data['units']
+    return SineAmplitude(units, initial, amplitude, period)
 
 factoryObject = ObjectFactory()

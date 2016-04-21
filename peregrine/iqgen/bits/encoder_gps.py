@@ -14,9 +14,10 @@ functions related to generating GPS signal output.
 
 """
 
-from peregrine.iqgen.bits.encoder_base import Encoder
 from peregrine.iqgen.bits.encoder_1bit import BandBitEncoder
+from peregrine.iqgen.bits.encoder_1bit import TwoBandsBitEncoder
 from peregrine.iqgen.bits.encoder_2bits import BandTwoBitsEncoder
+from peregrine.iqgen.bits.encoder_2bits import TwoBandsTwoBitsEncoder
 
 
 class GPSL1BitEncoder(BandBitEncoder):
@@ -53,7 +54,7 @@ class GPSL2BitEncoder(BandBitEncoder):
     super(GPSL2BitEncoder, self).__init__(outputConfig.GPS.L2.INDEX)
 
 
-class GPSL1L2BitEncoder(Encoder):
+class GPSL1L2BitEncoder(TwoBandsBitEncoder):
   '''
   Generic single bit encoder for GPS L1 C/A and L2 Civil signals
   '''
@@ -67,40 +68,8 @@ class GPSL1L2BitEncoder(Encoder):
     outputConfig : object
       Output parameters object.
     '''
-    super(GPSL1L2BitEncoder, self).__init__()
-    self.l1Index = outputConfig.GPS.L1.INDEX
-    self.l2Index = outputConfig.GPS.L2.INDEX
-
-  def addSamples(self, sample_array):
-    '''
-    Extracts samples of the supported band and coverts them into bit stream.
-
-    Parameters
-    ----------
-    sample_array : numpy.ndarray((4, N))
-      Sample vectors ordered by band index.
-
-    Returns
-    -------
-    numpy.ndarray(dtype=numpy.uint8)
-      Array of type uint8 containing the encoded data.
-    '''
-    band1_bits = BandBitEncoder.convertBand(sample_array[self.l1Index])
-    band2_bits = BandBitEncoder.convertBand(sample_array[self.l2Index])
-    n_samples = len(band1_bits)
-
-    self.ensureExtraCapacity(n_samples * 2)
-    start = self.n_bits
-    end = start + 2 * n_samples
-
-    self.bits[start + 0:end:2] = band1_bits
-    self.bits[start + 1:end:2] = band2_bits
-    self.n_bits = end
-
-    if (self.n_bits >= Encoder.BLOCK_SIZE):
-      return self.encodeValues()
-    else:
-      return Encoder.EMPTY_RESULT
+    super(GPSL1L2BitEncoder, self).__init__(outputConfig.GPS.L1.INDEX,
+                                            outputConfig.GPS.L2.INDEX)
 
 
 class GPSL1TwoBitsEncoder(BandTwoBitsEncoder):
@@ -137,7 +106,7 @@ class GPSL2TwoBitsEncoder(BandTwoBitsEncoder):
     super(GPSL2TwoBitsEncoder, self).__init__(outputConfig.GPS.L2.INDEX)
 
 
-class GPSL1L2TwoBitsEncoder(Encoder):
+class GPSL1L2TwoBitsEncoder(TwoBandsTwoBitsEncoder):
   '''
   Generic single bit encoder for GPS L1 C/A and L2 Civil signals
   '''
@@ -151,44 +120,5 @@ class GPSL1L2TwoBitsEncoder(Encoder):
     outputConfig : object
       Output parameters object.
     '''
-    super(GPSL1L2TwoBitsEncoder, self).__init__()
-    self.l1Index = outputConfig.GPS.L1.INDEX
-    self.l2Index = outputConfig.GPS.L2.INDEX
-
-  def addSamples(self, sample_array):
-    '''
-    Extracts samples of the supported band and coverts them into bit stream.
-
-    Parameters
-    ----------
-    sample_array : numpy.ndarray((4, N))
-      Sample vectors ordered by band index.
-
-    Returns
-    -------
-    numpy.ndarray(dtype=numpy.uint8)
-      Array of type uint8 containing the encoded data.
-    '''
-    band1_samples = sample_array[self.l1Index]
-    band2_samples = sample_array[self.l2Index]
-    n_samples = len(band1_samples)
-
-    # Signal signs and amplitude
-    signs1, amps1 = BandTwoBitsEncoder.convertBand(band1_samples)
-    signs2, amps2 = BandTwoBitsEncoder.convertBand(band2_samples)
-
-    self.ensureExtraCapacity(n_samples * 4)
-
-    bits = self.bits
-    start = self.n_bits
-    end = start + 4 * n_samples
-    bits[start + 0:end:4] = signs1
-    bits[start + 1:end:4] = amps1
-    bits[start + 2:end:4] = signs2
-    bits[start + 3:end:4] = amps2
-    self.n_bits = end
-
-    if (self.n_bits >= Encoder.BLOCK_SIZE):
-      return self.encodeValues()
-    else:
-      return Encoder.EMPTY_RESULT
+    super(GPSL1L2TwoBitsEncoder, self).__init__(outputConfig.GPS.L1.INDEX,
+                                                outputConfig.GPS.L2.INDEX)
