@@ -9,7 +9,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from initSettings import initSettings
 import datetime
 import numpy as np
 import swiftnav.nav_msg
@@ -37,7 +36,7 @@ def extract_ephemerides(track_results):
       ephems[tr.prn] = (nav_msgs[n], tow_indicies[n])
   return ephems
 
-def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
+def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6):
   cms = []
   for tr in track_results:
     i, tow_e = ephems[tr.prn][1]
@@ -47,7 +46,7 @@ def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6
       tr.code_phase[ms],
       tr.code_freq[ms],
       0,
-      tr.carr_freq[ms] - IF,
+      tr.carr_freq[ms] - tr.IF,
       tow,
       tr.absolute_sample[ms] / sampling_freq,
       100
@@ -95,15 +94,15 @@ def make_solns(nms):
   return map(swiftnav.pvt.calc_PVT, nms)
 
 
-def navigation(track_results, settings, ephems=None, mss=range(10000, 35000, 200)):
+def navigation(track_results, sampling_freq,
+               ephems=None, mss=range(10000, 35000, 200)):
 
   if ephems is None:
     ephems = extract_ephemerides(track_results)
   track_results = [tr for tr in track_results if tr.status == 'T' and tr.prn in ephems]
   if len(track_results) < 4:
     raise Exception('Too few satellites to calculate nav solution')
-  cmss = [make_chan_meas(track_results, ms, ephems,
-                         settings.samplingFreq, settings.IF) for ms in mss]
+  cmss = [make_chan_meas(track_results, ms, ephems, sampling_freq) for ms in mss]
   nms = make_nav_meas(cmss, ephems)
   ss = make_solns(nms)
   wn = ephems.values()[0][0].gps_week_num()
