@@ -91,7 +91,7 @@ def generate_sample_file(gps_sv_prn, init_doppler,
   params += ['--amplitude-type', 'poly']
   params += ['--amplitude-units', 'snr-db']
   params += ['--amplitude-a0', '-5']
-  params += ['--generate', '1']
+  params += ['--generate', '.1']
   params += ['--output', sample_file]
   params += ['--profile', freq_profile]
   print params
