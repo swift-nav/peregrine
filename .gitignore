@@ -56,3 +56,8 @@ tests/test_data_old*
 .project
 .cproject
 .settings/
+
+# Coverage
+.coverage
+htmlcov/
+

@@ -96,10 +96,10 @@ class Satellite(object):
     return self.amplitude
 
   def __str__(self):
-    return self.getSvName()
-
-  def __repr__(self):
-    return self.getSvName()
+    '''
+    Returns string representation of SV object
+    '''
+    return self.getName()
 
   def getBatchSignals(self,
                       userTimeAll_s,
@@ -148,4 +148,28 @@ class Satellite(object):
     bool
       True, if the band is supported and enabled; False otherwise.
     '''
-    return False
+    raise NotImplementedError()
+
+  def isCodeDopplerIgnored(self):
+    '''
+    Checks if code doppler is ignored
+
+    Returns
+    -------
+    bool
+      True, when code doppler is ignored, False otherwise
+    '''
+    return self.doppler.isCodeDopplerIgnored()
+
+  def setCodeDopplerIgnored(self, flag):
+    '''
+    Checks if code doppler is ignored
+
+    Parameters
+    ----------
+    flag : bool
+      Flag to control code doppler: True - to ignore code doppler, 
+      False - normal operation 
+
+    '''
+    self.doppler.setCodeDopplerIgnored(flag)

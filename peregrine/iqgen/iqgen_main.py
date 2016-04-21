@@ -14,6 +14,7 @@ The :mod:`peregrine.iqgen.iqgen_main` module contains classes and functions
 related to parameter processing.
 
 """
+import sys
 import time
 import argparse
 import scipy.constants
@@ -58,10 +59,6 @@ from peregrine.iqgen.bits.message_block import Message as BlockMessage
 from peregrine.iqgen.bits.message_cnav import Message as CNavMessage
 from peregrine.iqgen.bits.message_lnav import Message as LNavMessage
 
-# PRN code generators
-from peregrine.iqgen.bits.prn_gps_l1ca import PrnCode as GPS_L1CA_Code
-from peregrine.iqgen.bits.prn_gps_l2c import PrnCode as GPS_L2C_Code
-
 # Bit stream encoders
 from peregrine.iqgen.bits.encoder_gps import GPSL1BitEncoder
 from peregrine.iqgen.bits.encoder_gps import GPSL2BitEncoder
@@ -75,6 +72,8 @@ from peregrine.iqgen.generate import generateSamples
 from peregrine.iqgen.bits.satellite_factory import factoryObject as satelliteFO
 from peregrine.iqgen.bits.tcxo_factory import factoryObject as tcxoFO
 
+from peregrine.log import default_logging_config
+
 logger = logging.getLogger(__name__)
 
 AMP_MAP = {'amplitude': AmplitudeBase.UNITS_AMPLITUDE,
@@ -83,7 +82,8 @@ AMP_MAP = {'amplitude': AmplitudeBase.UNITS_AMPLITUDE,
            'snr-db': AmplitudeBase.UNITS_SNR_DB}
 
 
-def computeTimeDelay(doppler, symbol_index, chip_index, signal, code):
+
+def computeTimeDelay(doppler, symbol_index, chip_index, signal):
   '''
   Helper function to compute signal delay to match given symbol and chip
   indexes.
@@ -98,8 +98,6 @@ def computeTimeDelay(doppler, symbol_index, chip_index, signal, code):
     Chip index
   signal : object
     Signal object
-  code : object
-    Code object
 
   Returns
   -------
@@ -255,7 +253,8 @@ def prepareArgsParser():
       super(DisableCodeDoppler, self).__init__(option_strings, dest, **kwargs)
 
     def doUpdate(self, sv, parser, namespace, values, option_string):
-      sv.getDoppler().setCodeDopplerDisabled(True)
+      print "CD=", namespace.ignore_code_doppler, values, option_string
+      sv.setCodeDopplerIgnored(namespace.ignore_code_doppler)
 
   class UpdateAmplitudeType(UpdateSv):
 
@@ -294,12 +293,14 @@ def prepareArgsParser():
         raise ValueError("Unsupported amplitude type")
       sv.setAmplitude(amplitude)
 
-  class UpdateTcxoType(UpdateSv):
+  class UpdateTcxoType(argparse.Action):
 
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
       super(UpdateTcxoType, self).__init__(option_strings, dest, **kwargs)
 
-    def doUpdate(self, sv, parser, namespace, values, option_string):
+    def __call__(self, parser, namespace, values, option_string=None):
+      setattr(namespace, self.dest, values)
+
       if namespace.tcxo_type == "poly":
         coeffs = []
         hasHighOrder = False
@@ -319,14 +320,14 @@ def prepareArgsParser():
         period_s = 1.
         if namespace.tcxo_a0 is not None:
           ampl = namespace.tcxo_a0
-        if namespace.amplitude_a1 is not None:
-          ampl = namespace._a1
+        if namespace.tcxo_a1 is not None:
+          ampl = namespace.tcxo_a1
         if namespace.tcxo_period is not None:
           period_s = namespace.tcxo_period
 
         tcxo = TCXOSine(initial, ampl, period_s)
       else:
-        raise ValueError("Unsupported amplitude type")
+        raise ValueError("Unsupported TCXO type")
       namespace.tcxo = tcxo
 
   class UpdateMessageType(UpdateSv):
@@ -475,6 +476,7 @@ def prepareArgsParser():
                           help="Doppler change period (seconds)",
                           action=UpdateDopplerType)
   dopplerGrp.add_argument('--ignore-code-doppler',
+                          type=bool,
                           help="Disable doppler for code and data processing",
                           action=DisableCodeDoppler)
   amplitudeGrp = parser.add_argument_group("Amplitude Control",
@@ -612,64 +614,104 @@ def prepareArgsParser():
                       default=False,
                       help="Do not generate output.")
 
+  if sys.stdout.isatty():
+    progress_bar_default = 'stdout'
+  elif sys.stderr.isatty():
+    progress_bar_default = 'stderr'
+  else:
+    progress_bar_default = 'none'
+  parser.add_argument("--progress-bar",
+                      metavar='FLAG',
+                      choices=['stdout', 'stderr', 'none'],
+                      default=progress_bar_default,
+                      help="Show progress bar. Default is '%s'" %
+                      progress_bar_default)
+
   parser.set_defaults(tcxo=TCXOPoly(()))
 
   return parser
 
 
-def main():
-  from peregrine.log import default_logging_config
-  default_logging_config()
-
-  parser = prepareArgsParser()
-  args = parser.parse_args()
-
-  if args.no_run:
-    return 0
-
-  if args.output is None:
-    parser.print_help()
-    return 0
-
-  if args.profile == "low_rate":
+def selectOutputConfig(profileName):
+  if profileName == "low_rate":
     outputConfig = LowRateConfig
-  elif args.profile == "normal_rate":
+  elif profileName == "normal_rate":
     outputConfig = NormalRateConfig
-  elif args.profile == "high_rate":
+  elif profileName == "high_rate":
     outputConfig = HighRateConfig
-  elif args.profile == "custom_rate":
+  elif profileName == "custom_rate":
     outputConfig = CustomRateConfig
   else:
     raise ValueError()
+  return outputConfig
 
+
+def printOutputConfig(outputConfig, args):
+  '''
+  Configuration print
+  '''
   print "Output configuration:"
   print "  Description:     ", outputConfig.NAME
   print "  Sampling rate:   ", outputConfig.SAMPLE_RATE_HZ
   print "  Batch size:      ", outputConfig.SAMPLE_BATCH_SIZE
   print "  GPS L1 IF:       ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
   print "  GPS L2 IF:       ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
-  print "  GLONASS L1[0] IF:", outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
-  print "  GLONASS L2[0] IF:", outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "Other parameters:"
   print "  TCXO:           ", args.tcxo
   print "  noise sigma:    ", args.noise_sigma
   print "  satellites:     ", [sv.getName() for sv in args.gps_sv]
   print "  group delays:    ", args.group_delays
 
-  # Check which signals are enabled on each of satellite to select proper
-  # output encoder
-  enabledGPSL1 = False
-  enabledGPSL2 = False
-  enabledGPS = False
 
-  for sv in args.gps_sv:
-    enabledGPSL1 |= sv.isBandEnabled(outputConfig.GPS.L1, outputConfig)
-    enabledGPSL2 |= sv.isBandEnabled(outputConfig.GPS.L2, outputConfig)
+def computeEnabledBands(signalSources, outputConfig):
+  '''
+  Computes enabled bands from the signal source list
 
-  enabledGPS |= enabledGPSL1 or enabledGPSL2
+  Parameters
+  ----------
+  signalSources : array-like
+    List of SV objects to query
+  outputConfig : object
+    Output configuration object with bands
 
+  Returns
+  -------
+  map
+    Map with band names as keys and boolean flags as values
+  '''
+  result = {}
+  bands = [outputConfig.GPS.L1,
+           outputConfig.GPS.L2]
+  for band in bands:
+    bandEnabled = False
+    for sv in signalSources:
+      if sv.isBandEnabled(band, outputConfig):
+        bandEnabled = True
+        break
+    result[band.NAME] = bandEnabled
+
+  return result
+
+
+def selectEncoder(encoderType, outputConfig, enabledBands):
+  '''
+  Selects an appropriate encoder based on enabled bands and configuration
+
+  Parameters
+  ----------
+  encoderType : string
+    User-requested sample encoding format
+  outputConfig : object
+    Band configuration
+  enabledBands : map
+    Map contains flags for supported bands
+  '''
+  enabledGPSL1 = enabledBands[outputConfig.GPS.L1.NAME]
+  enabledGPSL2 = enabledBands[outputConfig.GPS.L2.NAME]
+
+  enabledGPS = enabledGPSL1 or enabledGPSL2
   # Configure data encoder
-  if args.encoder == "1bit":
+  if encoderType == "1bit":
     if enabledGPS:
       if enabledGPSL1 and enabledGPSL2:
         encoder = GPSL1L2BitEncoder(outputConfig)
@@ -677,7 +719,7 @@ def main():
         encoder = GPSL2BitEncoder(outputConfig)
       else:
         encoder = GPSL1BitEncoder(outputConfig)
-  elif args.encoder == "2bits":
+  elif encoderType == "2bits":
     if enabledGPS:
       if enabledGPSL1 and enabledGPSL2:
         encoder = GPSL1L2TwoBitsEncoder(outputConfig)
@@ -688,15 +730,80 @@ def main():
   else:
     raise ValueError("Encoder type is not supported")
 
+  return encoder
+
+
+def makeProgressBar(progressBarOutput, nSamples):
+  '''
+  Helper for initializing progress bar object
+
+  Parameters
+  ----------
+  progressBarOutput : string
+    Output object type for progress bar. Can be 'stderr' or 'stdout'.
+  nSamples : long
+    Total number of samples for object initialization
+
+  Returns
+  -------
+  progressbar.ProgressBar or None
+    Returns ProgressBar object if enabled, or None
+  '''
+  pbar = None
+  if hasProgressBar:
+    if progressBarOutput == 'stdout':
+      show_progress = True
+      progress_fd = sys.stdout
+    elif progressBarOutput == 'stderr':
+      show_progress = True
+      progress_fd = sys.stderr
+    else:
+      show_progress = False
+      progress_fd = -1
+    if show_progress:
+      widgets = ['Generating ',
+                 progressbar.Counter(), ' ',
+                 progressbar.Percentage(), ' ',
+                 progressbar.ETA(), ' ',
+                 progressbar.Bar()]
+      pbar = progressbar.ProgressBar(widgets=widgets,
+                                     maxval=nSamples,
+                                     fd=progress_fd).start()
+  return pbar
+
+
+def main(args=None):
+  default_logging_config()
+
+  parser = prepareArgsParser()
+  args = parser.parse_args(args)
+
+  if args.no_run:
+    return 0
+
+  if args.output is None:
+    parser.print_help()
+    return 0
+
+  outputConfig = selectOutputConfig(args.profile)
+  printOutputConfig(outputConfig, args)
+
+  # Check which signals are enabled on each of satellite to select proper
+  # output encoder
+  enabledBands = computeEnabledBands(args.gps_sv, outputConfig)
+
+  enabledGPSL1 = enabledBands[outputConfig.GPS.L1.NAME]
+  enabledGPSL2 = enabledBands[outputConfig.GPS.L2.NAME]
+
+  # Configure data encoder
+  encoder = selectEncoder(args.encoder, outputConfig, enabledBands)
+
   if enabledGPSL1:
     signal = signals.GPS.L1CA
-    code = GPS_L1CA_Code
   elif enabledGPSL2:
     signal = signals.GPS.L2C
-    code = GPS_L2C_Code
   else:
     signal = signals.GPS.L1CA
-    code = GPS_L1CA_Code
 
   # Compute time delay for the needed bit/chip number
   # This delay is computed for the first satellite
@@ -710,8 +817,7 @@ def main():
   time0_s = computeTimeDelay(args.gps_sv[0].doppler,
                              initial_symbol_idx,
                              initial_chip_idx,
-                             signal,
-                             code)
+                             signal)
   logger.debug("Computed symbol/chip delay={} seconds".format(time0_s))
 
   startTime_s = time.time()
@@ -720,16 +826,7 @@ def main():
   logger.debug("Generating {} samples for {} seconds".
                format(n_samples, args.generate))
 
-  if hasProgressBar:
-    widgets = ['Generating ',
-               progressbar.Counter(), ' ',
-               progressbar.Percentage(), ' ',
-               progressbar.ETA(), ' ',
-               progressbar.Bar()]
-    pbar = progressbar.ProgressBar(widgets=widgets,
-                                   maxval=n_samples).start()
-  else:
-    pbar = None
+  pbar = makeProgressBar(args.progress_bar, n_samples)
 
   generateSamples(args.output,
                   args.gps_sv,
@@ -745,8 +842,8 @@ def main():
                   threadCount=args.jobs,
                   pbar=pbar)
   args.output.close()
-  # if pbar:
-  # pbar.finish()
+  if pbar is not None:
+    pbar.finish()
 
   duration_s = time.time() - startTime_s
   ratio = n_samples / duration_s

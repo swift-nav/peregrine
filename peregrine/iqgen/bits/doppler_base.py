@@ -181,12 +181,8 @@ class DopplerBase(object):
     -------
     signal : numpy.ndarray(n_samples, dtype=float)
       Generated samples
-    userTimeX_s : float
-      End of interval time in seconds
-    chipAll_idx : numpy.ndarray(n_samples, dtype=float)
-      Code chip phases for the samples
-    chips : numpy.ndarray(n_samples, dtype=int)
-      Code combined with data
+    dopplerAll_hz : numpy.ndarray(n_samples, dtype=float)
+      Doppler values in Hz if debug is enabled
     '''
 
     userTimeAll_s = self.applySignalDelays(userTimeAll_s, carrierSignal)
@@ -199,7 +195,8 @@ class DopplerBase(object):
     # Get doppler shift in meters
     doppler_m = self.computeDopplerShiftM(userTimeAll_s)
     # Doppler for carrier center frequency
-    carrFreqRatio = -carrierSignal.CENTER_FREQUENCY_HZ / scipy.constants.c
+    carrierCenterFreqHz = float(carrierSignal.CENTER_FREQUENCY_HZ)
+    carrFreqRatio = -carrierCenterFreqHz / scipy.constants.c
     phaseAll += doppler_m * (carrFreqRatio * twoPi)
 
     # Convert phase to signal value and multiply by amplitude
@@ -209,12 +206,13 @@ class DopplerBase(object):
       amplitude.applyAmplitude(signal, userTimeAll_s, noiseParams)
 
     # PRN and data index computation
-    chipAll_idx = userTimeAll_s * carrierSignal.CODE_CHIP_RATE_HZ
+    codeChipRateHz = float(carrierSignal.CODE_CHIP_RATE_HZ)
+    chipAll_idx = userTimeAll_s * codeChipRateHz
     if self.codeDopplerIgnored:
       pass
     else:
       # Computing doppler coefficients
-      chipFreqRatio = -carrierSignal.CODE_CHIP_RATE_HZ / scipy.constants.c
+      chipFreqRatio = -codeChipRateHz / scipy.constants.c
       chipAll_idx += doppler_m * chipFreqRatio
 
     chips = self.computeDataNChipVector(chipAll_idx,
@@ -282,7 +280,7 @@ class DopplerBase(object):
       vector of chip phases
     carrierSignal : object
       Signal description object
-    messge : object
+    message : object
       Data bits source
     code : objects
       Code chips source

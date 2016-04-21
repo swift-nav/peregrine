@@ -29,7 +29,7 @@ import logging
 import scipy
 import numpy
 import time
-
+import copy
 import multiprocessing
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,8 @@ class Task(object):
                bands,
                generateDebug):
     '''
+    Task object constructor.
+
     Parameters
     ----------
     outputConfig : object
@@ -80,10 +82,12 @@ class Task(object):
     self.signals = scipy.ndarray(shape=(outputConfig.N_GROUPS,
                                         outputConfig.SAMPLE_BATCH_SIZE),
                                  dtype=numpy.float)
-    self.noise = self.createNoise(outputConfig.SAMPLE_BATCH_SIZE)
     self.nSamples = outputConfig.SAMPLE_BATCH_SIZE
+    self.noise = self.createNoise()
     self.groupDelays = groupDelays
     self.bands = bands
+    self.firstSampleIndex = 0l
+    self.userTime0_s = 0.
 
   def update(self, userTime0_s, nSamples, firstSampleIndex):
     '''
@@ -104,35 +108,29 @@ class Task(object):
     self.userTime0_s = userTime0_s
     self.firstSampleIndex = firstSampleIndex
 
-    if (self.nSamples != nSamples):
-      newSignals = numpy.ndarray((self.outputConfig.N_GROUPS,
-                                  nSamples), dtype=float)
-      newNoise = self.createNoise(nSamples)
+    if self.nSamples != nSamples:
       self.nSamples = nSamples
-      self.signals = newSignals
-      self.noise = newNoise
+      self.signals = numpy.ndarray((self.outputConfig.N_GROUPS,
+                                    nSamples), dtype=float)
+      self.noise = self.createNoise()
 
-  def createNoise(self, nSamples):
+  def createNoise(self):
     '''
     Generate noise array for a given noise sigma.
-
-    Parameters
-    ----------
-    nSamples : int
-      Length of the samples vectors
 
     Returns
     -------
     numpy.ndarray(shape=(outputConfig.N_GROUPS, nSamples), dtype=numpy.float)
       Noise values
     '''
-    noiseParams = self.noiseParams
     noise = None
+    noiseParams = self.noiseParams
+
     if noiseParams is not None:
       # Initialize signal array with noise
       noiseSigma = noiseParams.getNoiseSigma()
       noise = noiseSigma * scipy.randn(self.outputConfig.N_GROUPS,
-                                       nSamples) if noiseSigma else None
+                                       self.nSamples) if noiseSigma else None
     return noise
 
   def computeTcxoVector(self):
@@ -178,7 +176,7 @@ class Task(object):
                                    endpoint=False)
     return userTimeAll_s
 
-  def computeGroupTimeVectors(self, userTimeAll_s, outputConfig):
+  def computeGroupTimeVectors(self, userTimeAll_s):
     '''
     Computes group time vector from a single source and output configuration.
 
@@ -186,16 +184,15 @@ class Task(object):
     ----------
     userTimeAll_s : numpy.array
       Time vector
-    outputConfig : object
-      Output configuration with group delay parameters
 
     Returns
     -------
-    list[numpy.array] * outputConfig.N_GROUPS
+    list[numpy.array] * self.outputConfig.N_GROUPS
       If the group delays are enabled, each element offsets initial time vector
       by an appropriate group delay, otherwise all entries point to original
       time vector without modifications. 
     '''
+    outputConfig = self.outputConfig
     if self.groupDelays:
       # In case of group delays the time vector shall be adjusted for each
       # signal group. This makes impossible parallel processing of multiple
@@ -208,6 +205,9 @@ class Task(object):
     return bandTimeAll_s
 
   def perform(self):
+    '''
+    Main processing loop.
+    '''
     outputConfig = self.outputConfig
     signalSources = self.signalSources
     signalFilters = self.signalFilters
@@ -221,11 +221,11 @@ class Task(object):
 
     # Compute TCXO time drift and apply if appropriate
     tcxoTimeDrift_s = self.computeTcxoVector()
-    if tcxoTimeDrift_s:
+    if tcxoTimeDrift_s is not None:
       userTimeAll_s += tcxoTimeDrift_s
 
     # Compute band time vectors with group delays
-    bandTimeAll_s = self.computeGroupTimeVectors(userTimeAll_s, outputConfig)
+    bandTimeAll_s = self.computeGroupTimeVectors(userTimeAll_s)
 
     # Prepare signal matrix
     sigs.fill(0.)
@@ -253,15 +253,14 @@ class Task(object):
                                            generateDebug)
           # Debugging output
           if generateDebug:
-            svDebug = {'name': signalSource.getSvName(), 'data': t}
+            svDebug = {'name': signalSource.getName(), 'data': t}
             signalData.append(svDebug)
 
           t = None
 
-    if signalFilters is list:
+    if isinstance(signalFilters, list):
       # Filter signal values through LPF, BPF or another
-      for i in range(outputConfig.N_GROUPS):
-        filterObject = signalFilters[i]
+      for i, filterObject in enumerate(signalFilters):
         if filterObject is not None:
           sigs[i][:] = filterObject.filter(sigs[i])
 
@@ -274,6 +273,9 @@ class Worker(multiprocessing.Process):
   Remote process worker. The object encapsulates Task logic for running in a
   separate address space.
   '''
+  STATUS_CONTINUE = 0
+  STATUS_DONE = 1
+  STATUS_ERROR = 2
 
   def __init__(self,
                outputConfig,
@@ -284,6 +286,28 @@ class Worker(multiprocessing.Process):
                groupDelays,
                bands,
                generateDebug):
+    '''
+    Worker object constructor.
+
+    Parameters
+    ----------
+    outputConfig : object
+      Output profile
+    signalSources : array-like
+      List of satellites
+    noiseParams : NoiseParameters
+      Noise parameters container
+    tcxo : object
+      TCXO control object
+    signalFilters : array-like
+      Output signal filter objects
+    groupDelays : bool
+      Flag if group delays are enabled
+    bands : list
+      List of bands to generate
+    generateDebug : bool
+      Flag if additional debug output is required
+    '''
     super(Worker, self).__init__()
     self.queueIn = multiprocessing.Queue()
     self.queueOut = multiprocessing.Queue()
@@ -298,7 +322,57 @@ class Worker(multiprocessing.Process):
     self.bands = bands
     self.generateDebug = generateDebug
 
-  def run(self):
+  def run_once(self, task):
+    '''
+    Performs single event processing iteration
+
+    The method reads task parameters from the queue, invokes task processing
+    and forwards the result into output queue
+
+    Parameters
+    ----------
+    task : Task
+      Task object for actual data generation
+
+    Returns
+    -------
+    int
+      Operation status. Can be one of:
+      - Worker.STATUS_CONTINUE -- Normal event has been received and processed
+      - Worker.STATUS_DONE -- STOP event has been received
+      - Worker.STATUS_ERROR -- Error has been encountered
+    '''
+    opStartTime_s = time.clock()
+    inputRequest = self.queueIn.get()
+    if inputRequest is None:
+      # EOF reached
+      statistics = (self.totalWaitTime_s, self.totalExecTime_s)
+      self.queueOut.put(statistics)
+      return -1
+    (userTime0_s, nSamples, firstSampleIndex) = inputRequest
+
+    opDuration_s = time.clock() - opStartTime_s
+    self.totalWaitTime_s += opDuration_s
+    startTime_s = time.clock()
+    try:
+      task.update(userTime0_s, nSamples, firstSampleIndex)
+      result = task.perform()
+      result = copy.deepcopy(result)
+      self.queueOut.put(result)
+    except:
+      exType, exValue, exTraceback = sys.exc_info()
+      traceback.print_exception(
+          exType, exValue, exTraceback, file=sys.stderr)
+      self.queueOut.put(None)
+      return 1
+    duration_s = time.clock() - startTime_s
+    self.totalExecTime_s += duration_s
+    return 0
+
+  def createTask(self):
+    '''
+    Creates task encapsulated task object for operation
+    '''
     task = Task(self.outputConfig,
                 self.signalSources,
                 noiseParams=self.noiseParams,
@@ -307,40 +381,21 @@ class Worker(multiprocessing.Process):
                 groupDelays=self.groupDelays,
                 bands=self.bands,
                 generateDebug=self.generateDebug)
+    return task
+
+  def run(self):
+    '''
+    Event loop for multiprocessing operation
+    '''
+    task = self.createTask()
+    result = Worker.STATUS_DONE
 
     while True:
-      opStartTime_s = time.clock()
-      inputRequest = self.queueIn.get()
-      if inputRequest is None:
-        # EOF reached
+      result = self.run_once(task)
+      if result == Worker.STATUS_DONE or result == Worker.STATUS_ERROR:
         break
-      (userTime0_s, nSamples, firstSampleIndex) = inputRequest
 
-      opDuration_s = time.clock() - opStartTime_s
-      self.totalWaitTime_s += opDuration_s
-      startTime_s = time.clock()
-      try:
-        task.update(userTime0_s, nSamples, firstSampleIndex)
-        result = task.perform()
-        import copy
-        result = copy.deepcopy(result)
-        self.queueOut.put(result)
-      except:
-        exType, exValue, exTraceback = sys.exc_info()
-        traceback.print_exception(
-            exType, exValue, exTraceback, file=sys.stderr)
-        self.queueOut.put(None)
-        self.queueIn.close()
-        self.queueOut.close()
-        sys.exit(1)
-      duration_s = time.clock() - startTime_s
-      self.totalExecTime_s += duration_s
-
-    statistics = (self.totalWaitTime_s, self.totalExecTime_s)
-    self.queueOut.put(statistics)
-    self.queueIn.close()
-    self.queueOut.close()
-    sys.exit(0)
+    sys.exit(0 if result == Worker.STATUS_DONE else 1)
 
 
 def printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder):
@@ -475,9 +530,7 @@ def generateSamples(outputFile,
 
   # Check which bands are enabled, configure band-specific parameters
   bands = [outputConfig.GPS.L1,
-           outputConfig.GPS.L2,
-           outputConfig.GLONASS.L1,
-           outputConfig.GLONASS.L2]  # Supported bands
+           outputConfig.GPS.L2]  # Supported bands
   lpf = [None] * outputConfig.N_GROUPS
   lpfFA_db = [0.] * outputConfig.N_GROUPS  # Filter attenuation levels
   bandsEnabled = [False] * outputConfig.N_GROUPS
@@ -496,8 +549,8 @@ def generateSamples(outputFile,
       ifHz = band.INTERMEDIATE_FREQUENCY_HZ
     elif hasattr(band, "INTERMEDIATE_FREQUENCIES_HZ"):
       ifHz = band.INTERMEDIATE_FREQUENCIES_HZ[0]
-    else:
-      raise ValueError("Unknown band type")
+    else:  # pragma: no coverage
+      assert False
 
     if lowPass:
       filterObject = LowPassFilter(outputConfig, ifHz)
@@ -537,11 +590,10 @@ def generateSamples(outputFile,
   if debugFlag:
     logFile.write("Index,Time")
     for sv in sv_list:
-      svName = sv.getSvName()
-      if sv.isL1CAEnabled():
-        logFile.write(",%s/L1/doppler" % svName)
-      if sv.isL2CEnabled():
-        logFile.write(",%s/L2/doppler" % svName)
+      svName = sv.getName()
+      for band in bands:
+        if sv.isBandEnabled(band, outputConfig):
+          logFile.write(",%s/%s" % (svName, band.NAME))
     # End of line
     logFile.write("\n")
 
@@ -645,7 +697,7 @@ def generateSamples(outputFile,
     activeTasks -= 1
 
     if result is None:
-      print "Error in processor; aborting."
+      logger.error("Error in processor; aborting.")
       break
 
     # Unpack result values.
@@ -696,12 +748,12 @@ def generateSamples(outputFile,
 
   # Terminate all worker processes
   if workerPool is not None:
-    for worker in workerPool:
+    for i, worker in enumerate(workerPool):
       worker.queueIn.put(None)
     for worker in workerPool:
       try:
         statistics = worker.queueOut.get(timeout=2)
-        print "Statistics:", statistics
+        logger.info("Worker [%d] statistics: %s" % (i, str(statistics)))
       except:
         exType, exValue, exTraceback = sys.exc_info()
         traceback.print_exception(

@@ -31,12 +31,9 @@ class Message(object):
       Array with message bits. Bit 0 is encoded with 1, bit 1 is encoded with -1
     '''
     super(Message, self).__init__()
-    self.messageData = messageData[:]
-    self.messageLen = len(self.messageData)
-    tmp = numpy.asarray(self.messageData, dtype=numpy.uint8)
-    tmp *= -2
-    tmp -= 1
-    self.bits = tmp.astype(numpy.uint8)
+    bits = numpy.asarray(messageData) < 0
+    self.messageLen = bits.shape[0]
+    self.bits = bits.astype(numpy.uint8)
 
   def __str__(self, *args, **kwargs):
     '''
@@ -66,20 +63,3 @@ class Message(object):
     # numpy.take degrades performance a lot over time.
     # return numpy.take(self.bits, dataAll_idx , mode='wrap')
     return self.bits[dataAll_idx % self.messageLen]
-
-  def getBit(self, bitIndex):
-    '''
-    Provides bit at a given index
-
-    Parameters
-    ----------
-    bitIndex : long
-      Bit index
-
-    Returns
-    -------
-    int
-      Bit value: 1 for bit 0 and -1 for bit 1
-    '''
-
-    return self.messageData[bitIndex % self.messageLen]

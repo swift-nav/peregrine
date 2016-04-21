@@ -20,6 +20,7 @@ from peregrine.iqgen.bits.message_cnav import Message as CNAVMessage
 from peregrine.iqgen.bits.message_const import Message as ConstMessage
 from peregrine.iqgen.bits.message_lnav import Message as LNAVMessage
 from peregrine.iqgen.bits.message_zeroone import Message as ZeroOneMessage
+from peregrine.iqgen.bits.message_glo import Message as GLOMessage
 
 
 class ObjectFactory(object):
@@ -42,6 +43,8 @@ class ObjectFactory(object):
       return self.__LNAVMessage_ToMap(obj)
     elif t is ZeroOneMessage:
       return self.__ZeroOneMessage_ToMap(obj)
+    elif t is GLOMessage:
+      return self.__GLOMessage_ToMap(obj)
     else:
       raise ValueError("Invalid object type")
 
@@ -57,12 +60,14 @@ class ObjectFactory(object):
       return self.__MapTo_LNAVMessage(data)
     elif t == 'ZeroOneMessage':
       return self.__MapTo_ZeroOneMessage(data)
+    elif t == 'GLOMessage':
+      return self.__MapTo_GLOMessage(data)
     else:
       raise ValueError("Invalid object type")
 
   def __BlockMessage_ToMap(self, obj):
     data = {'type': 'BlockMessage',
-            'data': obj.messageData}
+            'bits': obj.bits}
     return data
 
   def __CNAVMessage_ToMap(self, obj):
@@ -90,9 +95,17 @@ class ObjectFactory(object):
     data = {'type': 'ZeroOneMessage'}
     return data
 
+  def __GLOMessage_ToMap(self, obj):
+    data = {'type': 'GLOMessage',
+            'prn': obj.prn,
+            'n_prefixBits': obj.n_prefixBits,
+            'n_msg0': obj.n_msg0,
+            'tow0': obj.tow0}
+    return data
+
   def __MapTo_BlockMessage(self, data):
-    messageData = data['data']
-    return BlockMessage(messageData)
+    bits = data['bits']
+    return BlockMessage(bits)
 
   def __MapTo_CNAVMessage(self, data):
     prn = data['prn']
@@ -120,5 +133,15 @@ class ObjectFactory(object):
 
   def __MapTo_ZeroOneMessage(self, data):
     return ZeroOneMessage()
+
+  def __MapTo_GLOMessage(self, data):
+    prn = data['prn']
+    n_prefixBits = data['n_prefixBits']
+    n_msg0 = data['n_msg0']
+    tow0 = data['tow0']
+    return GLOMessage(prn=prn,
+                      tow0=tow0,
+                      n_msg=n_msg0,
+                      n_prefixBits=n_prefixBits)
 
 factoryObject = ObjectFactory()
