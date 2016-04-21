@@ -31,10 +31,8 @@ from peregrine.iqgen.bits.message_cnav import Message as CNAVMessage
 from peregrine.iqgen.bits.message_const import Message as ConstMessage
 from peregrine.iqgen.bits.message_lnav import Message as LNAVMessage
 from peregrine.iqgen.bits.message_zeroone import Message as ZeroOneMessage
-from peregrine.iqgen.bits.message_glo import Message as GLOMessage
 
 from peregrine.iqgen.bits.satellite_gps import GPSSatellite
-from peregrine.iqgen.bits.satellite_glo import GLOSatellite
 
 from peregrine.iqgen.bits.tcxo_poly import TCXOPoly as PolyTcxo
 from peregrine.iqgen.bits.tcxo_sine import TCXOSine as SineTcxo
@@ -91,11 +89,9 @@ def test_factories():
   to_map_and_back(MFO, ConstMessage(1))
   to_map_and_back(MFO, LNAVMessage(1))
   to_map_and_back(MFO, ZeroOneMessage())
-  to_map_and_back(MFO, GLOMessage(1))
   value_error(MFO)
 
   to_map_and_back(SFO, GPSSatellite(1))
-  to_map_and_back(SFO, GLOSatellite(1))
   value_error(SFO)
 
   to_map_and_back(TFO, PolyTcxo((1., 1.)))

@@ -13,15 +13,14 @@ Unit tests for IQgen generator main function
 
 from peregrine.iqgen.generate import generateSamples
 from peregrine.iqgen.bits.satellite_gps import GPSSatellite
-from peregrine.iqgen.bits.satellite_glo import GLOSatellite
 from peregrine.iqgen.if_iface import HighRateConfig
-from peregrine.iqgen.bits.encoder_other import GPSGLONASSBitEncoder
+from peregrine.iqgen.bits.encoder_gps import GPSL1L2BitEncoder
 
 
 def test_generateSamples0():
   '''
   Sample generation test:
-  - GPS L1/L2 + GLONASS L1/L2
+  - GPS L1/L2
   - Noise sigma defined
   - Band pass filter type
   - No group delays
@@ -33,13 +32,10 @@ def test_generateSamples0():
   sv0 = GPSSatellite(1)
   sv0.setL1CAEnabled(True)
   sv0.setL2CEnabled(True)
-  sv1 = GLOSatellite(0)
-  sv1.setL1Enabled(True)
-  sv1.setL2Enabled(True)
-  sv_list = [sv0, sv1]
+  sv_list = [sv0]
 
   outputConfig = HighRateConfig
-  encoder = GPSGLONASSBitEncoder(outputConfig)
+  encoder = GPSL1L2BitEncoder(outputConfig)
   time0S = 0.
   nSamples = HighRateConfig.SAMPLE_BATCH_SIZE + 10000
   noiseSigma = 1.
@@ -76,7 +72,7 @@ def test_generateSamples0():
 def test_generateSamples1():
   '''
   Sample generation test:
-  - GPS L1/L2 + GLONASS L1/L2
+  - GPS L1/L2
   - No noise
   - Low pass filter type
   - No group delays
@@ -88,13 +84,10 @@ def test_generateSamples1():
   sv0 = GPSSatellite(1)
   sv0.setL1CAEnabled(True)
   sv0.setL2CEnabled(True)
-  sv1 = GLOSatellite(0)
-  sv1.setL1Enabled(True)
-  sv1.setL2Enabled(True)
-  sv_list = [sv0, sv1]
+  sv_list = [sv0]
 
   outputConfig = HighRateConfig
-  encoder = GPSGLONASSBitEncoder(outputConfig)
+  encoder = GPSL1L2BitEncoder(outputConfig)
   time0S = 0.
   nSamples = 9999
   noiseSigma = None
