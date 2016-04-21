@@ -17,7 +17,12 @@ from mock import patch
 from shutil import copyfile
 
 SAMPLES_PATH = 'tests/test_data/'
-RES_PATH = SAMPLES_PATH + '/results/'
+# todo: the gpsl1ca_ci_samples.piksi_format.acq_results
+# should replace the old file with the same name at the
+# remote server, where the script takes it from.
+# For now, let's use the local version.
+#RES_PATH = SAMPLES_PATH + '/results/'
+RES_PATH = 'tests/'
 
 SAMPLES_FNAME = 'gpsl1ca_ci_samples.piksi_format'
 
@@ -77,5 +82,5 @@ def test_tracking():
 
     # Clean-up.
     os.remove(NEW_ACQ_RES)
-    os.remove(NEW_TRK_RES)
+    #os.remove(NEW_TRK_RES)
 
