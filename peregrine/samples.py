@@ -231,7 +231,7 @@ def _load_samples(filename,
     if num_samples > 0:
       num_skip_bytes = num_skip / 2
       num_skip_samples = num_skip % 2
-      num_bytes = num_samples / 2 + 1
+      num_bytes = int(num_samples / 2 + 1)
     else:
       # Read whole file
       num_skip_bytes = 0
