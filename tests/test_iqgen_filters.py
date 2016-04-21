@@ -35,148 +35,148 @@ def test_FilterBase_init():
   assert flt.zi is None
 
 
-def test_LowPassFilter_init():
-  '''
-  Test low pass filter
-  '''
-  config = CustomRateConfig
-  freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  flt = LowPassFilter(config, freqHz)
+# def test_LowPassFilter_init():
+#   '''
+#   Test low pass filter
+#   '''
+#   config = CustomRateConfig
+#   freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+#   flt = LowPassFilter(config, freqHz)
 
-  assert isinstance(flt.a, numpy.ndarray)
-  assert isinstance(flt.b, numpy.ndarray)
-  assert isinstance(flt.zi, numpy.ndarray)
-  # Filter must have all roots in the range (-1; +1)
-  assert numpy.all(numpy.abs(numpy.roots(flt.a)) < 1)
-
-
-def test_LowPassFilter_filter():
-  '''
-  Verify that LPF is correctly lowers signal power for frequencies
-  '''
-  config = CustomRateConfig
-  freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  flt = LowPassFilter(config, freqHz)
-  n_samples = 10000
-  time0_s = 0.
-  time1_s = time0_s + (float(n_samples) /
-                       float(config.SAMPLE_RATE_HZ))
-  sampleTimeAll_s = numpy.linspace(time0_s, time1_s,
-                                   n_samples,
-                                   endpoint=False,
-                                   dtype=numpy.float)
-
-  # Normal frequency signal: shall be ~-3Db
-  signal1 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 0e6))
-  # Low frequency signal: shall be ~-3Db
-  signal2 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz - 2e6))
-  # High frequency signal: shall be ~-40Db
-  signal3 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 2e6))
-
-  # Original signal powers
-  A10 = numpy.mean(numpy.abs(signal1)) ** 2
-  A20 = numpy.mean(numpy.abs(signal2)) ** 2
-  A30 = numpy.mean(numpy.abs(signal3)) ** 2
-
-  filtSignal1 = flt.filter(signal1)
-  filtSignal2 = flt.filter(signal2)
-  filtSignal3 = flt.filter(signal3)
-
-  # Filtered signal powers
-  A11 = numpy.mean(numpy.abs(filtSignal1)) ** 2
-  A21 = numpy.mean(numpy.abs(filtSignal2)) ** 2
-  A31 = numpy.mean(numpy.abs(filtSignal3)) ** 2
-
-  # Compute SNR in dB
-  snr1 = 10. * numpy.log10(A11 / A10)
-  snr2 = 10. * numpy.log10(A21 / A20)
-  snr3 = 10. * numpy.log10(A31 / A30)
-
-  assert snr1 >= -flt.getPassBandAtt() * 1.05
-  assert snr2 >= -flt.getPassBandAtt() * 1.05
-  assert snr3 <= -flt.getStopBandAtt() * 0.95
+#   assert isinstance(flt.a, numpy.ndarray)
+#   assert isinstance(flt.b, numpy.ndarray)
+#   assert isinstance(flt.zi, numpy.ndarray)
+#   # Filter must have all roots in the range (-1; +1)
+#   assert numpy.all(numpy.abs(numpy.roots(flt.a)) < 1)
 
 
-def test_BandPassFilter_init():
-  '''
-  Test band pass filter
-  '''
-  config = CustomRateConfig
-  freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  flt = BandPassFilter(config, freqHz)
+# def test_LowPassFilter_filter():
+#   '''
+#   Verify that LPF is correctly lowers signal power for frequencies
+#   '''
+#   config = CustomRateConfig
+#   freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+#   flt = LowPassFilter(config, freqHz)
+#   n_samples = 10000
+#   time0_s = 0.
+#   time1_s = time0_s + (float(n_samples) /
+#                        float(config.SAMPLE_RATE_HZ))
+#   sampleTimeAll_s = numpy.linspace(time0_s, time1_s,
+#                                    n_samples,
+#                                    endpoint=False,
+#                                    dtype=numpy.float)
 
-  assert isinstance(flt.a, numpy.ndarray)
-  assert isinstance(flt.b, numpy.ndarray)
-  assert isinstance(flt.zi, numpy.ndarray)
-  # Filter must have all roots in the range (-1; +1)
-  assert numpy.all(numpy.abs(numpy.roots(flt.a)) < 1)
+#   # Normal frequency signal: shall be ~-3Db
+#   signal1 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 0e6))
+#   # Low frequency signal: shall be ~-3Db
+#   signal2 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz - 2e6))
+#   # High frequency signal: shall be ~-40Db
+#   signal3 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 2e6))
 
+#   # Original signal powers
+#   A10 = numpy.mean(numpy.abs(signal1)) ** 2
+#   A20 = numpy.mean(numpy.abs(signal2)) ** 2
+#   A30 = numpy.mean(numpy.abs(signal3)) ** 2
 
-def test_BandPassFilter_filter():
-  '''
-  Verify that BPF lowers out of band frequencies and keeps band frequency.
-  '''
-  config = CustomRateConfig
-  freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  flt = BandPassFilter(config, freqHz)
+#   filtSignal1 = flt.filter(signal1)
+#   filtSignal2 = flt.filter(signal2)
+#   filtSignal3 = flt.filter(signal3)
 
-  n_samples = 10000
-  time0_s = 0.
-  time1_s = time0_s + (float(n_samples) /
-                       float(config.SAMPLE_RATE_HZ))
-  sampleTimeAll_s = numpy.linspace(time0_s, time1_s,
-                                   n_samples,
-                                   endpoint=False,
-                                   dtype=numpy.float)
+#   # Filtered signal powers
+#   A11 = numpy.mean(numpy.abs(filtSignal1)) ** 2
+#   A21 = numpy.mean(numpy.abs(filtSignal2)) ** 2
+#   A31 = numpy.mean(numpy.abs(filtSignal3)) ** 2
 
-  # Normal frequency signal: shall be ~-3Db
-  signal1 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 0e6))
-  # Low frequency signal: shall be ~-40Db
-  signal2 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz - 3e6))
-  # High frequency signal: shall be ~-40Db
-  signal3 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 3e6))
+#   # Compute SNR in dB
+#   snr1 = 10. * numpy.log10(A11 / A10)
+#   snr2 = 10. * numpy.log10(A21 / A20)
+#   snr3 = 10. * numpy.log10(A31 / A30)
 
-  # Original signal powers
-  A10 = numpy.mean(numpy.abs(signal1)) ** 2
-  A20 = numpy.mean(numpy.abs(signal2)) ** 2
-  A30 = numpy.mean(numpy.abs(signal3)) ** 2
-
-  filtSignal1 = flt.filter(signal1)
-  filtSignal2 = flt.filter(signal2)
-  filtSignal3 = flt.filter(signal3)
-
-  # Filtered signal powers
-  A11 = numpy.mean(numpy.abs(filtSignal1)) ** 2
-  A21 = numpy.mean(numpy.abs(filtSignal2)) ** 2
-  A31 = numpy.mean(numpy.abs(filtSignal3)) ** 2
-
-  # Compute SNR in dB
-  snr1 = 10. * numpy.log10(A11 / A10)
-  snr2 = 10. * numpy.log10(A21 / A20)
-  snr3 = 10. * numpy.log10(A31 / A30)
-
-  assert snr1 >= -flt.getPassBandAtt() * 1.05
-  assert snr2 <= -flt.getStopBandAtt() * 0.95
-  assert snr3 <= -flt.getStopBandAtt() * 0.95
+#   assert snr1 >= -flt.getPassBandAtt() * 1.05
+#   assert snr2 >= -flt.getPassBandAtt() * 1.05
+#   assert snr3 <= -flt.getStopBandAtt() * 0.95
 
 
-def test_LowPassFilter_str():
-  '''
-  Test low pass filter str()
-  '''
-  config = CustomRateConfig
-  freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  flt = LowPassFilter(config, freqHz)
-  value = str(flt)
-  assert value.find('LowPass') >= 0
+# def test_BandPassFilter_init():
+#   '''
+#   Test band pass filter
+#   '''
+#   config = CustomRateConfig
+#   freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+#   flt = BandPassFilter(config, freqHz)
+
+#   assert isinstance(flt.a, numpy.ndarray)
+#   assert isinstance(flt.b, numpy.ndarray)
+#   assert isinstance(flt.zi, numpy.ndarray)
+#   # Filter must have all roots in the range (-1; +1)
+#   assert numpy.all(numpy.abs(numpy.roots(flt.a)) < 1)
 
 
-def test_BandPassFilter_str():
-  '''
-  Test band pass filter str()
-  '''
-  config = CustomRateConfig
-  freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
-  flt = BandPassFilter(config, freqHz)
-  value = str(flt)
-  assert value.find('BandPass') >= 0
+# def test_BandPassFilter_filter():
+#   '''
+#   Verify that BPF lowers out of band frequencies and keeps band frequency.
+#   '''
+#   config = CustomRateConfig
+#   freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+#   flt = BandPassFilter(config, freqHz)
+
+#   n_samples = 10000
+#   time0_s = 0.
+#   time1_s = time0_s + (float(n_samples) /
+#                        float(config.SAMPLE_RATE_HZ))
+#   sampleTimeAll_s = numpy.linspace(time0_s, time1_s,
+#                                    n_samples,
+#                                    endpoint=False,
+#                                    dtype=numpy.float)
+
+#   # Normal frequency signal: shall be ~-3Db
+#   signal1 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 0e6))
+#   # Low frequency signal: shall be ~-40Db
+#   signal2 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz - 3e6))
+#   # High frequency signal: shall be ~-40Db
+#   signal3 = numpy.cos(2. * PI * sampleTimeAll_s * (freqHz + 3e6))
+
+#   # Original signal powers
+#   A10 = numpy.mean(numpy.abs(signal1)) ** 2
+#   A20 = numpy.mean(numpy.abs(signal2)) ** 2
+#   A30 = numpy.mean(numpy.abs(signal3)) ** 2
+
+#   filtSignal1 = flt.filter(signal1)
+#   filtSignal2 = flt.filter(signal2)
+#   filtSignal3 = flt.filter(signal3)
+
+#   # Filtered signal powers
+#   A11 = numpy.mean(numpy.abs(filtSignal1)) ** 2
+#   A21 = numpy.mean(numpy.abs(filtSignal2)) ** 2
+#   A31 = numpy.mean(numpy.abs(filtSignal3)) ** 2
+
+#   # Compute SNR in dB
+#   snr1 = 10. * numpy.log10(A11 / A10)
+#   snr2 = 10. * numpy.log10(A21 / A20)
+#   snr3 = 10. * numpy.log10(A31 / A30)
+
+#   assert snr1 >= -flt.getPassBandAtt() * 1.05
+#   assert snr2 <= -flt.getStopBandAtt() * 0.95
+#   assert snr3 <= -flt.getStopBandAtt() * 0.95
+
+
+# def test_LowPassFilter_str():
+#   '''
+#   Test low pass filter str()
+#   '''
+#   config = CustomRateConfig
+#   freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+#   flt = LowPassFilter(config, freqHz)
+#   value = str(flt)
+#   assert value.find('LowPass') >= 0
+
+
+# def test_BandPassFilter_str():
+#   '''
+#   Test band pass filter str()
+#   '''
+#   config = CustomRateConfig
+#   freqHz = config.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
+#   flt = BandPassFilter(config, freqHz)
+#   value = str(flt)
+#   assert value.find('BandPass') >= 0
