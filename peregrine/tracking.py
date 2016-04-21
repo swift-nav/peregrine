@@ -25,10 +25,13 @@ from swiftnav.cnav_msg import CNavMsgDecoder
 from swiftnav.signal import signal_from_code_index
 from peregrine import defaults
 from peregrine import gps_constants
+from peregrine import glo_constants
 from peregrine import alias_detector
 from peregrine.acquisition import AcquisitionResult
+from peregrine.acquisition import GloAcquisitionResult
 from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
+from peregrine.include.generateGLOcode import GLOCode
 from peregrine.tracking_file_utils import createTrackingOutputFileNames
 
 import logging
@@ -120,6 +123,8 @@ def _tracking_channel_factory(parameters):
     return TrackingChannelL1CA(parameters)
   if parameters['acq'].signal == gps_constants.L2C:
     return TrackingChannelL2C(parameters)
+  if parameters['acq'].signal == glo_constants.GLO_L1:
+    return TrackingChannelGLOL1(parameters)
 
 
 class TrackingChannel(object):
@@ -686,6 +691,7 @@ class TrackingChannelL1CA(TrackingChannel):
 
     # Handover to L2C if possible
     if self.l2c_handover and not self.l2c_handover_acq and \
+        gps_constants.L2C in self.samples and \
        'samples' in self.samples[gps_constants.L2C] and sync:
       chan_snr = self.track_result.cn0[self.i]
       chan_snr -= 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
@@ -808,6 +814,139 @@ class TrackingChannelL2C(TrackingChannel):
           self.coherent_ms
 
 
+class TrackingChannelGLOL1(TrackingChannel):
+  """
+  GLO L1 tracking channel.
+  """
+
+  def __init__(self, params):
+    """
+    Initialize GLO L1 tracking channel with GLO L1 specific data.
+
+    Parameters
+    ----------
+    params : dictionary
+    GLO L1 tracking initialization parameters
+
+    """
+    # Convert acquisition SNR to C/N0
+    cn0_0 = 10 * np.log10(params['acq'].snr)
+    cn0_0 += 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+    params['cn0_0'] = cn0_0
+    params['coherent_ms'] = 1
+    params['coherent_iter'] = 1
+    params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
+    params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
+    params['IF'] = params['samples'][glo_constants.GLO_L1]['IF']
+    params['prn_code'] = GLOCode
+    params['code_freq_init'] = params['acq'].doppler * \
+        glo_constants.glo_chip_rate / glo_constants.glo_l1
+    params['chipping_rate'] = glo_constants.glo_chip_rate
+    params['sample_index'] = 0
+    params['alias_detector'] = \
+        alias_detector.AliasDetectorGLO(params['coherent_ms'])
+
+    TrackingChannel.__init__(self, params)
+
+    self.glol2_handover_acq = None
+    self.glol2_handover_done = False
+
+    # TODO add nav msg decoder (GLO L1)
+
+  def is_pickleable(self):
+    """
+    GLO L1 tracking channel object is not pickleable due to complexity
+    of serializing cnav_msg_decoder Cython object.
+
+    out : bool
+       False - the GLO L1 tracking object is not pickleable
+    """
+    return False
+
+  def _get_result(self):
+    """
+    Get GLO L1 tracking results.
+    The possible outcome of GLO L1 tracking operation is
+    the GLO L1 handover to GLO L2 in the form of an GloAcquisitionResult object.
+
+    Returns
+    -------
+    out : AcquisitionResult
+      GLO L2 acquisition result or None
+
+    """
+
+    if self.glol2_handover_acq and not self.glol2_handover_done:
+      self.glol2_handover_done = True
+      return self.glol2_handover_acq
+    return None
+
+  def _run_preprocess(self):
+    """
+    Run GLONASS tracking loop preprocessor operation.
+    It runs before every coherent integration round.
+
+    """
+
+    self.coherent_iter = self.coherent_ms
+
+  def _short_n_long_preprocess(self):
+    if self.stage1:
+      self.E = self.P = self.L = 0.j
+    else:
+      # When simulating short and long cycles, short step resets EPL
+      # registers, and long one adds up to them
+      if self.short_step:
+        self.E = self.P = self.L = 0.j
+        self.coherent_iter = 1
+      else:
+        self.coherent_iter = self.coherent_ms - 1
+
+    self.code_chips_to_integrate = glo_constants.glo_code_len
+
+    return self.coherent_iter, self.code_chips_to_integrate
+
+  def _short_n_long_postprocess(self):
+    more_integration_needed = False
+    if not self.stage1:
+      if self.short_step:
+        # In case of short step - go to next integration period
+        self.short_step = False
+        more_integration_needed = True
+      else:
+        # Next step is short cycle
+        self.short_step = True
+    return more_integration_needed
+
+  def _run_postprocess(self):
+    """
+    Run GLO L1 coherent integration postprocessing.
+    Runs navigation bit sync decoding operation and
+    GLO L1 to GLO L2 handover.
+    """
+
+    # Handover to L2C if possible
+    if self.glol2_handover and not self.glol2_handover_acq and \
+        glo_constants.GLO_L2 in  self.samples and \
+       'samples' in self.samples[glo_constants.GLO_L2]:  # and sync:
+      chan_snr = self.track_result.cn0[self.i]
+      # chan_snr -= 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+      chan_snr = np.power(10, chan_snr / 10)
+      glol2_doppler = self.loop_filter.to_dict()['carr_freq'] * \
+          glo_constants.glo_l2 / glo_constants.glo_l1
+      self.glol2_handover_acq = \
+          GloAcquisitionResult(self.prn,
+                               self.samples[glo_constants.GLO_L2]['IF'] +
+                               glol2_doppler,
+                               glol2_doppler,  # carrier doppler
+                               self.track_result.code_phase[
+                                   self.i],
+                               chan_snr,
+                               'A',
+                               glo_constants.GLO_L2,
+                               self.track_result.absolute_sample[self.i])
+
+
 class Tracker(object):
   """
   Tracker class.
@@ -822,6 +961,7 @@ class Tracker(object):
                sampling_freq,
                check_l2c_mask=False,
                l2c_handover=True,
+               glol2_handover=True,
                progress_bar_output='none',
                loop_filter_class=AidedTrackingLoop,
                correlator=track_correlate,
@@ -877,6 +1017,7 @@ class Tracker(object):
     self.tracker_options = tracker_options
     self.output_file = output_file
     self.l2c_handover = l2c_handover
+    self.glol2_handover = glol2_handover
     self.check_l2c_mask = check_l2c_mask
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
@@ -1021,6 +1162,7 @@ class Tracker(object):
                   'samples_to_track': self.samples_to_track,
                   'sampling_freq': self.sampling_freq,
                   'l2c_handover': l2c_handover,
+                  'glol2_handover': self.glol2_handover,
                   'show_progress': self.show_progress,
                   'correlator': self.correlator,
                   'stage2_coherent_ms': self.stage2_coherent_ms,

@@ -160,7 +160,7 @@ freq_profile_normal_rate = {
     'GPS_L1_IF': 10263750.0,
     'GPS_L2_IF': 7.4e6,
     'GLO_L1_IF': 12e6,
-    'GLO_L2_IF': 12e6,
+    'GLO_L2_IF': 5.6e6,
     'sampling_freq': 24.84375e6}
 
 # 'high_rate' frequencies profile
@@ -179,6 +179,7 @@ freq_profile_lookup = {
 
 L1CA_CHANNEL_BANDWIDTH_HZ = 1000
 L2C_CHANNEL_BANDWIDTH_HZ = 1000
+GLOL1_CHANNEL_BANDWIDTH_HZ = 1000
 
 l1ca_stage1_loop_filter_params = {
     "loop_freq": 1e3,     # loop frequency [Hz]

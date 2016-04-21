@@ -12,6 +12,7 @@ import numpy as np
 from swiftnav.track import AliasDetector as AD
 from peregrine import defaults
 from peregrine import gps_constants
+from peregrine import glo_constants
 
 
 class AliasDetector(object):
@@ -130,6 +131,19 @@ class AliasDetectorL2C(AliasDetector):
     AliasDetector.__init__(self, coherent_ms)
 
     self.chips_num = 2 * gps_constants.l2_cm_chips_per_code / coherent_ms
+    self.integration_rounds = defaults.alias_detect_interval_ms / \
+        (defaults.alias_detect_slice_ms * 2)
+
+    self.alias_detect = AD(acc_len=self.integration_rounds, time_diff=2e-3)
+
+
+class AliasDetectorGLO(AliasDetector):
+
+  def __init__(self, coherent_ms):
+
+    super(AliasDetectorGLO, self).__init__(coherent_ms)
+
+    self.chips_num = glo_constants.glo_code_len
     self.integration_rounds = defaults.alias_detect_interval_ms / \
         (defaults.alias_detect_slice_ms * 2)
 

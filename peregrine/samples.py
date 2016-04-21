@@ -368,10 +368,58 @@ def __get_samples_total(filename, file_format, sample_index):
   return samples_total
 
 
+def __update_dict(samples, sample_key, signal, signal_key):
+  '''
+  Helper to populate sample map. The method attaches decoded signals from
+  a signal source into the result. Also the method removes unused result
+  entries.
+
+  Parameters
+  ----------
+  samples : map
+    Resulting map with bands
+  sample_key : string
+    Band name
+  signal : map
+    Map with decoded band id as keys and samples as entries.
+  signal_key : int
+    Band identifier key, which corresponds to band name.
+  '''
+
+  if sample_key in samples:
+    if signal_key in signal:
+      samples[sample_key]['samples'] = signal[signal_key]
+    else:
+      del samples[sample_key]
+
+
 def load_samples(samples,
                  filename,
                  num_samples=defaults.processing_block_size,
                  file_format='piksi'):
+  '''
+  Loads a block of samples according to parameters.
+
+  Parameters
+  ----------
+  samples : map
+    Map of band name as a key and a map of band parameters as values. The
+    following parameters must be present:
+    - 'samples_total' : long -- Total number of samples in file.
+    - Any combination of 'l1ca', 'l2c', 'glo_l1' and 'glo_l2' -- The band names
+      to load.
+  filename : string
+    Input file path.
+  num_samples : int
+    Number of samples to load.
+  file_format : string
+    Type of input file.
+
+  Returns
+  -------
+  samples : map
+    Updated band map.
+  '''
 
   if samples['samples_total'] == -1:
     samples['samples_total'] = __get_samples_total(filename,
@@ -381,14 +429,11 @@ def load_samples(samples,
                          num_samples,
                          samples['sample_index'],
                          file_format)
-  if L1CA in samples and defaults.sample_channel_GPS_L1 in signal:
-    samples[L1CA]['samples'] = signal[defaults.sample_channel_GPS_L1]
-  if L2C in samples and defaults.sample_channel_GPS_L2 in signal:
-    samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
-  if GLO_L1 in samples and defaults.sample_channel_GLO_L1 in signal:
-    samples[GLO_L1]['samples'] = signal[defaults.sample_channel_GLO_L1]
-  if GLO_L2 in samples and defaults.sample_channel_GLO_L2 in signal:
-    samples[GLO_L2]['samples'] = signal[defaults.sample_channel_GLO_L2]
+
+  __update_dict(samples, L1CA, signal, defaults.sample_channel_GPS_L1)
+  __update_dict(samples, L2C, signal, defaults.sample_channel_GPS_L2)
+  __update_dict(samples, GLO_L1, signal, defaults.sample_channel_GLO_L1)
+  __update_dict(samples, GLO_L2, signal, defaults.sample_channel_GLO_L2)
 
   return samples
 
