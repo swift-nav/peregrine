@@ -839,9 +839,9 @@ class Tracker(object):
       self.show_progress = False
       logger.warning("show_progress = True but progressbar module not found.")
 
+    self.init_sample_index = samples['sample_index']
     # Setup our progress bar if we need it
     if self.show_progress:
-      self.init_sample_index = samples['sample_index']
       widgets = ['  Tracking ',
                  progressbar.Attribute(['sample', 'samples'],
                                        '(sample: %d/%d)',
@@ -868,9 +868,12 @@ class Tracker(object):
     """
     logger.info("Number of CPUs: %d" % (mp.cpu_count()))
 
-    logger.info("Tracking %.4fs of data (%d samples)" %
+    logger.info("Tracking %.4fs of data (%d samples). "\
+                "Skipped %0.4fms (%d samples)" %
                 (self.samples_to_track / self.sampling_freq,
-                 self.samples_to_track))
+                 self.samples_to_track,
+                 1e3 * self.init_sample_index / self.sampling_freq,
+                 self.init_sample_index))
 
     logger.info("Tracking starting")
     logger.debug("Tracking PRNs %s" %

@@ -100,10 +100,19 @@ def populate_peregrine_cmd_line_arguments(parser):
   inputCtrl = parser.add_argument_group('Data Source',
                                         'Data source configuration')
 
-  inputCtrl.add_argument("--skip-samples",
-                         default=0,
-                         metavar='N_SAMPLES',
-                         help="How many samples to skip")
+  skipExcl = inputCtrl.add_mutually_exclusive_group(required=False)
+
+  skipExcl.add_argument("--skip-samples",
+                        type=int,
+                        default=None,
+                        metavar='N_SAMPLES',
+                        help="How many samples to skip. Optional.")
+
+  skipExcl.add_argument("--skip-ms",
+                        type=float,
+                        default=None,
+                        metavar='N_MS',
+                        help="How many milliseconds to skip")
 
   inputCtrl.add_argument("-f", "--file-format",
                          choices=['piksi', 'int8', '1bit', '1bitrev',
@@ -214,10 +223,16 @@ def main():
 
   ms_to_process = int(args.ms_to_process)
 
+  skip_samples = 0
+  if args.skip_samples is not None:
+    skip_samples = args.skip_samples
+  if args.skip_ms is not None:
+    skip_samples = int(args.skip_ms * freq_profile['sampling_freq'] / 1e3)
+
   samples = {gps.L1CA: {'IF': freq_profile['GPS_L1_IF']},
              gps.L2C: {'IF': freq_profile['GPS_L2_IF']},
              'samples_total': -1,
-             'sample_index': int(args.skip_samples)}
+             'sample_index': skip_samples}
 
   # Do acquisition
   acq_results_file = args.file + ".acq_results"
