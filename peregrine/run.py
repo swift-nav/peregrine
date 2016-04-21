@@ -227,6 +227,7 @@ def main():
   samples = {gps.L1CA: {'IF': freq_profile['GPS_L1_IF']},
              gps.L2C: {'IF': freq_profile['GPS_L2_IF']},
              glo.GLO_L1: {'IF': freq_profile['GLO_L1_IF']},
+             glo.GLO_L2: {'IF': freq_profile['GLO_L2_IF']},
              'samples_total': -1,
              'sample_index': int(args.skip_samples)}
 

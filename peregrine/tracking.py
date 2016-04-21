@@ -26,9 +26,12 @@ from swiftnav.cnav_msg import CNavMsgDecoder
 from swiftnav.ephemeris import Ephemeris
 from peregrine import defaults
 from peregrine import gps_constants
+from peregrine import glo_constants
 from peregrine.acquisition import AcquisitionResult
+from peregrine.acquisition import GloAcquisitionResult
 from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
+from peregrine.include.generateGLOcode import GLOCode
 
 import logging
 import sys
@@ -119,6 +122,8 @@ def _tracking_channel_factory(parameters):
     return TrackingChannelL1CA(parameters)
   if parameters['acq'].signal == gps_constants.L2C:
     return TrackingChannelL2C(parameters)
+  if parameters['acq'].signal == glo_constants.GLO_L1:
+    return TrackingChannelGLOL1(parameters)
 
 
 class TrackingChannel(object):
@@ -375,7 +380,8 @@ class TrackingChannel(object):
 
       if self.pipelining:
         # Pipelining and prediction
-        corr_code_freq, corr_carr_freq = self.next_code_freq, self.next_carr_freq
+        corr_code_freq = self.next_code_freq
+        corr_carr_freq = self.next_carr_freq
 
         self.next_code_freq = self.loop_filter.to_dict()['code_freq']
         self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
@@ -400,7 +406,8 @@ class TrackingChannel(object):
         self.next_code_freq = self.loop_filter.to_dict()['code_freq']
         self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
 
-        corr_code_freq, corr_carr_freq = self.next_code_freq, self.next_carr_freq
+        corr_code_freq = self.next_code_freq
+        corr_carr_freq = self.next_carr_freq
 
       if self.short_n_long and not self.stage1:
         # When simulating short and long cycles, short step resets EPL
@@ -735,6 +742,99 @@ class TrackingChannelL2C(TrackingChannel):
       self.track_result.tow[self.i] = self.track_result.tow[self.i - 1] + \
           self.coherent_ms
 
+
+class TrackingChannelGLOL1(TrackingChannel):
+  """
+  GLO L1 tracking channel.
+  """
+
+  def __init__(self, params):
+    """
+    Initialize GLO L1 tracking channel with GLO L1 specific data.
+
+    Parameters
+    ----------
+    params : dictionary
+    GLO L1 tracking initialization parameters
+
+    """
+    # Convert acquisition SNR to C/N0
+    cn0_0 = 10 * np.log10(params['acq'].snr)
+    cn0_0 += 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+    params['cn0_0'] = cn0_0
+    params['coherent_ms'] = 20
+    params['coherent_iter'] = 1
+    params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
+    params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
+    params['IF'] = params['samples'][glo_constants.GLO_L1]['IF']
+    params['prn_code'] = GLOCode
+    params['code_freq_init'] = params['acq'].doppler * \
+      glo_constants.glo_chip_rate / glo_constants.glo_l1
+    params['chipping_rate'] = glo_constants.glo_chip_rate
+
+    TrackingChannel.__init__(self, params)
+
+    self.glol2_handover_acq = None
+    self.glol2_handover_done = False
+
+    # TODO add nav msg decoder (GLO L1)
+
+  def is_pickleable(self):
+    """
+    GLO L1 tracking channel object is not pickleable due to complexity
+    of serializing cnav_msg_decoder Cython object.
+
+    out : bool
+       False - the GLO L1 tracking object is not pickleable
+    """
+    return False
+
+  def _get_result(self):
+    """
+    Get GLO L1 tracking results.
+    The possible outcome of GLO L1 tracking operation is
+    the GLO L1 handover to GLO L2 in the form of an GloAcquisitionResult object.
+
+    Returns
+    -------
+    out : AcquisitionResult
+      GLO L2 acquisition result or None
+
+    """
+
+    if self.glol2_handover_acq and not self.glol2_handover_done:
+      self.glol2_handover_done = True
+      return self.glol2_handover_acq
+    return None
+
+  def _run_postprocess(self):
+    """
+    Run GLO L1 coherent integration postprocessing.
+    Runs navigation bit sync decoding operation and
+    GLO L1 to GLO L2 handover.
+    """
+
+    # Handover to L2C if possible
+    if self.glol2_handover and not self.glol2_handover_acq and \
+       'samples' in self.samples[glo_constants.GLO_L2]:  # and sync:
+      chan_snr = self.track_result.cn0[self.i]
+      chan_snr -= 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+      chan_snr = np.power(10, chan_snr / 10)
+      glol2_doppler = self.loop_filter.to_dict(
+      )['carr_freq'] * glo_constants.glo_l2 / glo_constants.glo_l1
+      self.glol2_handover_acq = \
+        GloAcquisitionResult(self.prn,
+                             self.samples[gps_constants.L2C]['IF'] +
+                               glol2_doppler,
+                             glol2_doppler,  # carrier doppler
+                             self.track_result.code_phase[
+                               self.i],
+                             chan_snr,
+                             'A',
+                             glo_constants.GLO_L2,
+                             self.track_result.absolute_sample[self.i])
+
+
 class Tracker(object):
   """
   Tracker class.
@@ -748,6 +848,7 @@ class Tracker(object):
                ms_to_track,
                sampling_freq,
                l2c_handover=True,
+               glol2_handover=True,
                progress_bar_output='none',
                loop_filter_class=AidedTrackingLoop,
                correlator=track_correlate,
@@ -802,6 +903,7 @@ class Tracker(object):
     self.tracker_options = tracker_options
     self.output_file = output_file
     self.l2c_handover = l2c_handover
+    self.glol2_handover = glol2_handover
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
     self.stage2_loop_filter_params = stage2_loop_filter_params
@@ -816,8 +918,9 @@ class Tracker(object):
     if self.ms_to_track:
       self.samples_to_track = self.ms_to_track * sampling_freq / 1e3
       if samples['samples_total'] < self.samples_to_track:
-        logger.warning("Samples set too short for requested tracking length (%.4fs)"
-                       % (self.ms_to_track * 1e-3))
+        logger.warning(
+          "Samples set too short for requested tracking length (%.4fs)"
+          % (self.ms_to_track * 1e-3))
         self.samples_to_track = samples['samples_total']
     else:
       self.samples_to_track = samples['samples_total']
@@ -846,7 +949,7 @@ class Tracker(object):
                  progressbar.Percentage(), ' ',
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
-      self.pbar = progressbar.ProgressBar( \
+      self.pbar = progressbar.ProgressBar(
                     widgets=widgets,
                     maxval=samples['samples_total'],
                     attr={'samples': self.samples['samples_total'],
@@ -933,6 +1036,7 @@ class Tracker(object):
                   'samples_to_track': self.samples_to_track,
                   'sampling_freq': self.sampling_freq,
                   'l2c_handover': self.l2c_handover,
+                  'glol2_handover': self.glol2_handover,
                   'show_progress': self.show_progress,
                   'correlator': self.correlator,
                   'stage2_coherent_ms': self.stage2_coherent_ms,
@@ -992,7 +1096,7 @@ class Tracker(object):
       if self.parallel_channels:
         res = pp.parmap(lambda i: _run_parallel(i, samples),
                         range(len(self.parallel_channels)),
-                        nprocs = len(self.parallel_channels),
+                        nprocs=len(self.parallel_channels),
                         show_progress=False,
                         func_progress=False)
 
@@ -1107,7 +1211,7 @@ class TrackResults:
 
     # saving tracking results for navigation stage
     with open(fn_results, mode) as f1:
-      cPickle.dump(self, f1, protocol = cPickle.HIGHEST_PROTOCOL)
+      cPickle.dump(self, f1, protocol=cPickle.HIGHEST_PROTOCOL)
 
     with open(fn_analysis, mode) as f1:
       if self.print_start:
@@ -1177,7 +1281,8 @@ class TrackResults:
     for k in self.__dict__.keys():
       if isinstance(self.__dict__[k], np.ndarray):
         # If np.ndarray, elements might be floats, so compare accordingly.
-        if any(np.greater((self.__dict__[k] - other.__dict__[k]), np.ones(len(self.__dict__[k])) * 10e-6)):
+        if any(np.greater((self.__dict__[k] - other.__dict__[k]),
+               np.ones(len(self.__dict__[k])) * 10e-6)):
           return False
       elif self.__dict__[k] != other.__dict__[k]:
         return False

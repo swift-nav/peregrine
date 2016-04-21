@@ -8,13 +8,13 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-acqThreshold         = 21.0  # SNR (unitless)
-acqSanityCheck       = True  # Check for sats known to be below the horizon
-navSanityMaxResid    = 25.0  # meters per SV, normalized nav residuals
-abortIfInsane        = True  # Abort the whole attempt if sanity check fails
-useCache             = True
-cacheDir             = 'cache'
-ephemMaxAge          = 4 * 3600.0 # Reject an ephemeris entry if older than this
+acqThreshold = 21.0  # SNR (unitless)
+acqSanityCheck = True  # Check for sats known to be below the horizon
+navSanityMaxResid = 25.0  # meters per SV, normalized nav residuals
+abortIfInsane = True  # Abort the whole attempt if sanity check fails
+useCache = True
+cacheDir = 'cache'
+ephemMaxAge = 4 * 3600.0  # Reject an ephemeris entry if older than this
 
 # the size of the sample data block processed at a time
 processing_block_size = 20e6  # [samples]
@@ -83,6 +83,7 @@ freq_profile_normal_rate = {
     'GPS_L1_IF': 14.58e6,
     'GPS_L2_IF': 7.4e6,
     'GLO_L1_IF': 12e6,
+    'GLO_L2_IF': 5.6e6,
     'sampling_freq': 24.84375e6}
 
 # 'high_rate' frequencies profile
@@ -94,6 +95,7 @@ freq_profile_high_rate = {
 
 L1CA_CHANNEL_BANDWIDTH_HZ = 1000
 L2C_CHANNEL_BANDWIDTH_HZ = 1000
+GLOL1_CHANNEL_BANDWIDTH_HZ = 1000
 
 l1ca_stage1_loop_filter_params = {
     "loop_freq": 1e3,     # loop frequency [Hz]

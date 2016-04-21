@@ -11,3 +11,4 @@ glo_code_period = glo_code_len / glo_chip_rate
 glo_code_wavelength = glo_code_period * c
 
 GLO_L1 = 'glo_l1'
+GLO_L2 = 'glo_l2'

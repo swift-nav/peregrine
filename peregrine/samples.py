@@ -14,7 +14,7 @@ import numpy as np
 import math
 import defaults
 from peregrine.gps_constants import L1CA, L2C
-from peregrine.glo_constants import GLO_L1
+from peregrine.glo_constants import GLO_L1, GLO_L2
 
 __all__ = ['load_samples', 'save_samples']
 
@@ -366,6 +366,8 @@ def load_samples(samples,
     samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
   if len(signal) > 2:
     samples[GLO_L1]['samples'] = signal[defaults.sample_channel_GLO_L1]
+  if len(signal) > 3:
+    samples[GLO_L2]['samples'] = signal[defaults.sample_channel_GLO_L2]
 
   return samples
 
