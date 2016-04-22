@@ -77,11 +77,8 @@ def test_tracking():
   """
   Test GPS L1C/A tracking
   """
-  prns = range(1, 33, 5)
 
-  # Test with different initial Doppler values
-  for doppler in [-1000, 0, 1000]:
-    run_track_test(doppler, 0, prns, '2bits_x2')
+  run_track_test(1000, 0, [1], '2bits_x2')
 
   # Test with different initial code phases
   # for code_phase in [0, 310, 620, 967]:
