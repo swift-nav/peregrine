@@ -1,3 +1,12 @@
+# Copyright (C) 2016 Swift Navigation Inc.
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
 from test_common import generate_sample_file, \
                         run_peregrine,\
                         propagate_code_phase, \
@@ -6,13 +15,15 @@ from test_common import generate_sample_file, \
 import os
 import peregrine.acquisition as acq
 
+
 def get_acq_result_file_name(sample_file):
   return sample_file + '.acq_results'
 
+
 def run_acq_test(init_doppler, init_code_phase,
                  prns, file_format,
-                 freq_profile = 'low_rate',
-                 skip_samples = None, skip_ms = None):
+                 freq_profile='normal_rate',
+                 skip_samples=None, skip_ms=None):
 
   if skip_samples is not None:
     skip_param = '--skip-samples'
@@ -43,6 +54,7 @@ def run_acq_test(init_doppler, init_code_phase,
     os.remove(get_acq_result_file_name(samples_filename))
     os.remove(samples_filename)
 
+
 def check_acq_results(filename, prn, doppler, code_phase):
   acq_results = acq.load_acq_results(
                     get_acq_result_file_name(filename))
@@ -65,6 +77,7 @@ def check_acq_results(filename, prn, doppler, code_phase):
   code_phase_diff = abs(abs(result.code_phase) - abs(code_phase))
   print "code_phase_diff = ", code_phase_diff
   assert code_phase_diff < 1.0
+
 
 def test_acquisition():
   """

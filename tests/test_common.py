@@ -1,3 +1,12 @@
+# Copyright (C) 2016 Swift Navigation Inc.
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
 import peregrine.run
 import sys
 import peregrine.iqgen.iqgen_main as iqgen
@@ -7,8 +16,9 @@ import numpy as np
 
 from mock import patch
 
+
 def generate_2bits_x4_sample_file(filename):
-  sample_block_size = 4 # [bits]
+  sample_block_size = 4  # [bits]
   s_file = np.memmap(filename, offset=0, dtype=np.uint8, mode='r')
 
   num_samples = len(s_file) * 8 / sample_block_size
@@ -19,7 +29,7 @@ def generate_2bits_x4_sample_file(filename):
   bits = np.unpackbits(s_file)
   samples = np.empty((4, num_samples), dtype=np.uint8)
 
-  n_bits = 2 # number of bits per sample
+  n_bits = 2  # number of bits per sample
   channel_lookup = [0, 3, 1, 2]
   for rx in range(2):
     # Construct multi-bit sample values
@@ -36,6 +46,7 @@ def generate_2bits_x4_sample_file(filename):
     packed.tofile(f)
 
   return samples
+
 
 def generate_piksi_sample_file(filename):
   samples_lookup = [
@@ -60,9 +71,10 @@ def generate_piksi_sample_file(filename):
 
   return samples_lookup_values
 
+
 def generate_sample_file(gps_sv_prn, init_doppler,
                          init_code_phase, file_format,
-                         freq_profile):
+                         freq_profile, generate=1):
   sample_file = 'iqgen-data-samples.bin'
   params = ['iqgen_main']
   params += ['--gps-sv', str(gps_sv_prn)]
@@ -85,13 +97,13 @@ def generate_sample_file(gps_sv_prn, init_doppler,
 
   params += ['--encoder', encoder]
   params += ['--doppler-type', 'const']
-  params += ['--doppler-value', str(init_doppler) ]
+  params += ['--doppler-value', str(init_doppler)]
   params += ['--message-type', 'crc']
   params += ['--chip_delay', str(init_code_phase)]
   params += ['--amplitude-type', 'poly']
   params += ['--amplitude-units', 'snr-db']
   params += ['--amplitude-a0', '-5']
-  params += ['--generate', '.1']
+  params += ['--generate', str(generate)]
   params += ['--output', sample_file]
   params += ['--profile', freq_profile]
   print params
@@ -103,10 +115,11 @@ def generate_sample_file(gps_sv_prn, init_doppler,
 
   return sample_file
 
+
 def run_peregrine(file_name, file_format, freq_profile,
                   skip_param, skip_val,
-                  skip_tracking = True,
-                  skip_navigation = True):
+                  skip_tracking=True,
+                  skip_navigation=True):
 
   parameters = [
     'peregrine',
@@ -126,6 +139,7 @@ def run_peregrine(file_name, file_format, freq_profile,
     print "sys.argv = ", sys.argv
     peregrine.run.main()
 
+
 def propagate_code_phase(code_phase, sampling_freq, skip_param, skip_val):
   if skip_param == '--skip-samples':
     skip_samples = skip_val
@@ -137,6 +151,7 @@ def propagate_code_phase(code_phase, sampling_freq, skip_param, skip_val):
   code_phase += skip_samples / samples_per_chip
 
   return code_phase
+
 
 def get_sampling_freq(freq_profile_name):
   freq_profile = defaults.freq_profile_lookup[freq_profile_name]
