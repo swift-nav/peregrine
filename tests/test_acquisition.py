@@ -36,7 +36,8 @@ def run_acq_test(init_doppler, init_code_phase,
                    get_sampling_freq(freq_profile),
                    skip_param, skip_val)
 
-    check_acq_results(samples_filename, prn, init_doppler, code_phase)
+    if skip_val == 0:
+      check_acq_results(samples_filename, prn, init_doppler, code_phase)
 
     # Clean-up.
     os.remove(get_acq_result_file_name(samples_filename))
@@ -78,6 +79,3 @@ def test_acquisition():
   # Test with different initial code phases
   # for code_phase in [0, 310, 620, 967]:
   #   run_acq_test(-2345, code_phase, prns, '2bits')
-
-if __name__ == '__main__':
-  test_acquisition()
