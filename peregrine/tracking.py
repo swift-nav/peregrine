@@ -376,7 +376,8 @@ class TrackingChannel(object):
 
       if self.pipelining:
         # Pipelining and prediction
-        corr_code_freq, corr_carr_freq = self.next_code_freq, self.next_carr_freq
+        corr_code_freq = self.next_code_freq
+        corr_carr_freq = self.next_carr_freq
 
         self.next_code_freq = self.loop_filter.to_dict()['code_freq']
         self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
@@ -849,7 +850,7 @@ class Tracker(object):
                  progressbar.Percentage(), ' ',
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
-      self.pbar = progressbar.ProgressBar( \
+      self.pbar = progressbar.ProgressBar(
                     widgets=widgets,
                     maxval=samples['samples_total'],
                     attr={'samples': self.samples['samples_total'],
@@ -868,7 +869,7 @@ class Tracker(object):
     """
     logger.info("Number of CPUs: %d" % (mp.cpu_count()))
 
-    logger.info("Tracking %.4fs of data (%d samples). "\
+    logger.info("Tracking %.4fs of data (%d samples). "
                 "Skipped %0.4fms (%d samples)" %
                 (self.samples_to_track / self.sampling_freq,
                  self.samples_to_track,
@@ -1080,6 +1081,10 @@ class TrackResults:
     self.signal = signal
     self.ms_tracked = np.zeros(n_points)
 
+  def __str__(self):
+    return "PRN %2d (%s) %s" % \
+        (self.prn + 1, self.signal, self.status)
+
   def dump(self, output_file, size):
     """
     Store tracking result to file system.
@@ -1114,7 +1119,7 @@ class TrackResults:
 
     # saving tracking results for navigation stage
     with open(fn_results, mode) as f1:
-      cPickle.dump(self, f1, protocol = cPickle.HIGHEST_PROTOCOL)
+      cPickle.dump(self, f1, protocol=cPickle.HIGHEST_PROTOCOL)
 
     with open(fn_analysis, mode) as f1:
       if self.print_start:
@@ -1184,7 +1189,8 @@ class TrackResults:
     for k in self.__dict__.keys():
       if isinstance(self.__dict__[k], np.ndarray):
         # If np.ndarray, elements might be floats, so compare accordingly.
-        if any(np.greater((self.__dict__[k] - other.__dict__[k]), np.ones(len(self.__dict__[k])) * 10e-6)):
+        if any(np.greater((self.__dict__[k] - other.__dict__[k]),
+               np.ones(len(self.__dict__[k])) * 10e-6)):
           return False
       elif self.__dict__[k] != other.__dict__[k]:
         return False
