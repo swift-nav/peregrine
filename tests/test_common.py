@@ -74,7 +74,7 @@ def generate_piksi_sample_file(filename):
 
 def generate_sample_file(gps_sv_prn, init_doppler,
                          init_code_phase, file_format,
-                         freq_profile, generate=1):
+                         freq_profile, generate=.1):
   sample_file = 'iqgen-data-samples.bin'
   params = ['iqgen_main']
   params += ['--gps-sv', str(gps_sv_prn)]
