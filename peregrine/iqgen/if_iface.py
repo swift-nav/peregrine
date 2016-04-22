@@ -15,6 +15,8 @@ related to radio interface parameters
 """
 
 from peregrine.defaults import freq_profile_peregrine
+from peregrine.defaults import freq_profile_low_rate
+from peregrine.defaults import freq_profile_normal_rate
 
 # Fixed band names
 GPS_L1_NAME = "GPS_L1"
@@ -63,12 +65,12 @@ class LowRateConfig(object):
   class GPS(object):
 
     class L1(object):
-      INTERMEDIATE_FREQUENCY_HZ = 14.58e5
+      INTERMEDIATE_FREQUENCY_HZ = freq_profile_low_rate['GPS_L1_IF']
       INDEX = 0
       NAME = GPS_L1_NAME
 
     class L2(object):
-      INTERMEDIATE_FREQUENCY_HZ = 7.4e+5
+      INTERMEDIATE_FREQUENCY_HZ = freq_profile_low_rate['GPS_L2_IF']
       INDEX = 1
       NAME = GPS_L2_NAME
 
@@ -159,12 +161,12 @@ class NormalRateConfig(object):
     Parameters for GPS bands data generation.
     '''
     class L1(object):
-      INTERMEDIATE_FREQUENCY_HZ = 14.58e+6
+      INTERMEDIATE_FREQUENCY_HZ = freq_profile_normal_rate['GPS_L1_IF']
       INDEX = 0
       NAME = GPS_L1_NAME
 
     class L2(object):
-      INTERMEDIATE_FREQUENCY_HZ = 7.4e+6
+      INTERMEDIATE_FREQUENCY_HZ = freq_profile_normal_rate['GPS_L2_IF']
       INDEX = 1
       NAME = GPS_L2_NAME
 
