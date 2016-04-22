@@ -32,7 +32,7 @@ def test_skip_params():
 
   """
   run_acq_test(1000, 0, [1], '1bit', skip_samples = 1000)
-  run_acq_test(1000, 0, [1], '1bit', skip_ms = 100)
+  run_acq_test(1000, 0, [1], '1bit', skip_ms = 50)
 
 def test_tracking():
   prn = 15
@@ -59,7 +59,4 @@ def test_tracking():
 
   # Clean-up.
   os.remove(samples_filename)
-
-if __name__ == '__main__':
-  test_tracking()
 
