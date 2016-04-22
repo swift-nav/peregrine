@@ -6,8 +6,8 @@ from peregrine.samples import load_samples
 import peregrine.defaults as defaults
 import os
 
-# def test_custom_rate():
-#   run_acq_test(-4000, 0, [1], '2bits', 'custom_rate')
+def test_custom_rate():
+  run_acq_test(-4000, 0, [1], '2bits', 'custom_rate')
 
 def test_low_rate():
   run_acq_test(-2000, 0, [2], '2bits', 'low_rate')
