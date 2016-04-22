@@ -14,7 +14,7 @@ import numpy as np
 import swiftnav.nav_msg
 import swiftnav.pvt
 import swiftnav.track
-import sys
+
 
 def extract_ephemerides(track_results):
   track_results = [tr for tr in track_results if tr.status == 'T']
@@ -36,6 +36,7 @@ def extract_ephemerides(track_results):
       ephems[tr.prn] = (nav_msgs[n], tow_indicies[n])
   return ephems
 
+
 def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6):
   cms = []
   for tr in track_results:
@@ -54,12 +55,14 @@ def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6):
     cms += [cm]
   return (ms, cms)
 
+
 def make_nav_meas(cmss, ephems):
   nms = []
   for ms, cms in cmss:
     navMsgs = [ephems[cm.prn][0] for cm in cms]
     nms += [swiftnav.track.calc_navigation_measurement(ms/1000.0, cms, navMsgs)]
   return nms
+
 
 def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
   nms = []
@@ -90,6 +93,7 @@ def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
     nms += [NavigationMeasurement(prs[i], prrs[i], ephems[track_results[i].prn][0].gps_week_num(), TOTs[i], (0,0,0), (0,0,0))]
   return nms
 
+
 def make_solns(nms):
   return map(swiftnav.pvt.calc_PVT, nms)
 
@@ -114,6 +118,7 @@ def navigation(track_results, sampling_freq,
     ts += [t]
 
   return zip(ss, ts)
+
 
 def show_kml(kml):
   import uuid
@@ -157,6 +162,7 @@ def show_kml(kml):
   """.format(uuid=str(uuid.uuid4()), kmlstring=kml.kml().replace('\n', ' '))
   display(HTML(html_string))
 
+
 def nav_to_kml(nav_solns):
   import simplekml
   kml = simplekml.Kml()
@@ -177,6 +183,7 @@ def nav_to_kml(nav_solns):
                                latitude=np.mean(lats), longitude=np.mean(lngs),
                                range=300, heading=0, tilt=10)
   return kml
+
 
 def nav_stats(nav_solns):
   xyzs = np.array([s.pos_ecef for s, t in nav_solns])
