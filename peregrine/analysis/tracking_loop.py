@@ -11,7 +11,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import argparse
-import sys
+
 from peregrine.samples import load_samples
 from peregrine.acquisition import AcquisitionResult
 from peregrine import defaults
@@ -75,8 +75,6 @@ def main():
     freq_profile = defaults.freq_profile_normal_rate
   elif args.profile == 'high_rate':
     freq_profile = defaults.freq_profile_high_rate
-  else:
-    raise NotImplementedError()
 
   isL1CA = (args.signal == L1CA)
   isL2C = (args.signal == L2C)

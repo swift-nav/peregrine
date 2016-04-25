@@ -54,6 +54,7 @@ class LoadConfigAction(argparse.Action):
     file_hnd.close()
 
 
+
 def populate_peregrine_cmd_line_arguments(parser):
   if sys.stdout.isatty():
     progress_bar_default = 'stdout'
