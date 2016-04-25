@@ -17,6 +17,34 @@ import numpy as np
 from mock import patch
 
 
+def fileformat_to_bands(file_format):
+  if file_format == '1bit':
+    bands = ['l1ca']
+  elif file_format == '1bit_x2':
+    bands = ['l1ca', 'l2c']
+  elif file_format == '2bits':
+    bands = ['l1ca']
+  elif file_format == '2bits_x2':
+    bands = ['l1ca', 'l2c']
+  elif file_format == '2bits_x4':
+    bands = ['l1ca', 'l2c']
+  return bands
+
+
+def get_skip_params(skip_samples, skip_ms):
+  if skip_samples is not None:
+    skip_param = '--skip-samples'
+    skip_val = skip_samples
+  elif skip_ms is not None:
+    skip_param = '--skip-ms'
+    skip_val = skip_ms
+  else:
+    skip_param = '--skip-ms'
+    skip_val = 0
+  return (skip_param, skip_val)
+
+
+
 def generate_2bits_x4_sample_file(filename):
   sample_block_size = 4  # [bits]
   s_file = np.memmap(filename, offset=0, dtype=np.uint8, mode='r')
@@ -120,20 +148,29 @@ def generate_sample_file(gps_sv_prn, init_doppler,
 def run_peregrine(file_name, file_format, freq_profile,
                   skip_param, skip_val,
                   skip_tracking=True,
-                  skip_navigation=True):
+                  skip_navigation=True,
+                  pipelining=None,
+                  short_long_cycles=None):
 
   parameters = [
     'peregrine',
     '--file', file_name,
     '--file-format', file_format,
     '--profile', freq_profile,
-    skip_param, str(skip_val)
+    skip_param, str(skip_val),
+    '--progress-bar', 'stdout'
   ]
   if skip_tracking:
     parameters += ['-t']
 
   if skip_navigation:
     parameters += ['-n']
+
+  if pipelining:
+    parameters += ['--pipelining', str(pipelining)]
+
+  if short_long_cycles:
+    parameters += ['--short-long-cycles', str(short_long_cycles)]
 
   # Replace argv with args to skip tracking and navigation.
   with patch.object(sys, 'argv', parameters):
