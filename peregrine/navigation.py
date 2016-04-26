@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (C) 2012-2016 Swift Navigation Inc.
 # Contact: Fergus Noble <fergus@swiftnav.com>
 #
@@ -14,53 +13,108 @@ import numpy as np
 import swiftnav.nav_msg
 import swiftnav.pvt
 import swiftnav.track
+import swiftnav.signal
+import logging
+from math import isnan
+from peregrine.gps_constants import L1CA
+from peregrine.gps_constants import L2C
+
+logger = logging.getLogger(__name__)
 
 
-def extract_ephemerides(track_results):
-  track_results = [tr for tr in track_results if tr.status == 'T']
-
-#  for tr in track_results:
-#    if len(tr.P) < 36000:
-#      raise Exception('Length of tracking too short to extract ephemeris')
-
-  nav_msgs = [swiftnav.nav_msg.NavMsg() for tr in track_results]
-  tow_indicies = [[] for tr in track_results]
+def extract_ephemerides(combinedResultObject):
   ephems = {}
-  for n, tr in enumerate(track_results):
-    for i, cpi in enumerate(np.real(tr.P)):
-      tow = nav_msgs[n].update(cpi, tr.coherent_ms[i])
-      if tow is not None:
-        #print tr.prn, tow
-        tow_indicies[n] = (i, tow)
-    if nav_msgs[n].eph_valid:
-      ephems[tr.prn] = (nav_msgs[n], tow_indicies[n])
+  for n, entry in enumerate(combinedResultObject.entries):
+    prn = entry['prn']
+    band = entry['band']
+    isL1CA = band == L1CA
+    isL2C = band == L2C
+    if isL1CA:
+      nav_msg = swiftnav.nav_msg.NavMsg()
+      tow_index = None
+      for i, x in enumerate(combinedResultObject.channelResult(n)):
+        tr, idx = x
+        tow = nav_msg.update(tr.P[idx])
+        if tow is not None:
+          # print tr.prn, tow
+          tow_index = (i, tow)
+      if nav_msg.eph_valid:
+        ephems[prn] = (nav_msg, tow_index)
+    elif isL2C:
+      logger.info("No ephemerides decoding for PRN=%d band=%s" %
+                  (prn, band))
+    else:
+      logger.warn("SV channel PRN=%d band=%s is not supported" %
+                  (prn, band))
+      continue
+
   return ephems
 
 
-def make_chan_meas(track_results, ms, ephems, sampling_freq=16.368e6):
-  cms = []
-  for tr in track_results:
-    i, tow_e = ephems[tr.prn][1]
-    tow = tr.tow[ms]
-    cm = swiftnav.track.ChannelMeasurement(
-      tr.prn,
-      tr.code_phase[ms],
-      tr.code_freq[ms],
-      0,
-      tr.carr_freq[ms] - tr.IF,
-      tow,
-      tr.absolute_sample[ms] / sampling_freq,
-      100
-    )
-    cms += [cm]
-  return (ms, cms)
+def make_chan_meas(combinedResultObject, mss, ephems, samplingFreq):
+  '''
+  Parameters
+  ----------
+  combinedResultObject : object
+    Object with tracking results.
+  mss : list
+    List of sample reference time in milliseconds in growing order.
+  epems : list
+    List of ephemerides object corresponding to tracking result channels.
+
+  Returns
+  -------
+  list
+    List of len(mss), where each element is a tuple of ms index and a list of
+    measurement.
+  '''
+  result = [(ms, {}) for ms in mss]
+  for n, entry in enumerate(combinedResultObject.getEntries()):
+    band = entry['band']
+    prn = entry['prn']
+    if band != L1CA:
+      continue
+    ms_idx = 0
+    ms = mss[ms_idx]
+    for tr, idx in combinedResultObject.channelResult(n):
+      ms_tracked = tr.ms_tracked[idx]
+      if ms_tracked < ms:
+        continue
+      tow = tr.tow[idx]
+      if not isnan(tow):
+        # If ToW is known, make a measurement object.
+        # The actual sample time is usually greater than the requested time.
+        # i, tow_e = ephems[tr.prn][1]
+        cm = swiftnav.track.ChannelMeasurement(
+            swiftnav.signal.GNSSSignal(sat=prn - 1, code=0),
+            tr.code_phase[idx],
+            tr.code_freq[idx],
+            0,
+            tr.carr_freq[idx] - tr.IF,
+            tow,
+            ms_tracked,
+            41,  # SNR
+            100  # Lock
+        )
+        result[ms_idx][1][prn - 1] = cm
+      ms_idx += 1
+      if ms_idx > len(mss):
+        break
+      else:
+        ms = mss[ms_idx]
+  return result
 
 
 def make_nav_meas(cmss, ephems):
   nms = []
   for ms, cms in cmss:
-    navMsgs = [ephems[cm.prn][0] for cm in cms]
-    nms += [swiftnav.track.calc_navigation_measurement(ms/1000.0, cms, navMsgs)]
+    navMsgs = []
+    for key in cms.keys():
+      if ephems.has_key(key):
+        navMsgs.append(ephems[key][0])
+    nms.append(swiftnav.track.calc_navigation_measurement(ms / 1000.0,
+                                                          cms,
+                                                          navMsgs))
   return nms
 
 
@@ -75,22 +129,23 @@ def make_meas(track_results, ms, ephems, sampling_freq=16.368e6, IF=4.092e6):
     tow = tow_e + (ms - tow_i)
     TOTs[i] = 1e-3 * tow
     TOTs[i] += tr.code_phase[ms] / 1.023e6
-    TOTs[i] += (ms/1000.0 - track_results[i].absolute_sample[ms]/sampling_freq) * \
-               track_results[i].code_freq[ms] / 1.023e6
+    TOTs[i] += (ms / 1000.0 - track_results[i].absolute_sample[ms] / sampling_freq) * \
+        track_results[i].code_freq[ms] / 1.023e6
     mean_TOT += TOTs[i]
-    prrs[i] = 299792458 * -(track_results[i].carr_freq[ms] - IF) / 1.57542e9;
-  mean_TOT = mean_TOT/len(track_channels)
-  clock_err, clock_rate_err = (0,0)
-  #double az, el;
+    prrs[i] = 299792458 * -(track_results[i].carr_freq[ms] - IF) / 1.57542e9
+  mean_TOT = mean_TOT / len(track_channels)
+  clock_err, clock_rate_err = (0, 0)
+  # double az, el;
   ref_ecef = np.array([3428027.88064438,   603837.64228578,  5326788.33674493])
   for i in len(track_results):
-    prs[i] = (mean_TOT - TOTs[i])*299792458 + 22980e3
-    #calc_sat_pos(nav_meas[i]->sat_pos, nav_meas[i]->sat_vel, &clock_err, &clock_rate_err, ephemerides[i], TOTs[i]);
-    #wgsecef2azel(nav_meas[i]->sat_pos, ref_ecef, &az, &el);
-    #nav_meas[i]->pseudorange -= tropo_correction(el);
-    prs[i] += clock_err*299792458
-    prrs[i] -= clock_rate_err*299792458
-    nms += [NavigationMeasurement(prs[i], prrs[i], ephems[track_results[i].prn][0].gps_week_num(), TOTs[i], (0,0,0), (0,0,0))]
+    prs[i] = (mean_TOT - TOTs[i]) * 299792458 + 22980e3
+    # calc_sat_pos(nav_meas[i]->sat_pos, nav_meas[i]->sat_vel, &clock_err, &clock_rate_err, ephemerides[i], TOTs[i]);
+    # wgsecef2azel(nav_meas[i]->sat_pos, ref_ecef, &az, &el);
+    # nav_meas[i]->pseudorange -= tropo_correction(el);
+    prs[i] += clock_err * 299792458
+    prrs[i] -= clock_rate_err * 299792458
+    nms += [NavigationMeasurement(prs[i], prrs[i], ephems[track_results[i].prn][
+                                  0].gps_week_num(), TOTs[i], (0, 0, 0), (0, 0, 0))]
   return nms
 
 
@@ -98,15 +153,16 @@ def make_solns(nms):
   return map(swiftnav.pvt.calc_PVT, nms)
 
 
-def navigation(track_results, sampling_freq,
-               ephems=None, mss=range(10000, 35000, 200)):
+def navigation(combinedResultObject,
+               sampling_freq,
+               ephems=None,
+               mss=range(10000, 35000, 200)):
 
   if ephems is None:
-    ephems = extract_ephemerides(track_results)
-  track_results = [tr for tr in track_results if tr.status == 'T' and tr.prn in ephems]
-  if len(track_results) < 4:
+    ephems = extract_ephemerides(combinedResultObject)
+  if combinedResultObject.channelCount() < 4:
     raise Exception('Too few satellites to calculate nav solution')
-  cmss = [make_chan_meas(track_results, ms, ephems, sampling_freq) for ms in mss]
+  cmss = make_chan_meas(combinedResultObject, mss, ephems, sampling_freq)
   nms = make_nav_meas(cmss, ephems)
   ss = make_solns(nms)
   wn = ephems.values()[0][0].gps_week_num()
@@ -168,8 +224,8 @@ def nav_to_kml(nav_solns):
   kml = simplekml.Kml()
 
   nav_results = [s.pos_llh for s, t in nav_solns]
-  lats = np.array([lat*180/np.pi for (lat, lng, hgt) in nav_results])
-  lngs = np.array([lng*180/np.pi for (lat, lng, hgt) in nav_results])
+  lats = np.array([lat * 180 / np.pi for (lat, lng, hgt) in nav_results])
+  lngs = np.array([lng * 180 / np.pi for (lat, lng, hgt) in nav_results])
   hgts = np.array([hgt for (lat, lng, hgt) in nav_results])
   coords = zip(lngs, lats, hgts)
 
