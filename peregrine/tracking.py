@@ -357,7 +357,6 @@ class TrackingChannel(object):
 
     """
 
-    self.start()
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
@@ -368,6 +367,8 @@ class TrackingChannel(object):
     samples_total = len(samples[self.signal]['samples'])
 
     estimated_blksize = self.coherent_ms * self.sampling_freq / 1e3
+
+    self.track_result.status = 'T'
 
     while self.samples_tracked < self.samples_to_track and \
             (sample_index + 2 * estimated_blksize) < samples_total:
@@ -518,11 +519,12 @@ class TrackingChannel(object):
       self.track_result.ms_tracked[self.i] = self.samples_tracked * 1e3 / \
           self.sampling_freq
 
-      self.track_result.status = 'T'
-
       self.i += 1
       if self.i >= self.results_num:
         self.dump()
+
+    if self.i > 0:
+      self.dump()
 
     self.sample_index += samples_processed
 
