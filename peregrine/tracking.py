@@ -1,5 +1,5 @@
 # Copyright (C) 2012,2016 Swift Navigation Inc.
-# Contact: Adel Mamin <adelm@exafore.com>
+# Contact: Adel Mamin <adel.mamin@exafore.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -29,6 +29,7 @@ from peregrine import gps_constants
 from peregrine.acquisition import AcquisitionResult
 from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
+from peregrine.filename_utils import createTrackingOutputFileNames
 
 import logging
 import sys
@@ -361,7 +362,7 @@ class TrackingChannel(object):
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
-      raise ValueError("Incorrent samples offset")
+      raise ValueError("Incorrect samples offset")
 
     sample_index = self.sample_index - samples['sample_index']
     samples_processed = 0
@@ -524,6 +525,8 @@ class TrackingChannel(object):
 
     self.sample_index += samples_processed
     self.track_result.status = 'T'
+    if self.i > 0:
+      self.dump()
 
     return self._get_result()
 
@@ -737,6 +740,7 @@ class TrackingChannelL2C(TrackingChannel):
       self.track_result.tow[self.i] = self.track_result.tow[self.i - 1] + \
           self.coherent_ms
 
+
 class Tracker(object):
   """
   Tracker class.
@@ -851,11 +855,11 @@ class Tracker(object):
                  progressbar.ETA(), ' ',
                  progressbar.Bar()]
       self.pbar = progressbar.ProgressBar(
-                    widgets=widgets,
-                    maxval=samples['samples_total'],
-                    attr={'samples': self.samples['samples_total'],
-                          'sample': 0l},
-                    fd=progress_fd)
+          widgets=widgets,
+          maxval=samples['samples_total'],
+          attr={'samples': self.samples['samples_total'],
+                'sample': 0l},
+          fd=progress_fd)
     else:
       self.pbar = None
 
@@ -899,8 +903,8 @@ class Tracker(object):
 
     if self.pbar:
       self.pbar.finish()
-
-    res = map(lambda chan: chan.dump(), self.tracking_channels)
+    res = map(lambda chan: chan.track_result.makeOutputFileNames(chan.output_file),
+              self.tracking_channels)
 
     fn_analysis = map(lambda x: x[0], res)
     fn_results = map(lambda x: x[1], res)
@@ -999,7 +1003,7 @@ class Tracker(object):
       if self.parallel_channels:
         res = pp.parmap(lambda i: _run_parallel(i, samples),
                         range(len(self.parallel_channels)),
-                        nprocs = len(self.parallel_channels),
+                        nprocs=len(self.parallel_channels),
                         show_progress=False,
                         func_progress=False)
 
@@ -1100,17 +1104,8 @@ class TrackResults:
       How many entries of the tracking results are to be stored into the file.
 
     """
-    output_filename, output_file_extension = os.path.splitext(output_file)
-
-    # mangle the analyses file name with the tracked signal name
-    fn_analysis = output_filename + \
-        (".PRN-%d.%s" % (self.prn + 1, self.signal)) +\
-        output_file_extension
-
-    # mangle the results file name with the tracked signal name
-    fn_results = output_filename + \
-        (".PRN-%d.%s" % (self.prn + 1, self.signal)) +\
-        output_file_extension + '.track_results'
+    # mangle the output file names with the tracked signal name
+    fn_analysis, fn_results = self.makeOutputFileNames(output_file)
 
     if self.print_start:
       mode = 'w'
@@ -1119,7 +1114,11 @@ class TrackResults:
 
     # saving tracking results for navigation stage
     with open(fn_results, mode) as f1:
+      if size != 500:
+        self.resize(size)
       cPickle.dump(self, f1, protocol=cPickle.HIGHEST_PROTOCOL)
+      if size != 500:
+        self.resize(500)
 
     with open(fn_analysis, mode) as f1:
       if self.print_start:
@@ -1156,7 +1155,13 @@ class TrackResults:
         f1.write("%s\n" % self.code_phase_acc[i])
 
     self.print_start = 0
+    return fn_analysis, fn_results
 
+  def makeOutputFileNames(self, outputFileName):
+    # mangle the output file names with the tracked signal name
+    fn_analysis, fn_results = createTrackingOutputFileNames(outputFileName,
+                                                            self.prn + 1,
+                                                            self.signal)
     return fn_analysis, fn_results
 
   def resize(self, n_points):

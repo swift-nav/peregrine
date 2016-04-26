@@ -24,6 +24,10 @@ import peregrine.tracking as tracking
 from peregrine.log import default_logging_config
 from peregrine import defaults
 import peregrine.gps_constants as gps
+from peregrine.tracking_file_utils import removeTrackingOutputFiles
+from peregrine.tracking_file_utils import TrackingResults
+from peregrine.tracking_file_utils import createTrackingDumpOutputFileName
+
 
 class SaveConfigAction(argparse.Action):
 
@@ -37,6 +41,7 @@ class SaveConfigAction(argparse.Action):
     file_hnd.close()
     namespace.no_run = True
 
+
 class LoadConfigAction(argparse.Action):
 
   def __init__(self, option_strings, dest, nargs=None, **kwargs):
@@ -48,19 +53,6 @@ class LoadConfigAction(argparse.Action):
       setattr(namespace, k, v)
     file_hnd.close()
 
-def unpickle_iter(filenames):
-  try:
-    f = [open(filename, "r") for filename in filenames]
-
-    while True:
-      yield [cPickle.load(fh) for fh in f]
-
-  except EOFError:
-    raise StopIteration
-
-  finally:
-    for fh in f:
-      fh.close()
 
 def populate_peregrine_cmd_line_arguments(parser):
   if sys.stdout.isatty():
@@ -171,6 +163,7 @@ def populate_peregrine_cmd_line_arguments(parser):
 
   return signalParam
 
+
 def main():
   default_logging_config()
 
@@ -248,7 +241,7 @@ def main():
     for signal in [gps.L1CA]:
 
       samplesPerCode = int(round(freq_profile['sampling_freq'] /
-                       (gps.l1ca_chip_rate / gps.l1ca_code_length)))
+                                 (gps.l1ca_chip_rate / gps.l1ca_code_length)))
 
       # Get 11ms of acquisition samples for fine frequency estimation
       load_samples(samples=samples,
@@ -286,18 +279,10 @@ def main():
   acq_results.sort(key=attrgetter('snr'), reverse=True)
 
   # Track the acquired satellites
-  track_results_file = args.file + ".track_results"
-  if args.skip_tracking:
-    if not args.skip_navigation:
-      logging.info("Skipping tracking, loading saved tracking results.")
-      try:
-        with open(track_results_file, 'rb') as f:
-          track_results = cPickle.load(f)
-      except IOError:
-        logging.critical("Couldn't open tracking results file '%s'.",
-                         track_results_file)
-        sys.exit(1)
-  else:
+  if not args.skip_tracking:
+    # Remove tracking output files from the previous session.
+    removeTrackingOutputFiles(args.file)
+
     load_samples(samples=samples,
                  filename=args.file,
                  file_format=args.file_format)
@@ -345,26 +330,31 @@ def main():
     logging.debug("Saving tracking results as '%s'" % fn_results)
 
   # Do navigation
-  nav_results_file = args.file + ".nav_results"
   if not args.skip_navigation:
-    track_results_generator = lambda: unpickle_iter(fn_results)
-    for track_results in track_results_generator():
-      nav_solns = navigation(track_results_generator,
-                             freq_profile['sampling_freq'])
-      nav_results = []
-      for s, t in nav_solns:
-        nav_results += [(t, s.pos_llh, s.vel_ned)]
-      if len(nav_results):
-        print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
-            nav_results[0][0],
-            np.degrees(nav_results[0][1][0]), np.degrees(
-                nav_results[0][1][1]), nav_results[0][1][2],
-            nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
-        with open(nav_results_file, 'wb') as f:
-          cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
-        print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
-      else:
-        print "No navigation results."
+    combinedResultObject = TrackingResults(args.file)
+
+    # Dump combined output into a text file
+    with open(createTrackingDumpOutputFileName(args.file), "wt") as f:
+      logging.debug("Creating combined tracking file %s", f.name)
+      combinedResultObject.dump(f)
+
+    samplingFreqHz = freq_profile['sampling_freq']
+    nav_solns = navigation(combinedResultObject, samplingFreqHz)
+    nav_results = []
+    for s, t in nav_solns:
+      nav_results += [(t, s.pos_llh, s.vel_ned)]
+    if len(nav_results):
+      print "First nav solution: t=%s lat=%.5f lon=%.5f h=%.1f vel_ned=(%.2f, %.2f, %.2f)" % (
+          nav_results[0][0],
+          np.degrees(nav_results[0][1][0]), np.degrees(
+              nav_results[0][1][1]), nav_results[0][1][2],
+          nav_results[0][2][0], nav_results[0][2][1], nav_results[0][2][2])
+      nav_results_file = args.file + ".nav_results"
+      with open(nav_results_file, 'wb') as f:
+        cPickle.dump(nav_results, f, protocol=cPickle.HIGHEST_PROTOCOL)
+      print "and %d more are cPickled in '%s'." % (len(nav_results) - 1, nav_results_file)
+    else:
+      print "No navigation results."
 
 if __name__ == '__main__':
   main()
