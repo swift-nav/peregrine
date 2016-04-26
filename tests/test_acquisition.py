@@ -79,16 +79,78 @@ def check_acq_results(filename, prn, doppler, code_phase):
   assert code_phase_diff < 1.0
 
 
-def test_acquisition():
+#def test_acquisition():
+#  """
+#  Test GPS L1C/A acquisition
+#  """
+#  prns = range(1, 33, 5)
+#
+#  # Test with different initial Doppler values
+#  for doppler in [-1000, 0, 1000]:
+#    run_acq_test(doppler, 0, prns, '2bits')
+#
+#  # Test with different initial code phases
+#  # for code_phase in [0, 310, 620, 967]:
+#  #   run_acq_test(-2345, code_phase, prns, '2bits')
+
+def test_acqusition_prn1_m1000():
   """
   Test GPS L1C/A acquisition
   """
-  prns = range(1, 33, 5)
+  run_acq_test(-1000., 0., [1], '2bits')
 
-  # Test with different initial Doppler values
-  for doppler in [-1000, 0, 1000]:
-    run_acq_test(doppler, 0, prns, '2bits')
 
-  # Test with different initial code phases
-  # for code_phase in [0, 310, 620, 967]:
-  #   run_acq_test(-2345, code_phase, prns, '2bits')
+def test_acqusition_prn32_m1000():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(-1000., 0., [32], '2bits')
+
+
+def test_acqusition_prn5_m1000():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(-1000., 0., [5], '2bits')
+
+def test_acqusition_prn1_0():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(0., 0., [1], '2bits')
+
+
+def test_acqusition_prn32_0():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(0., 0., [32], '2bits')
+
+
+def test_acqusition_prn5_0():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(0., 0., [5], '2bits')
+
+def test_acqusition_prn1_p1000():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(1000., 0., [1], '2bits')
+
+
+def test_acqusition_prn32_p1000():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(1000., 0., [32], '2bits')
+
+
+def test_acqusition_prn5_p1000():
+  """
+  Test GPS L1C/A acquisition
+  """
+  run_acq_test(1000., 0., [5], '2bits')
+
+

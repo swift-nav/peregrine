@@ -94,19 +94,17 @@ AMP_MAP = {'amplitude': AmplitudeBase.UNITS_AMPLITUDE,
            'snr-db': AmplitudeBase.UNITS_SNR_DB}
 
 
-def computeTimeDelay(doppler, symbol_index, chip_index, signal):
+def computeDistanceDelay(delay_symbols, delay_chips, signal):
   '''
   Helper function to compute signal delay to match given symbol and chip
-  indexes.
+  delays.
 
   Parameters
   ----------
-  doppler : object
-    Doppler object
-  symbol_index : long
-    Index of the symbol or pseudosymbol
-  chip_index : long
-    Chip index
+  delay_symbols : float, optional
+    Delay in symbols
+  delay_chips : float, optional
+    Delay in chips
   signal : object
     Signal object
 
@@ -116,13 +114,16 @@ def computeTimeDelay(doppler, symbol_index, chip_index, signal):
      User's time in seconds when the user starts receiving the given symbol
      and code.
   '''
-  if symbol_index == 0 and chip_index == 0:
-    return 0.
 
-  symbolDelay_s = (1. / signal.SYMBOL_RATE_HZ) * symbol_index
-  chipDelay_s = (1. / signal.CODE_CHIP_RATE_HZ) * chip_index
-  distance_m = doppler.computeDistanceM(symbolDelay_s + chipDelay_s)
-  return distance_m / scipy.constants.c
+  if delay_symbols is not None:
+    symbolDelay_s = (1. / signal.SYMBOL_RATE_HZ) * delay_symbols
+  else:
+    symbolDelay_s = 0.
+  if delay_chips is not None:
+    chipDelay_s = (1. / signal.CODE_CHIP_RATE_HZ) * delay_chips
+  else:
+    chipDelay_s = 0.
+  return (symbolDelay_s + chipDelay_s) * scipy.constants.c
 
 
 def prepareArgsParser():
@@ -161,10 +162,12 @@ def prepareArgsParser():
       namespace.doppler_type = "zero"
       namespace.doppler_value = 0.
       namespace.doppler_speed = 0.
-      namespace.distance = 0.
+      namespace.distance = None
       namespace.tec = 50.
       namespace.doppler_amplitude = 0.
       namespace.doppler_period = 1.
+      namespace.symbol_delay = None
+      namespace.chip_delay = None
 
       # Source message data
       namespace.message_type = "zero"
@@ -231,9 +234,9 @@ def prepareArgsParser():
     def doUpdate(self, sv, parser, namespace, values, option_string):
       if isinstance(sv, GPSSatellite):
         if sv.l1caEnabled:
-          frequency_hz = signals.GPS.L1CA.CENTER_FREQUENCY_HZ
+          signal = signals.GPS.L1CA
         elif sv.l2cEnabled:
-          frequency_hz = signals.GPS.L2C.CENTER_FREQUENCY_HZ
+          signal = signals.GPS.L2C
         else:
           raise ValueError("Signal band must be specified before doppler")
       elif isinstance(sv, GLOSatellite):
@@ -246,21 +249,31 @@ def prepareArgsParser():
       else:
         raise ValueError("Signal band must be specified before doppler")
 
+      frequency_hz = signal.CENTER_FREQUENCY_HZ
+
+      # Select distance: either from a distance parameter or from delays
+      if namespace.symbol_delay is not None or namespace.chip_delay is not None:
+        distance = computeDistanceDelay(namespace.symbol_delay,
+                                        namespace.chip_delay,
+                                        signal)
+      else:
+        distance = namespace.distance if namespace.distance is not None else 0.
+
       if namespace.doppler_type == "zero":
-        doppler = zeroDoppler(namespace.distance, namespace.tec, frequency_hz)
+        doppler = zeroDoppler(distance, namespace.tec, frequency_hz)
       elif namespace.doppler_type == "const":
-        doppler = constDoppler(namespace.distance,
+        doppler = constDoppler(distance,
                                namespace.tec,
                                frequency_hz,
                                namespace.doppler_value)
       elif namespace.doppler_type == "linear":
-        doppler = linearDoppler(namespace.distance,
+        doppler = linearDoppler(distance,
                                 namespace.tec,
                                 frequency_hz,
                                 namespace.doppler_value,
                                 namespace.doppler_speed)
       elif namespace.doppler_type == "sine":
-        doppler = sineDoppler(namespace.distance,
+        doppler = sineDoppler(distance,
                               namespace.tec,
                               frequency_hz,
                               namespace.doppler_value,
@@ -428,8 +441,6 @@ def prepareArgsParser():
               'gps_sv': encoded_gps_sv,
               'profile': namespace.profile,
               'encoder': namespace.encoder,
-              'chip_delay': namespace.chip_delay,
-              'symbol_delay': namespace.symbol_delay,
               'generate': namespace.generate,
               'noise_sigma': namespace.noise_sigma,
               'filter_type': namespace.filter_type,
@@ -449,8 +460,6 @@ def prepareArgsParser():
       loaded = json.load(values)
       namespace.profile = loaded['profile']
       namespace.encoder = loaded['encoder']
-      namespace.chip_delay = loaded['chip_delay']
-      namespace.symbol_delay = loaded['symbol_delay']
       namespace.generate = loaded['generate']
       namespace.noise_sigma = loaded['noise_sigma']
       namespace.filter_type = loaded['filter_type']
@@ -493,15 +502,25 @@ def prepareArgsParser():
 
   delayGrp = parser.add_argument_group("Signal Delay Control",
                                        "Signal delay control parameters")
-
-  delayGrp.add_argument('--distance',
-                        type=float,
-                        help="Distance in meters for signal delay (initial)",
-                        action=UpdateDopplerType)
+  # Common delays: ionosphere
   delayGrp.add_argument('--tec',
                         type=float,
                         help="Ionosphere TEC for signal delay"
                         " (electrons per meter^2)",
+                        action=UpdateDopplerType)
+  # Distance control over direct parameter
+  delayGrp.add_argument('--distance',
+                        type=float,
+                        help="Distance in meters for signal delay (initial)",
+                        action=UpdateDopplerType)
+  # Distance control over delays
+  delayGrp.add_argument('--symbol-delay',
+                        type=float,
+                        help="Initial symbol index",
+                        action=UpdateDopplerType)
+  delayGrp.add_argument('--chip-delay',
+                        type=float,
+                        help="Initial chip index",
                         action=UpdateDopplerType)
   dopplerGrp.add_argument('--doppler-amplitude',
                           type=float,
@@ -566,12 +585,6 @@ def prepareArgsParser():
                           choices=['01', '1', '0'],
                           help="GPS L2 CL code type",
                           action=UpdateBands)
-  delayGrp.add_argument('--symbol_delay',
-                        type=int,
-                        help="Initial symbol index")
-  delayGrp.add_argument('--chip_delay',
-                        type=int,
-                        help="Initial chip index")
   parser.add_argument('--filter-type',
                       default='none',
                       choices=['none', 'lowpass', 'bandpass'],
@@ -857,34 +870,8 @@ def main(args=None):
   # Check which signals are enabled on each of satellite to select proper
   # output encoder
   enabledBands = computeEnabledBands(args.gps_sv, outputConfig)
-
-  enabledGPSL1 = enabledBands[outputConfig.GPS.L1.NAME]
-  enabledGPSL2 = enabledBands[outputConfig.GPS.L2.NAME]
-
   # Configure data encoder
   encoder = selectEncoder(args.encoder, outputConfig, enabledBands)
-
-  if enabledGPSL1:
-    signal = signals.GPS.L1CA
-  elif enabledGPSL2:
-    signal = signals.GPS.L2C
-  else:
-    signal = signals.GPS.L1CA
-
-  # Compute time delay for the needed bit/chip number
-  # This delay is computed for the first satellite
-  initial_symbol_idx = 0  # Initial symbol index
-  initial_chip_idx = 0  # Initial chip index
-  if args.chip_delay is not None:
-    initial_chip_idx = args.chip_delay
-  if args.symbol_delay is not None:
-    initial_chip_idx = args.symbol_delay
-
-  time0_s = computeTimeDelay(args.gps_sv[0].doppler,
-                             initial_symbol_idx,
-                             initial_chip_idx,
-                             signal)
-  logger.debug("Computed symbol/chip delay={} seconds".format(time0_s))
 
   startTime_s = time.time()
   n_samples = long(outputConfig.SAMPLE_RATE_HZ * args.generate)
@@ -893,6 +880,7 @@ def main(args=None):
                format(n_samples, args.generate))
 
   pbar = makeProgressBar(args.progress_bar, n_samples)
+  time0_s = 0.
 
   generateSamples(args.output,
                   args.gps_sv,

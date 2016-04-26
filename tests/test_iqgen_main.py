@@ -22,7 +22,7 @@ from peregrine.iqgen.if_iface import NormalRateConfig
 from peregrine.iqgen.if_iface import HighRateConfig
 from peregrine.iqgen.if_iface import CustomRateConfig
 
-from peregrine.iqgen.iqgen_main import computeTimeDelay
+from peregrine.iqgen.iqgen_main import computeDistanceDelay
 from peregrine.iqgen.iqgen_main import prepareArgsParser
 from peregrine.iqgen.iqgen_main import selectOutputConfig
 from peregrine.iqgen.iqgen_main import printOutputConfig
@@ -69,28 +69,26 @@ import argparse
 from scipy.constants import c as C
 
 
-def test_computeTimeDelay0():
+def test_computeDistanceDelay0():
   '''
   Utility test
   '''
-  doppler = DopplerPoly(distance0_m=0., tec_epm2=0., coeffs=())
-  symbolIndex = 0l
-  chipIndex = 0l
+  symbolIndex = 0.
+  chipIndex = 0.
   signal = GPS.L1CA
-  delay = computeTimeDelay(doppler, symbolIndex, chipIndex, signal)
+  delay = computeDistanceDelay(symbolIndex, chipIndex, signal)
   assert delay == 0.
 
 
-def test_computeTimeDelay1():
+def test_computeDistanceDelay1():
   '''
   Utility test
   '''
-  doppler = DopplerPoly(distance0_m=0., tec_epm2=0., coeffs=())
-  symbolIndex = 1l
-  chipIndex = 0l
+  symbolIndex = 1.
+  chipIndex = 0.
   signal = GPS.L1CA
-  delay = computeTimeDelay(doppler, symbolIndex, chipIndex, signal)
-  assert delay == 0.
+  delay = computeDistanceDelay(symbolIndex, chipIndex, signal)
+  assert delay == 1. / signal.SYMBOL_RATE_HZ * C
 
 
 def test_argparser_init():

@@ -19,15 +19,14 @@ from peregrine.iqgen.bits.satellite_gps import GPSSatellite
 from peregrine.iqgen.bits.satellite_glo import GLOSatellite
 from peregrine.iqgen.bits.filter_lowpass import LowPassFilter
 from peregrine.iqgen.bits.filter_bandpass import BandPassFilter
-
 from peregrine.iqgen.bits.amplitude_base import NoiseParameters
-
 from peregrine.iqgen.bits import signals
 
 import sys
 import traceback
 import logging
 import scipy
+import scipy.constants
 import numpy
 import time
 import copy
@@ -457,9 +456,15 @@ def printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder):
     _d2 = signal2.calcDopplerShiftHz(_dist0_m, _speed_mps)
     _f1 = signal1.CENTER_FREQUENCY_HZ
     _f2 = signal2.CENTER_FREQUENCY_HZ
-    _bit = signal1.getSymbolIndex(_svTime0_s)
-    _c1 = signal1.getCodeChipIndex(_svTime0_s)
-    _c2 = signal2.getCodeChipIndex(_svTime0_s)
+    _signal_delay1_s = _sv.getDoppler().computeSignalDelayS(
+        signal1.CENTER_FREQUENCY_HZ)
+    _signal_delay2_s = _sv.getDoppler().computeSignalDelayS(
+        signal2.CENTER_FREQUENCY_HZ)
+
+    _bit1 = signal1.getSymbolIndex(_signal_delay1_s)
+    _bit2 = signal1.getSymbolIndex(_signal_delay1_s)
+    _c1 = signal1.getCodeChipIndex(_signal_delay1_s)
+    _c2 = signal2.getCodeChipIndex(_signal_delay2_s)
 
     print "{} = {{".format(_svNo)
     print "  .amplitude:  {}".format(_amp)
@@ -468,25 +473,26 @@ def printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder):
       print "  .l1_message: {}".format(_msg1)
     if _sv.isBandEnabled(band2, outputConfig):
       print "  .l2_message: {}".format(_msg2)
-    if _l2ct:
-      print "  .l2_cl_type: {}".format(_l2ct)
     print "  .epoc:"
     print "    .SNR (dB):   {}".format(svSNR_db)
-    if _sv.isBandEnabled(band1, outputConfig):
-      print "    .L1 CNo:     {}".format(svCNoL1)
-    if _sv.isBandEnabled(band2, outputConfig):
-      print "    .L2 CNo:     {}".format(svCNoL2)
-    print "    .distance:   {} m".format(_dist0_m)
+    print "    .distance:   {} m".format(_sv.getDoppler().distance0_m)
     print "    .speed:      {} m/s".format(_speed_mps)
     if _sv.isBandEnabled(band1, outputConfig):
+      print "    .l1 CNo:     {}".format(svCNoL1)
       print "    .l1_doppler: {} hz @ {}".format(_d1, _f1)
-    if _sv.isBandEnabled(band2, outputConfig):
-      print "    .l2_doppler: {} hz @ {}".format(_d2, _f2)
-    print "    .symbol:     {}".format(_bit)
-    if _sv.isBandEnabled(band1, outputConfig):
+      print "    .l1_delay:   {} ms".format(_signal_delay1_s * 1000.)
+      print "    .l1_PR:      {} m".format(_signal_delay1_s * scipy.constants.c)
+      print "    .symbol:     {}".format(_bit1)
       print "    .l1_chip:    {}".format(_c1)
     if _sv.isBandEnabled(band2, outputConfig):
+      print "    .l2 CNo:     {}".format(svCNoL2)
+      print "    .l2_doppler: {} hz @ {}".format(_d2, _f2)
+      print "    .l2_delay:   {} ms".format(_signal_delay2_s * 1000.)
+      print "    .l1_PR:      {} m".format(_signal_delay2_s * scipy.constants.c)
+      print "    .symbol:     {}".format(_bit2)
       print "    .l2_chip:    {}".format(_c2)
+      if _l2ct:
+        print "  .l2_cl_type: {}".format(_l2ct)
     print "}"
 
 
