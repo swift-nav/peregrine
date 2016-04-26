@@ -9,7 +9,6 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
-import os
 import math
 import parallel_processing as pp
 import multiprocessing as mp
@@ -29,7 +28,7 @@ from peregrine import gps_constants
 from peregrine.acquisition import AcquisitionResult
 from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
-from peregrine.filename_utils import createTrackingOutputFileNames
+from peregrine.tracking_file_utils import createTrackingOutputFileNames
 
 import logging
 import sys
@@ -1195,7 +1194,7 @@ class TrackResults:
       if isinstance(self.__dict__[k], np.ndarray):
         # If np.ndarray, elements might be floats, so compare accordingly.
         if any(np.greater((self.__dict__[k] - other.__dict__[k]),
-               np.ones(len(self.__dict__[k])) * 10e-6)):
+                          np.ones(len(self.__dict__[k])) * 10e-6)):
           return False
       elif self.__dict__[k] != other.__dict__[k]:
         return False
