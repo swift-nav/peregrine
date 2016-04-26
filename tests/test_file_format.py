@@ -8,20 +8,35 @@ import os
 
 SAMPLE_FILE_NAME = 'sample_data_in_piksi_format.bin'
 
-def test_file_formats():
+def test_file_format_1bit():
   """
-  Test different file formats:
-  '1bit'
-  '1bit_x2'
-  '2bits'
-  '2bits_x2'
-  '2bits_x4'
+  Test different file formats: '1bit'
   """
   run_acq_test(1000, 0, [1], '1bit')
-  run_acq_test(1000, 0, [1], '1bit_x2')
+
+def test_file_format_2bits():
+  """
+  Test different file formats: '2bits'
+  """
   run_acq_test(1000, 0, [1], '2bits')
+
+def test_file_format_1bitx2():
+  """
+  Test different file formats: '1bit_x2'
+  """
+  run_acq_test(1000, 0, [1], '1bit_x2')
+
+def test_file_format_2bitsx2():
+  """
+  Test different file formats: '2bits_x2'
+  """
   run_acq_test(1000, 0, [1], '2bits_x2')
-  run_acq_test(1000, 0, [1], '2bits_x4')
+
+
+def test_file_formats():
+  """
+  Test different file formats: 'piksi'
+  """
 
   # test 'piksi' format
   val = generate_piksi_sample_file(SAMPLE_FILE_NAME)

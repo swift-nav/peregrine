@@ -106,7 +106,7 @@ class GPS:
       long
         Code chip index
       '''
-      return long(svTime_s * GPS.L1CA.CODE_CHIP_RATE_HZ)
+      return (svTime_s * GPS.L1CA.CODE_CHIP_RATE_HZ)
 
   class L2C:
     '''
@@ -170,7 +170,7 @@ class GPS:
       long
         Code chip index
       '''
-      return long(svTime_s * GPS.L2C.CODE_CHIP_RATE_HZ)
+      return (svTime_s * GPS.L2C.CODE_CHIP_RATE_HZ)
 
 # GLONASS L1
 GLONASS_L1_CENTER_FREQUENCY_HZ = 1602000000l
@@ -246,7 +246,7 @@ class __GLONASS_L1L2Base(object):
     long
       Symbol index
     '''
-    return svTime_s * self.SYMBOL_RATE_HZ
+    return long(svTime_s * self.SYMBOL_RATE_HZ)
 
   def getCodeChipIndex(self, svTime_s):
     '''
