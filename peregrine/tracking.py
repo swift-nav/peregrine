@@ -250,13 +250,12 @@ class TrackingChannel(object):
 
     logger.info("[PRN: %d (%s)] Tracking is started. "
                 "IF: %.1f, Doppler: %.1f, code phase: %.1f, "
-                "sample channel: %d sample index: %d" %
+                "sample index: %d" %
                 (self.prn + 1,
                  self.signal,
                  self.IF,
                  self.acq.doppler,
                  self.acq.code_phase,
-                 self.acq.sample_channel,
                  self.acq.sample_index))
 
   def get_index(self):
@@ -358,6 +357,7 @@ class TrackingChannel(object):
 
     """
 
+    self.start()
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
@@ -518,14 +518,13 @@ class TrackingChannel(object):
       self.track_result.ms_tracked[self.i] = self.samples_tracked * 1e3 / \
           self.sampling_freq
 
+      self.track_result.status = 'T'
+
       self.i += 1
       if self.i >= self.results_num:
         self.dump()
 
     self.sample_index += samples_processed
-    self.track_result.status = 'T'
-    if self.i > 0:
-      self.dump()
 
     return self._get_result()
 
@@ -1083,10 +1082,6 @@ class TrackResults:
     self.coherent_ms = np.zeros(n_points)
     self.signal = signal
     self.ms_tracked = np.zeros(n_points)
-
-  def __str__(self):
-    return "PRN %2d (%s) %s" % \
-        (self.prn + 1, self.signal, self.status)
 
   def dump(self, output_file, size):
     """
