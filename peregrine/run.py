@@ -54,7 +54,6 @@ class LoadConfigAction(argparse.Action):
     file_hnd.close()
 
 
-
 def populate_peregrine_cmd_line_arguments(parser):
   if sys.stdout.isatty():
     progress_bar_default = 'stdout'
@@ -97,7 +96,7 @@ def populate_peregrine_cmd_line_arguments(parser):
 
   skipExcl.add_argument("--skip-samples",
                         type=int,
-                        default=None,
+                        default=0,
                         metavar='N_SAMPLES',
                         help="How many samples to skip. Optional.")
 

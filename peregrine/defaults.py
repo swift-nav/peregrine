@@ -83,17 +83,17 @@ freq_profile_normal_rate = {
     'GPS_L2_IF': 7.4e6,
     'sampling_freq': 24.84375e6}
 
-# 'normal_rate' frequencies profile
+# 'high_rate' frequencies profile
 freq_profile_high_rate = {
-    'GPS_L1_IF': freq_profile_normal_rate['GPS_L1_IF'],
-    'GPS_L2_IF': freq_profile_normal_rate['GPS_L2_IF'],
+    'GPS_L1_IF': 14.58e6,
+    'GPS_L2_IF': 7.4e6,
     'sampling_freq': 99.375e6}
 
 freq_profile_lookup = {
     'custom_rate': freq_profile_peregrine,
-    'low_rate':    freq_profile_low_rate,
+    'low_rate': freq_profile_low_rate,
     'normal_rate': freq_profile_normal_rate,
-    'high_rate':   freq_profile_high_rate}
+    'high_rate': freq_profile_high_rate}
 
 L1CA_CHANNEL_BANDWIDTH_HZ = 1000
 L2C_CHANNEL_BANDWIDTH_HZ = 1000
