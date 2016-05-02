@@ -77,7 +77,7 @@ def nav_bit_hypotheses(n_ms):
     return [k for k,v in itertools.groupby(sorted(hs))]
 
 def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False, coherent = 0, nav_bit_hypoth = None):
-    from swiftnav.correlate import track_correlate
+    from swiftnav.correlate import track_correlate_
     code_freq_shift = (doppler / gps.l1) * gps.chip_rate
     samples_per_chip = settings.samplingFreq / (gps.chip_rate + code_freq_shift)
     samples_per_code = samples_per_chip * gps.chips_per_code
@@ -93,12 +93,20 @@ def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False,
     costas_q = 0.0
     for loopCnt in range(n_ms):
         rawSignal = signal[numSamplesToSkip:]#[:blksize_]
-        I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate_(
+        E, P, L, blksize, remCodePhase, remCarrPhase = track_correlate_(
                             rawSignal,
                             code_freq_shift + gps.chip_rate,
                             remCodePhase,
                             doppler + settings.IF,
-                            remCarrPhase, ca_code, settings)
+                            remCarrPhase, ca_code, settings.samplingFreq)
+
+        I_E = E.real
+        Q_E = E.imag
+        I_P = P.real
+        Q_P = P.imag
+        I_L = L.real
+        Q_L = L.imag
+
         numSamplesToSkip += blksize
         #print "@ %d, I_P = %.0f, Q_P = %.0f" % (loopCnt, I_P, Q_P)
         i_p.append(I_P)
