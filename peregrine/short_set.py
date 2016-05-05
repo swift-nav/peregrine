@@ -561,6 +561,18 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
                                                 ephem, settings,
                                                 n_codes_integrate)
 
+        # If acquisition failed, update the cache accordingly and abort
+        if len(acqed)==0:
+            logger.error("Acquisition failed, aborting processing of this capture")
+            if settings.useCache:
+                if not os.path.exists(obs_cache_dir):
+                    os.makedirs(obs_cache_dir)
+                with open(obs_cache_file, 'wb') as f:
+                    cPickle.dump(([], None, None), f,
+                                 protocol=cPickle.HIGHEST_PROTOCOL)
+                logger.error("Marked failed acquisition in cache")
+            return
+
         # Rearrange to put sat with smallest range-rate first.
         # This makes graphs a bit less hairy.
         acqed.sort(key = lambda a: abs(a.doppler))
