@@ -814,6 +814,7 @@ class Tracker(object):
                channels,
                ms_to_track,
                sampling_freq,
+               check_l2c_mask=False,
                l2c_handover=True,
                progress_bar_output='none',
                loop_filter_class=AidedTrackingLoop,
@@ -870,6 +871,7 @@ class Tracker(object):
     self.tracker_options = tracker_options
     self.output_file = output_file
     self.l2c_handover = l2c_handover
+    self.check_l2c_mask = check_l2c_mask
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
     self.stage2_loop_filter_params = stage2_loop_filter_params
@@ -999,6 +1001,12 @@ class Tracker(object):
     """
     if not acq:
       return
+
+    l2c_handover = self.l2c_handover
+
+    if self.check_l2c_mask and (gps_constants.L2C_CAPB & (0x1 << acq.prn) == 0):
+      l2c_handover = False
+
     parameters = {'acq': acq,
                   'samples': self.samples,
                   'loop_filter_class': self.loop_filter_class,
@@ -1006,7 +1014,7 @@ class Tracker(object):
                   'output_file': self.output_file,
                   'samples_to_track': self.samples_to_track,
                   'sampling_freq': self.sampling_freq,
-                  'l2c_handover': self.l2c_handover,
+                  'l2c_handover': l2c_handover,
                   'show_progress': self.show_progress,
                   'correlator': self.correlator,
                   'stage2_coherent_ms': self.stage2_coherent_ms,
