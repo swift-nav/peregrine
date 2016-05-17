@@ -77,6 +77,11 @@ def populate_peregrine_cmd_line_arguments(parser):
                       default=False,
                       help="Do not generate output.")
 
+  parser.add_argument("--check-l2c-mask",
+                      default=False,
+                      help="check L2C capabilities mask for L2C handover",
+                      action="store_true")
+
   parser.add_argument('--save-config',
                       type=argparse.FileType('wt'),
                       metavar='FILE_NAME',
@@ -302,7 +307,8 @@ def main():
                                stage2_loop_filter_params=stage2_params,
                                tracker_options=tracker_options,
                                output_file=args.file,
-                               progress_bar_output=args.progress_bar)
+                               progress_bar_output=args.progress_bar,
+                               check_l2c_mask=args.check_l2c_mask)
     # The tracking channels are designed to support batch processing.
     # In the batch processing mode the data samples are provided in
     # batches (chunks) of 'defaults.processing_block_size' bytes size.
