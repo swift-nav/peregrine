@@ -16,6 +16,10 @@ addons:
     - python-numpy
     - python-cython
     - python-dev
+    - libopenblas-dev
+    - liblapack-dev
+    - gfortran
+    - g++
 
 install:
   - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/libswiftnav/build/install/usr/local/lib
