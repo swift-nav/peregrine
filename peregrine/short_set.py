@@ -609,9 +609,9 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
 
     # Revise the prior state vector based on this new estimate of capture time
     r_better, v_better = prior_traj(t_better)
-    delta_t = t_better.second - t_prior.second + (t_better.microsecond - t_prior.microsecond)*1e-6
+    delta_t = (t_better - t_prior).total_seconds()
     delta_r = np.linalg.norm(np.array(r_better) - r_prior)
-    print "By minimizing doppler residuals, adjusted the prior time and position by %s seconds, %.1f km" % (
+    print "By minimizing doppler residuals, adjusted the prior time and position by %.6s seconds, %.3f km" % (
         delta_t, delta_r/ 1e3)
     pred_ranges, pred_dopplers, times = predict_observables(
         prior_traj, t_better, acqed_prns, ephem, 1e-9)
