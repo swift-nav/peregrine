@@ -44,7 +44,6 @@ def get_skip_params(skip_samples, skip_ms):
   return (skip_param, skip_val)
 
 
-
 def generate_2bits_x4_sample_file(filename):
   sample_block_size = 4  # [bits]
   s_file = np.memmap(filename, offset=0, dtype=np.uint8, mode='r')
@@ -135,6 +134,7 @@ def generate_sample_file(gps_sv_prn, init_doppler,
   params += ['--generate', str(generate)]
   params += ['--output', sample_file]
   params += ['--profile', freq_profile]
+  params += ['-j 4']
   print params
   with patch.object(sys, 'argv', params):
     iqgen.main()

@@ -22,7 +22,7 @@ def get_acq_result_file_name(sample_file):
 
 def run_acq_test(init_doppler, init_code_phase,
                  prns, file_format,
-                 freq_profile='normal_rate',
+                 freq_profile='low_rate',
                  skip_samples=None, skip_ms=None):
 
   if skip_samples is not None:
@@ -100,51 +100,11 @@ def test_acqusition_prn1_m1000():
   run_acq_test(-1000., 0., [1], '2bits')
 
 
-def test_acqusition_prn32_m1000():
-  """
-  Test GPS L1C/A acquisition
-  """
-  run_acq_test(-1000., 0., [32], '2bits')
-
-
-def test_acqusition_prn5_m1000():
-  """
-  Test GPS L1C/A acquisition
-  """
-  run_acq_test(-1000., 0., [5], '2bits')
-
-def test_acqusition_prn1_0():
-  """
-  Test GPS L1C/A acquisition
-  """
-  run_acq_test(0., 0., [1], '2bits')
-
-
 def test_acqusition_prn32_0():
   """
   Test GPS L1C/A acquisition
   """
   run_acq_test(0., 0., [32], '2bits')
-
-
-def test_acqusition_prn5_0():
-  """
-  Test GPS L1C/A acquisition
-  """
-  run_acq_test(0., 0., [5], '2bits')
-
-def test_acqusition_prn1_p1000():
-  """
-  Test GPS L1C/A acquisition
-  """
-  run_acq_test(1000., 0., [1], '2bits')
-
-
-def test_acqusition_prn32_p1000():
-  """
-  Test GPS L1C/A acquisition
-  """
-  run_acq_test(1000., 0., [32], '2bits')
 
 
 def test_acqusition_prn5_p1000():
@@ -154,3 +114,13 @@ def test_acqusition_prn5_p1000():
   run_acq_test(1000., 0., [5], '2bits')
 
 
+def test_skip_params():
+  """
+  Test different skip parameters:
+  --skip_samples
+  and
+  --skip_ms
+
+  """
+  run_acq_test(1000, 0, [1], '1bit', skip_samples=1000)
+  run_acq_test(1000, 0, [1], '1bit', skip_ms=50)
