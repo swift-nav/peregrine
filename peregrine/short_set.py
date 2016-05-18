@@ -71,7 +71,7 @@ def nav_bit_hypotheses(n_ms):
             return [ [1]*n_ms, [-1]*n_ms]
         return [b + f for b in [[1]*20, [-1]*20] for f in fill_remainder(n_ms - 20)]
     hs = []
-    for nav_edge_phase in range(1,min(n_ms,20)):
+    for nav_edge_phase in range(1,min(n_ms,21)):
         h = [([1]*nav_edge_phase) + f for f in fill_remainder(n_ms - nav_edge_phase)]
         hs += h
     return [k for k,v in itertools.groupby(sorted(hs))]
