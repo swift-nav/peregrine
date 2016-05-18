@@ -75,9 +75,8 @@ def get_tr_loop_res_file_name(sample_file, prn, band):
   return tr_loop_fn
 
 
-def run_track_test(expected_lock_ratio, init_doppler, init_code_phase,
-                   prns, file_format,
-                   freq_profile='low_rate',
+def run_track_test(samples_file, expected_lock_ratio, init_doppler,
+                   init_code_phase, prn, file_format, freq_profile,
                    skip_samples=None, skip_ms=None,
                    pipelining=None, short_long_cycles=None):
 
@@ -85,40 +84,34 @@ def run_track_test(expected_lock_ratio, init_doppler, init_code_phase,
 
   skip_param, skip_val = get_skip_params(skip_samples, skip_ms)
 
-  for prn in prns:
-    samples_filename = generate_sample_file(prn, init_doppler,
-                                   init_code_phase,
-                                   file_format, freq_profile, generate=10)
+  run_peregrine(samples_file, file_format, freq_profile,
+                skip_param, skip_val, skip_tracking=False,
+                pipelining=pipelining, short_long_cycles=short_long_cycles)
 
-    run_peregrine(samples_filename, file_format, freq_profile,
-                  skip_param, skip_val, skip_tracking=False,
-                  pipelining=pipelining, short_long_cycles=short_long_cycles)
+  for band in bands:
+    dopp_ratio = 1
+    if band == "l2c":
+      dopp_ratio = l2 / l1
+    run_tracking_loop(prn, band, init_doppler * dopp_ratio, init_code_phase,
+                      samples_file, file_format, freq_profile, 0,
+                      pipelining=pipelining,
+                      short_long_cycles=short_long_cycles)
 
-    for band in bands:
-      dopp_ratio = 1
-      if band == "l2c":
-        dopp_ratio = l2 / l1
-      run_tracking_loop(prn, band, init_doppler * dopp_ratio, init_code_phase,
-                        samples_filename, file_format, freq_profile, 0,
-                        pipelining=pipelining,
-                        short_long_cycles=short_long_cycles)
+  #code_phase = propagate_code_phase(init_code_phase,
+                 #get_sampling_freq(freq_profile),
+                 #skip_param, skip_val)
 
-    #code_phase = propagate_code_phase(init_code_phase,
-                   #get_sampling_freq(freq_profile),
-                   #skip_param, skip_val)
+  check_per_track_results(expected_lock_ratio, samples_file, prn, bands,
+                          pipelining, short_long_cycles)
 
-    check_per_track_results(expected_lock_ratio, samples_filename, prn, bands,
-                            pipelining, short_long_cycles)
+  check_tr_loop_track(expected_lock_ratio, samples_file, prn, bands,
+                      pipelining, short_long_cycles)
 
-    check_tr_loop_track(expected_lock_ratio, samples_filename, prn, bands,
-                        pipelining, short_long_cycles)
-
-    # Clean-up.
-    os.remove(get_acq_result_file_name(samples_filename))
-    for band in bands:
-      os.remove(get_peregrine_tr_res_file_name(samples_filename, prn, band))
-      os.remove(get_tr_loop_res_file_name(samples_filename, prn, band))
-    os.remove(samples_filename)
+  # Clean-up.
+  os.remove(get_acq_result_file_name(samples_file))
+  for band in bands:
+    os.remove(get_peregrine_tr_res_file_name(samples_file, prn, band))
+    os.remove(get_tr_loop_res_file_name(samples_file, prn, band))
 
 
 def check_per_track_results(expected_lock_ratio, filename, prn, bands,
@@ -179,9 +172,24 @@ def test_tracking():
   Test GPS L1C/A and L2C tracking
   """
 
-  run_track_test(0.7, 555, 0, [1], '2bits_x2')
-  run_track_test(0.3, 333, 0, [1], '2bits_x2', pipelining=0.5)
-  run_track_test(0.3, -100, 0, [1], '2bits_x2', short_long_cycles=0.5)
+  prn = 1
+  init_doppler = 555
+  init_code_phase = 0
+  file_format = '2bits_x2'
+  freq_profile = 'low_rate'
+
+  samples = generate_sample_file(prn, init_doppler,
+                                 init_code_phase,
+                                 file_format, freq_profile, generate=5)
+
+  run_track_test(samples, 0.6, init_doppler, init_code_phase, prn, file_format,
+    freq_profile)
+  run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
+    freq_profile, pipelining=0.5)
+  run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
+    freq_profile, short_long_cycles=0.5)
+
+  os.remove(samples)
 
   # test --no-run
   run_tracking_loop(1, L1CA, 0, 0, 'dummy', '2bits_x2', 'low_rate', 0,
