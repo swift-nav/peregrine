@@ -20,9 +20,10 @@ from swiftnav.track import AliasDetector
 from swiftnav.track import AidedTrackingLoop
 from swiftnav.correlate import track_correlate
 from swiftnav.nav_msg import NavMsg
+from swiftnav.nav_msg import GpsL1CADecodedData
 from swiftnav.cnav_msg import CNavMsg
 from swiftnav.cnav_msg import CNavMsgDecoder
-from swiftnav.ephemeris import Ephemeris
+from swiftnav.signal import signal_from_code_index
 from peregrine import defaults
 from peregrine import gps_constants
 from peregrine.acquisition import AcquisitionResult
@@ -654,8 +655,9 @@ class TrackingChannelL1CA(TrackingChannel):
         logger.info("[PRN: %d (%s)] ToW %d" %
                     (self.prn + 1, self.signal, tow))
       if self.nav_msg.subframe_ready():
-        eph = Ephemeris()
-        res = self.nav_msg.process_subframe(eph)
+        data = GpsL1CADecodedData()
+        sid = signal_from_code_index(0, self.prn)
+        res = self.nav_msg.process_subframe(sid, data)
         if res < 0:
           logger.error("[PRN: %d (%s)] Subframe decoding error %d" %
                        (self.prn + 1, self.signal, res))
