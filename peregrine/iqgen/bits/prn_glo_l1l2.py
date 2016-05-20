@@ -14,7 +14,7 @@ functions related to GLONASS G1/G2 PRN processing
 
 """
 import numpy
-from peregrine.include.glo_ca_code import value as GLONASS_CACode
+from peregrine.include.generateGLOcode import GLOCode as GLONASS_CACode
 
 # Binary CA code (0/1)
 caCode = (GLONASS_CACode < 0).astype(numpy.uint8)
