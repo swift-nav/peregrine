@@ -7,32 +7,11 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import peregrine.run
-import peregrine.defaults as defaults
-import peregrine.gps_constants as gps
-import sys
-import cPickle
 import os
-import numpy as np
 
-from test_acquisition import run_acq_test
-from mock import patch
-from shutil import copyfile
 from test_common import generate_sample_file, \
-                        run_peregrine,\
-                        propagate_code_phase, \
-                        get_sampling_freq
+                        run_peregrine
 
-def test_skip_params():
-  """
-  Test different skip parameters:
-  --skip_samples
-  and
-  --skip_ms
-
-  """
-  run_acq_test(1000, 0, [1], '1bit', skip_samples = 1000)
-  run_acq_test(1000, 0, [1], '1bit', skip_ms = 50)
 
 def test_tracking():
   prn = 15
@@ -59,4 +38,3 @@ def test_tracking():
 
   # Clean-up.
   os.remove(samples_filename)
-
