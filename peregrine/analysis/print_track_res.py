@@ -10,12 +10,10 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
-from StringIO import StringIO
 import argparse
-
+from peregrine import defaults
 
 def main():
   parser = argparse.ArgumentParser()
@@ -26,22 +24,42 @@ def main():
   parser.add_argument("-p", "--par-to-print", default="CN0",
                       help="parameter to print")
 
-  parser.add_argument("-s", "--time-step", default="0.1",
-                      help="time step [s]")
+  parser.add_argument("--profile",
+                      choices=['peregrine', 'custom_rate', 'low_rate',
+                               'normal_rate', 'piksi_v3', 'high_rate'],
+                      metavar='PROFILE',
+                      help="L1C/A & L2C IF + sampling frequency profile"
+                      "('peregrine'/'custom_rate', 'low_rate', "
+                      "'normal_rate', 'piksi_v3', 'high_rate')",
+                      default='peregrine')
 
   args = parser.parse_args()
 
+  if args.profile == 'peregrine' or args.profile == 'custom_rate':
+    freq_profile = defaults.freq_profile_peregrine
+  elif args.profile == 'low_rate':
+    freq_profile = defaults.freq_profile_low_rate
+  elif args.profile == 'normal_rate':
+    freq_profile = defaults.freq_profile_normal_rate
+  elif args.profile == 'high_rate':
+    freq_profile = defaults.freq_profile_high_rate
+  else:
+    raise NotImplementedError()
+
   fig = plt.figure()
-  #plt.title('Carrier tracking loop filter frequency response')
+  plt.title(args.par_to_print.replace('_', ' ').title() + ' vs Time')
   ax1 = fig.add_subplot(111)
 
-  plt.ylabel(args.par_to_print, color='b')
-  plt.xlabel('time [%s s]' % float(args.time_step))
+  plt.ylabel(args.par_to_print.replace('_', ' ').title(), color='b')
+  plt.xlabel('Time [s]')
 
   data = np.genfromtxt(args.file, dtype=float, delimiter=',', names=True)
 
-  plt.plot(np.array(range(len(data[args.par_to_print]))),
-           np.array(data[args.par_to_print]), 'r.')
+  time_stamps = np.array(data['sample_index'])
+  time_stamps = time_stamps - data['sample_index'][0]
+  time_stamps = time_stamps / freq_profile['sampling_freq']
+  
+  plt.plot(time_stamps, np.array(data[args.par_to_print]), 'r.')
 
   plt.legend(loc='upper right')
 
