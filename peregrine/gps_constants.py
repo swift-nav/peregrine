@@ -29,3 +29,9 @@ nominal_range = 26000e3  # m
 
 L1CA = 'l1ca'
 L2C = 'l2c'
+
+# This mask describes what GPS satellites are L2C capable
+# It is valid as of 2016-05-18
+# Up-to-date information is available at for example:
+# https://www.unavco.org/projects/project-support/gnss-support/gnss-modernization/gnss-modernization.html
+L2C_CAPB = 0xf7814bfd
