@@ -17,6 +17,7 @@ from version import get_git_version
 
 INSTALL_REQUIRES = ['numpy >= 1.9',
                     'pyFFTW >= 0.8.2',
+                    'scipy >= 0.13.3',
                     'swiftnav']
 
 TEST_REQUIRES = ['pytest']
