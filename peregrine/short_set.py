@@ -630,6 +630,9 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
     r_sol, t_sol, los, tot, residuals = pt_solve(r_better, t_better, obs_pr,
                                                  ephem)
     resid_norm_norm = norm(residuals) / len(acqed_prns)
+    print "PVT solution residuals:",residuals
+    print "PVT solution residual norm (meters per SV):",resid_norm_norm
+
     if resid_norm_norm > settings.navSanityMaxResid:
         logger.error("PVT solution not satisfactorily converged: %.0f > %.0f" % (
             resid_norm_norm, settings.navSanityMaxResid))
