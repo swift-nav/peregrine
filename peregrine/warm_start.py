@@ -72,7 +72,9 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
     receiver's position, velocity and time.
     """
 
-    pred = whatsup(ephem, r_prior, t_prior, disp=True)
+    pred = whatsup(ephem, r_prior, t_prior,
+                   mask = settings.elevMask,
+                   disp=True)
     pred_dopp = ephemeris.pred_dopplers(pred, ephem, r_prior, v_prior, t_prior)
     if settings.acqSanityCheck:
         notup = whatsdown(ephem, r_prior, t_prior)
