@@ -13,6 +13,7 @@
 from datetime import datetime, timedelta
 from numpy import dot
 from numpy.linalg import norm
+from numpy.linalg import inv
 from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
 from peregrine.gps_time import datetime_to_tow
 from scipy.optimize import fmin, fmin_powell
@@ -505,8 +506,51 @@ def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     print "Receiver clock frequency error: %+6.1f Hz" % f_sol
     return v_sol, f_sol
 
+def unit_vector(v):
+    mag = norm(v)
+    if mag==0:
+        print "unit_vector(): warning, zero magnitude vector!"
+        return v
+    return v/mag
+
+def compute_dops(prns, ephem, r, t, disp=False):
+    """ Compute dilution of precision parameters """
+
+    A = []
+    for prn in prns:
+        wk, tow = datetime_to_tow(t)
+        gps_r, gps_v, clock_err, clock_rate_err = calc_sat_pos(ephem[prn],
+                                                               tow,
+                                                               week = wk,
+                                                               warn_stale=False)
+        r_rx_to_gps = unit_vector(gps_r-r)
+        r_rx_to_gps = np.append(r_rx_to_gps,[1.0])
+        A.append(r_rx_to_gps)
+
+    A = np.array(A)
+    Q = inv(dot(A.T,A))
+    qd = Q.diagonal()
+
+    pdop = math.sqrt(qd[:3].sum())
+    hdop = math.sqrt(qd[:2].sum())
+    vdop = math.sqrt(qd[2])
+    tdop = math.sqrt(qd[3])
+    gdop = math.sqrt(pdop**2 + tdop**2)
+
+    if disp:
+        print "Dilution of precision:"
+        print "  PDOP: %.3f"%pdop
+        print "  TDOP: %.3f"%tdop
+        print "  GDOP: %.3f"%gdop
+
+    return {"pdop":pdop,
+            "hdop":hdop,
+            "vdop":vdop,
+            "tdop":tdop,
+            "gdop":gdop}
+
 def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
-                              plot = True):
+                              plot = True, return_metadata = False):
     """
     Postprocess a short baseband sample record into a navigation solution.
 
@@ -525,13 +569,18 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
       e.g. from peregrine.initSettings.initSettings()
     plot : bool
       Make pretty graphs.
+    return_metadata : bool
+      Return dict of metadata from the solver
 
     Returns
     -------
     acq_results : [:class:`AcquisitionResult`]
       List of :class:`AcquisitionResult` objects loaded from the file.
-
+    sol_metadata
+      Dict of metadata from the solver (optional)
     """
+
+    metadata = {}
 
     if hasattr(prior_trajectory, '__call__'):
         prior_traj_func = True
@@ -589,6 +638,8 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
                 cPickle.dump((acqed_prns, obs_cp, obs_dopp), f,
                              protocol=cPickle.HIGHEST_PROTOCOL)
 
+    metadata['acqed_prns'] = len(acqed_prns)
+
     # Check whether we have enough satellites
     if len(acqed_prns) < 5:
         logger.error(("Acquired %d SVs; need at least 5 for a solution" +
@@ -644,9 +695,17 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
     v_sol, rx_freq_err = vel_solve(r_sol, t_sol, ephem, obs_dopp, los, tot)
     print "Velocity: %s (%.1f m/s)" % (v_sol, norm(v_sol))
 
+    metadata['rx_freq_err'] = rx_freq_err
+
+    # Compute DOPs
+    metadata["dops"] = compute_dops(acqed_prns, ephem, r_sol, t_sol, disp=True)
+
     # How accurate is the time component of the solution?
     if plot:
         plot_t_recv_sensitivity(r_sol, t_sol, obs_pr, ephem,
                                 spread = 0.1, step = 0.01)
 
-    return r_sol, v_sol, t_sol
+    if return_metadata:
+        return r_sol, v_sol, t_sol, metadata
+    else:
+        return r_sol, v_sol, t_sol
