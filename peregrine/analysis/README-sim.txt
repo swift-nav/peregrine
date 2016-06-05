@@ -1,14 +1,14 @@
-Running L2C Performance Simulations
+Running L1CA/L2C Performance Simulations
 ===================================
 
 Performance simulations are run with run_sim.py tool which invokes iqgen_main.py 
 and tracking_loop.py. The tool stores all the simulation results (including commands
-for generating iq data and tracking l2c signal) in json file. Data is always appended
+for generating iq data and tracking l1ca/l2c signal) in json file. Data is always appended
 in given json file.
 
 Thereafter, results are illustrated with plt_res.py which reads data from json file.
 
-The json file contains following data for each iqgen and L2C tracking run:
+The json file contains following data for each iqgen and L1CA/L2C tracking run:
 {
     "acc":       # Acceleration (L1CA Hz / s)
     "avgcn0":    # Average of all tracker CN0 estimates
@@ -18,9 +18,9 @@ The json file contains following data for each iqgen and L2C tracking run:
     "dopSigma3": # 3-sigma Doppler error (99.7% of errors is less than this)
     "duration":  # Length of simulation in seconds
     "iqgencmd":  # Command line for iqgen 
-    "iqgencn0":  # L2C CN0 reported by iqgen
-    "l2chip":    # Initial L2C code phase reported by iqgen
-    "l2dop":     # Initial L2C Doppler frequency reported by iqgen
+    "iqgencn0":  # L1CA/L2C CN0 reported by iqgen
+    "l_chip":    # Initial L1CA/L2C code phase reported by iqgen
+    "l_dop":     # Initial L1CA/L2C Doppler frequency reported by iqgen
     "lockrate":  # PLL lock rate 
     "snr":       # SNR argument for iqgen
     "stamp":     # Wall clock time stamp of simulation run
@@ -51,6 +51,13 @@ Performance data can be generated with following commands:
    Results can be plotted with
    $ ./plt_res.py -e -f result_3.json
 
+
+Band selection
+==============
+By default simulation is run for L2C band. The L1CA is selected with command line option:
+-b l1ca  (--band) 
+FPGA delay control simulation option --short-long-cycles can be given for L1CA band simulation with option:
+-s (--short-long-cycles)
 
 Varying simulation parameters
 =============================
@@ -89,3 +96,4 @@ Changing CN0 estimator of plt_res.py
 In plt_res.py there is a string which defines which CN0 estimate is used:
 CN0STRING="avgcn0"     # CN0 from tracking
 #CN0STRING="iqgencn0"  # CN0 from iqgen
+
