@@ -16,9 +16,22 @@ import argparse
 import json
 import numpy
 import matplotlib.pyplot as plt
+import peregrine.gps_constants
 
-CN0STRING = "avgcn0"     # CN0 from tracking
-# CN0STRING="iqgencn0"  # CN0 from iqgen
+
+class CfgClass:
+
+  def __init__(self):
+    # self.CN0STRING = "avgcn0"     # CN0 from tracking
+    self.CN0STRING = "iqgencn0"  # CN0 from iqgen
+    self.BAND = "l2c"
+
+  def isL1CA(self):
+    if "l1ca" == self.BAND:
+      return True
+    return False
+
+cfg = CfgClass()
 
 
 def sigmaFreqPlot(filename):
@@ -30,7 +43,7 @@ def sigmaFreqPlot(filename):
   jsarray = json.loads(s)
   r = []
   for j in jsarray:
-    r.append((j["dopSigma1"], j[CN0STRING]))
+    r.append((j["dopSigma1"], j[cfg.CN0STRING]))
   r = sorted(r, key=lambda x: x[1])
 
   dopSigma1 = map(lambda x: x[0], r)
@@ -40,6 +53,7 @@ def sigmaFreqPlot(filename):
   plt.plot(avgcn0, dopSigma1, 'o-')
   plt.xlabel('CN0')
   plt.ylabel('Doppler sigma-1 error (Hz)')
+  plt.grid(True)
   plt.show()
 
 
@@ -52,7 +66,7 @@ def lockrateCn0Plot(filename):
   jsarray = json.loads(s)
   r = []
   for j in jsarray:
-    r.append((j["lockrate"], j[CN0STRING]))
+    r.append((j["lockrate"], j[cfg.CN0STRING]))
   r = sorted(r, key=lambda x: x[1])
 
   lockrate = map(lambda x: x[0], r)
@@ -63,10 +77,14 @@ def lockrateCn0Plot(filename):
   plt.xlabel('CN0')
   plt.ylabel('PLL lock rate')
   #plt.scatter(avgcn0, lockrate)
+  plt.grid(True)
   plt.show()
 
 
 def dynamicAccPlot(filename, mode):
+  GRAV_G = 9.80665  # m/s^2
+  HzToMps = (peregrine.gps_constants.c / peregrine.gps_constants.l1)
+  HzToG = HzToMps / GRAV_G
   fp = open(filename, "r")
   s = fp.read()
   fp.close()
@@ -78,8 +96,8 @@ def dynamicAccPlot(filename, mode):
   maxCN0 = 0.0
   r = []
   for j in jsarray:
-    minCN0 = min(minCN0, j[CN0STRING])
-    maxCN0 = max(maxCN0, j[CN0STRING])
+    minCN0 = min(minCN0, j[cfg.CN0STRING])
+    maxCN0 = max(maxCN0, j[cfg.CN0STRING])
     #r.append( (float(j["acc"]),j[CN0STRING]) )
   #accVecAll = map(lambda x:x[0], r)
   #cn0VecAll = map(lambda x:x[1], r)
@@ -89,23 +107,28 @@ def dynamicAccPlot(filename, mode):
   fig = plt.figure()
 
   r = []
+  if cfg.isL1CA():
+    Tcoh = 0.005  # Integration time 5 ms
+  else:
+    Tcoh = 0.02  # Integration time 20 ms
+
   for cn0bin in cn0Range:
     bestAcc = -1000.0
     bestCN0 = 0
     print "BIN", cn0bin,
     for j in jsarray:
-      cn0 = j[CN0STRING]
+      cn0 = j[cfg.CN0STRING]
       lockrate = j["lockrate"]
       doperr = j["dopSigma1"]
-      acc = float(j["acc"])
+      acc = float(j["acc"]) * HzToG
       if cn0bin - 0.5 <= cn0 and cn0 < cn0bin + 0.5:
         if acc > bestAcc:
           if mode == "lockrate" and lockrate >= 0.68:
             bestAcc = acc
             bestCN0 = cn0
             plt.plot(bestCN0, bestAcc, 'bo')
-          # 1/12T, Tcoh=20 ms
-          elif mode == "doperr" and doperr <= 1.0 / (12 * 0.02):
+          # 1/12T, Tcoh=20 ms, Tcoh=5 ms
+          elif mode == "doperr" and doperr <= 1.0 / (12 * Tcoh):
             bestAcc = acc
             bestCN0 = cn0
             plt.plot(bestCN0, bestAcc, 'bo')
@@ -122,12 +145,15 @@ def dynamicAccPlot(filename, mode):
   #plt.plot(cn0VecAll, accVecAll, 'bo')
   plt.plot(bestCN0, bestAcc, 'r.-')
   plt.xlabel('CN0')
-  plt.ylabel('Acceleration Hz/s')
-  plt.grid()
+  plt.ylabel('Acceleration (g)')
+  plt.grid(True)
   if mode == "lockrate":
     plt.title("PLL lock rate >= 0.68 (1-sigma)")
   elif mode == "doperr":
-    plt.title("Doppler 1-sigma error <= 1/(12*0.02) = 4.2 Hz")
+    if cfg.isL1CA():
+      plt.title("Doppler 1-sigma error <= 1/(12*0.005) = 16.7 Hz")
+    else:
+      plt.title("Doppler 1-sigma error <= 1/(12*0.02) = 4.2 Hz")
   plt.show()
 
 
@@ -147,8 +173,12 @@ def main():
   parser.add_argument("-e", "--dyn-acc-dop",
                       help="x-sigma Doppler error acceleration tolerance vs. CN0",
                       action="store_true")
+  parser.add_argument("-b", "--band",
+                      help="l1ca or l2c (default)")
 
   args = parser.parse_args()
+  if args.band:
+    cfg.BAND = args.band
   if args.lockrate:
     lockrateCn0Plot(args.filename)
   elif args.dyn_acc_lockrate:
