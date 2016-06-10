@@ -363,7 +363,6 @@ class TrackingChannel(object):
       which can be redefined in subclasses
 
     """
-
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
@@ -680,6 +679,7 @@ class TrackingChannelL1CA(TrackingChannel):
       chan_snr = np.power(10, chan_snr / 10)
       l2c_doppler = self.loop_filter.to_dict(
       )['carr_freq'] * gps_constants.l2 / gps_constants.l1
+      print 'prn {} l2c_doppler {}'.format(self.prn + 1, l2c_doppler)
       self.l2c_handover_acq = \
           AcquisitionResult(self.prn,
                             self.samples[gps_constants.L2C][
@@ -1191,7 +1191,7 @@ class TrackResults:
       if self.print_start:
         f1.write(
           "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
-          "code_phase, code_freq,"
+          "code_phase,code_freq,"
           "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
           "lock_detect_outp,lock_detect_outo,"
           "lock_detect_pcount1,lock_detect_pcount2,"
