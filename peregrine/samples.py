@@ -17,6 +17,7 @@ from peregrine.gps_constants import L1CA, L2C
 
 __all__ = ['load_samples', 'save_samples']
 
+
 def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
                           value_lookup, channel_lookup):
   '''
@@ -80,6 +81,7 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
     samples[channel_lookup[rx]][:] = chan
   return samples
 
+
 def __load_samples_one_bit(filename, num_samples, num_skip, channel_lookup):
   '''
   Helper method to load single-bit samples from a file.
@@ -105,6 +107,7 @@ def __load_samples_one_bit(filename, num_samples, num_skip, channel_lookup):
   value_lookup = np.asarray((1, -1), dtype=np.int8)
   return __load_samples_n_bits(filename, num_samples, num_skip, 1,
                                value_lookup, channel_lookup)
+
 
 def __load_samples_two_bits(filename, num_samples, num_skip, channel_lookup):
   '''
@@ -134,10 +137,11 @@ def __load_samples_two_bits(filename, num_samples, num_skip, channel_lookup):
   return __load_samples_n_bits(filename, num_samples, num_skip, 2,
                                value_lookup, channel_lookup)
 
+
 def _load_samples(filename,
-                 num_samples = defaults.processing_block_size,
-                 num_skip = 0,
-                 file_format = 'piksi'):
+                 num_samples=defaults.processing_block_size,
+                 num_skip=0,
+                 file_format='piksi'):
   """
   Load sample data from a file.
 
@@ -194,20 +198,20 @@ def _load_samples(filename,
       s_file = s_file[:num_samples * 2 * n_rx]
     samples = np.empty([n_rx, len(s_file) / (2 * n_rx)], dtype=np.complex64)
     for rx in range(n_rx):
-      samples[rx] = s_file[2 * rx : : 2 * n_rx] + s_file[2 * rx + 1 :: 2 * n_rx] * 1j
+      samples[rx] = s_file[2 * rx::2 * n_rx] + s_file[2 * rx + 1::2 * n_rx] * 1j
   elif file_format == 'c8c8_tayloe':
     # Interleaved complex samples from two receivers, i.e. first four bytes are
-    # I0 Q0 I1 Q1.  Tayloe-upconverted to become purely real with fs=4fs0, fi=fs0
+    # I0 Q0 I1 Q1.  Tayloe-upconverted to become purely real with fs=4fs0,fi=fs0
     s_file = np.memmap(filename, offset=num_skip, dtype=np.int8, mode='r')
     n_rx = 2
     if num_samples > 0:
       s_file = s_file[:num_samples * 2 * n_rx]
     samples = np.empty([n_rx, 4 * len(s_file) / (2 * n_rx)], dtype=np.int8)
     for rx in range(n_rx):
-      samples[rx][0::4] = s_file[2 * rx     : : 2 * n_rx]
-      samples[rx][1::4] = -s_file[2 * rx + 1 : : 2 * n_rx]
-      samples[rx][2::4] = -s_file[2 * rx     : : 2 * n_rx]
-      samples[rx][3::4] = s_file[2 * rx + 1 : : 2 * n_rx]
+      samples[rx][0::4] = s_file[2 * rx::2 * n_rx]
+      samples[rx][1::4] = -s_file[2 * rx + 1::2 * n_rx]
+      samples[rx][2::4] = -s_file[2 * rx::2 * n_rx]
+      samples[rx][3::4] = s_file[2 * rx + 1::2 * n_rx]
 
   elif file_format == 'piksinew':
     packed = np.memmap(filename, offset=num_skip, dtype=np.uint8, mode='r')
@@ -238,7 +242,10 @@ def _load_samples(filename,
       num_skip_samples = 0
       num_bytes = -1
 
-    packed = np.memmap(filename, offset=num_skip_bytes, dtype=np.uint8, mode='r')
+    packed = np.memmap(filename,
+                       offset=num_skip_bytes,
+                       dtype=np.uint8,
+                       mode='r')
     if num_bytes > 0:
       packed = packed[:num_bytes]
 
@@ -275,7 +282,7 @@ def _load_samples(filename,
     samples *= 2
     samples -= 1
     if file_format == '1bitrev':
-        samples = np.reshape(samples, (-1, 8))[:, ::-1].flatten();
+      samples = np.reshape(samples, (-1, 8))[:, ::-1].flatten()
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
@@ -302,6 +309,7 @@ def _load_samples(filename,
     raise ValueError("Unknown file type '%s'" % file_format)
 
   return samples
+
 
 def __get_samples_total(filename, file_format, sample_index):
   if file_format == 'int8':
@@ -344,10 +352,11 @@ def __get_samples_total(filename, file_format, sample_index):
 
   return samples_total
 
+
 def load_samples(samples,
                  filename,
-                 num_samples = defaults.processing_block_size,
-                 file_format = 'piksi'):
+                 num_samples=defaults.processing_block_size,
+                 file_format='piksi'):
 
   if samples['samples_total'] == -1:
     samples['samples_total'] = __get_samples_total(filename,
@@ -362,6 +371,7 @@ def load_samples(samples,
     samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
 
   return samples
+
 
 def save_samples(filename, samples, file_format='int8'):
   """

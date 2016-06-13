@@ -153,7 +153,7 @@ def main():
   print "Signal:                                 %s" % args.signal
   print "L1 stage profile:                       %s" % args.l1ca_profile
   print "Tracker options:                        %s" % str(tracker_options)
-  print "L2C handover    :                       %s" % str(l2c_handover)
+  print "L2C handover:                           %s" % str(l2c_handover)
   print "======================================================================"
 
   tracker = Tracker(samples=samples,
