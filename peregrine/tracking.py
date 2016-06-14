@@ -207,7 +207,7 @@ class TrackingChannel(object):
     self.code_phase = 0.0
     self.carr_phase = 0.0
     self.samples_per_chip = int(round(self.sampling_freq / self.chipping_rate))
-    self.sample_index = params['samples']['sample_index']
+    self.sample_index = params['sample_index']
     self.sample_index += self.acq.sample_index
     self.sample_index += self.acq.code_phase * self.samples_per_chip
     self.sample_index = int(math.floor(self.sample_index))
@@ -363,7 +363,7 @@ class TrackingChannel(object):
       which can be redefined in subclasses
 
     """
-
+    self.start()
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
@@ -555,6 +555,7 @@ class TrackingChannelL1CA(TrackingChannel):
     params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
     params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
+    params['sample_index'] = params['samples']['sample_index']
 
     TrackingChannel.__init__(self, params)
 
@@ -685,8 +686,7 @@ class TrackingChannelL1CA(TrackingChannel):
                             self.samples[gps_constants.L2C][
                                 'IF'] + l2c_doppler,
                             l2c_doppler,  # carrier doppler
-                            self.track_result.code_phase[
-                                self.i],
+                            self.track_result.code_phase[self.i],
                             chan_snr,
                             'A',
                             gps_constants.L2C,
@@ -721,6 +721,7 @@ class TrackingChannelL2C(TrackingChannel):
     params['code_freq_init'] = params['acq'].doppler * \
         gps_constants.l2c_chip_rate / gps_constants.l2
     params['chipping_rate'] = gps_constants.l2c_chip_rate
+    params['sample_index'] = 0
 
     TrackingChannel.__init__(self, params)
 
@@ -1191,7 +1192,7 @@ class TrackResults:
       if self.print_start:
         f1.write(
           "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
-          "code_phase, code_freq,"
+          "code_phase,code_freq,"
           "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
           "lock_detect_outp,lock_detect_outo,"
           "lock_detect_pcount1,lock_detect_pcount2,"
