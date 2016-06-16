@@ -363,7 +363,6 @@ class TrackingChannel(object):
       which can be redefined in subclasses
 
     """
-    self.start()
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
