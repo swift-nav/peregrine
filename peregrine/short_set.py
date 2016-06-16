@@ -15,7 +15,7 @@ from numpy import dot
 from numpy.linalg import norm
 from numpy.linalg import inv
 from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
-from peregrine.gps_time import datetime_to_tow
+from peregrine.gps_time import datetime_to_tow, utc_to_gpst
 from scipy.optimize import fmin, fmin_powell
 from warnings import warn
 import cPickle
@@ -485,8 +485,14 @@ def plot_t_recv_sensitivity(r_init, t_ref, obs_pr, ephem, spread = 0.2, step = 0
 def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     prns = los.keys()
     pred_prr = {}
+
+    # TODO: does this break if times of transmission for the different sats
+    #       straddles a GPS week rollover?
+    t_sol_gpst = utc_to_gpst(t_sol)
+    wk, tow = datetime_to_tow(t_sol_gpst)
+
     for prn in prns:
-        _, gps_v, _, clock_rate_err = calc_sat_pos(ephem[prn], tot[prn])
+        _, gps_v, _, clock_rate_err = calc_sat_pos(ephem[prn], tot[prn], week=wk)
         pred_prr[prn] = -dot(gps_v, los[prn]) + clock_rate_err * gps.c
 
     los = np.array(los.values())
