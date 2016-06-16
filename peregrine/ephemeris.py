@@ -98,6 +98,27 @@ def load_rinex_nav_msg(filename, t, settings):
         filename, count_healthy)
     return ephem
 
+def rinex_creation_date(filename):
+    """ Read RINEX file creation time
+
+    Returns:
+      datetime object
+    """
+    dt = None
+    with open(filename,'r') as f:
+        while True:
+            line = f.readline()[:-1]
+            if not line:
+                break
+            if "PGM / RUN BY / DATE" not in line:
+                continue
+
+            # Extract creation time
+            timestring = '-'.join(line.split()[2:4])
+            dt = datetime.strptime(timestring,"%Y%m%d-%H%M%S")
+
+    return dt
+
 def obtain_ephemeris(t, settings):
     """
     Finds an appropriate GNSS ephemeris file for a certain time,
@@ -121,17 +142,31 @@ def obtain_ephemeris(t, settings):
     """
     print "Obtaining ephemeris file for ", t
 
-    #TODO: If it's today and more than 1 hr old, check for an update
-
     filename = t.strftime("brdc%j0.%yn")
     filedir = os.path.join(settings.cacheDir, "ephem")
     filepath = os.path.join(filedir, filename)
     url = t.strftime(
         'http://qz-vision.jaxa.jp/USE/archives/ephemeris/%Y/') + filename
+
+    # If not in cache, then fetch it
     if not os.path.isfile(filepath):
         if not os.path.exists(filedir):
             os.makedirs(filedir)
         _, hdrs = urllib.urlretrieve(url, filepath)
+
+    # Otherwise, use cache file if isn't stale
+    else:
+        rinex_gen_date = rinex_creation_date(filepath)
+        if rinex_gen_date is None:
+            # Something wrong with RINEX format, update cache
+            _, hdrs = urllib.urlretrieve(url, filepath)
+        else:
+            # If rinex generated more than an hour then fetch it again
+            if (t-rinex_gen_date) > timedelta(hours=1):
+                _, hdrs = urllib.urlretrieve(url, filepath)
+
+    rinex_gen_date = rinex_creation_date(filepath)
+
     ephem = load_rinex_nav_msg(filepath, t, settings)
     if len(ephem) < 22:
         raise ValueError(
