@@ -89,9 +89,11 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
         if os.path.isfile("/etc/fftw/wisdom"):
             shutil.copy("/etc/fftw/wisdom", wiz_file)
 
-    a = acquisition.Acquisition(signal, settings.samplingFreq,
-                                settings.IF,
-                                settings.samplingFreq * gps.code_period,
+    samplingFreq = settings.freq_profile['sampling_freq']
+
+    a = acquisition.Acquisition(signal, samplingFreq,
+                                settings.freq_profile['GPS_L1_IF'],
+                                samplingFreq * settings.code_period,
                                 n_codes_integrate=n_codes_integrate,
                                 wisdom_file = wiz_file)
     # Attempt to acquire both the sats we predict are visible

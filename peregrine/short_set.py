@@ -595,7 +595,7 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
         prior_traj_func = False
         prior_traj = lambda t: prior_trajectory
 
-    sig_len_ms = len(signal) / settings.samplingFreq / 1E-3
+    sig_len_ms = len(signal) / settings.freq_profile['sampling_freq'] / 1E-3
     print "Signal is %.2f ms long." % sig_len_ms
 
     r_prior, v_prior = prior_traj(t_prior)
