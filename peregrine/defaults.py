@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Swift Navigation Inc.
+# Copyright (C) 2014,2016 Swift Navigation Inc.
 # Contact: Adel Mamin <adelm@exafore.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
@@ -21,7 +21,7 @@ processing_block_size = int(20e6)  # [samples]
 
 # used to simulate real HW
 # [0..10230]
-l2c_short_step_chips = 500  # used to simulate real HW
+l2c_short_step_chips = 300  # used to simulate real HW
 
 chipping_rate = 1.023e6  # Hz
 code_length = 1023  # chips
@@ -264,7 +264,16 @@ l2c_lock_detect_params_20ms = {
     'lp': 50,      # 1000ms worth of I/Q samples to reach pessimistic lock
     'lo': 240}     # 4800ms worth of I/Q samples to lower optimistic lock
 
+# The time interval, over which the alias detection is done.
+# The alias detect algorithm averages the phase angle over this time [ms]
 alias_detect_interval_ms = 500
+
+# The correlator intermediate results are read with this timeout in [ms].
+# The intermediate results are the input for the alias lock detector.
+alias_detect_slice_ms = 1
 
 # Default pipelining prediction coefficient
 pipelining_k = .9549
+
+# Default coherent integration time for L2C tracker
+l2c_coherent_integration_time_ms = 20
