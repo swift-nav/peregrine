@@ -419,7 +419,7 @@ class TrackingChannel(object):
         coherent_iter, code_chips_to_integrate = self._short_n_long_preprocess()
       else:
         coherent_iter, code_chips_to_integrate = \
-          self.alias_detector.preprocess()
+            self.alias_detector.preprocess()
         self.E = self.P = self.L = 0.j
 
       # Estimated blksize might change as a result of a change of
@@ -473,13 +473,13 @@ class TrackingChannel(object):
 
       # Update PLL lock detector
       self.lock_detect_outo, \
-      self.lock_detect_outp, \
-      lock_detect_pcount1, \
-      lock_detect_pcount2, \
-      lock_detect_lpfi, \
-      lock_detect_lpfq = self.lock_detect.update(self.P.real,
-                                                 self.P.imag,
-                                                 coherent_iter)
+          self.lock_detect_outp, \
+          lock_detect_pcount1, \
+          lock_detect_pcount2, \
+          lock_detect_lpfi, \
+          lock_detect_lpfq = self.lock_detect.update(self.P.real,
+                                                     self.P.imag,
+                                                     coherent_iter)
 
       self.loop_filter.update(self.E, self.P, self.L)
       self.track_result.coherent_ms[self.i] = self.coherent_ms
@@ -565,7 +565,7 @@ class TrackingChannelL1CA(TrackingChannel):
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
     params['sample_index'] = params['samples']['sample_index']
     params['alias_detector'] = \
-      alias_detector.AliasDetectorL1CA(params['coherent_ms'])
+        alias_detector.AliasDetectorL1CA(params['coherent_ms'])
 
     TrackingChannel.__init__(self, params)
 
@@ -759,13 +759,13 @@ class TrackingChannelL2C(TrackingChannel):
       # L2C CM code is only half of the PRN code length.
       # The other half is CL code. Thus multiply by 2.
       self.code_chips_to_integrate = \
-        int(2 * defaults.l2c_short_step_chips)
+          int(2 * defaults.l2c_short_step_chips)
     else:
       # L2C CM code is only half of the PRN code length.
       # The other half is CL code. Thus multiply by 2.
       self.code_chips_to_integrate = \
-        2 * gps_constants.l2_cm_chips_per_code - \
-        self.code_chips_to_integrate
+          2 * gps_constants.l2_cm_chips_per_code - \
+          self.code_chips_to_integrate
     code_chips_to_integrate = self.code_chips_to_integrate
 
     return self.coherent_iter, code_chips_to_integrate
@@ -893,8 +893,8 @@ class Tracker(object):
       self.samples_to_track = self.ms_to_track * sampling_freq / 1e3
       if samples['samples_total'] < self.samples_to_track:
         logger.warning(
-          "Samples set too short for requested tracking length (%.4fs)"
-          % (self.ms_to_track * 1e-3))
+            "Samples set too short for requested tracking length (%.4fs)"
+            % (self.ms_to_track * 1e-3))
         self.samples_to_track = samples['samples_total']
     else:
       self.samples_to_track = samples['samples_total']
@@ -974,8 +974,8 @@ class Tracker(object):
     if self.pbar:
       self.pbar.finish()
     res = map(lambda chan: chan.track_result.makeOutputFileNames(
-                chan.output_file),
-                self.tracking_channels)
+        chan.output_file),
+        self.tracking_channels)
 
     fn_analysis = map(lambda x: x[0], res)
     fn_results = map(lambda x: x[1], res)
@@ -1196,13 +1196,13 @@ class TrackResults:
     with open(fn_analysis, mode) as f1:
       if self.print_start:
         f1.write(
-          "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
-          "code_phase,code_freq,"
-          "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
-          "lock_detect_outp,lock_detect_outo,"
-          "lock_detect_pcount1,lock_detect_pcount2,"
-          "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
-          "code_phase_acc\n")
+            "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
+            "code_phase,code_freq,"
+            "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
+            "lock_detect_outp,lock_detect_outo,"
+            "lock_detect_pcount1,lock_detect_pcount2,"
+            "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
+            "code_phase_acc\n")
       for i in range(size):
         f1.write("%s," % int(self.absolute_sample[i]))
         f1.write("%s," % self.ms_tracked[i])
