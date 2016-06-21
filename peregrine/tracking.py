@@ -344,6 +344,25 @@ class TrackingChannel(object):
     """
     return True
 
+  def store_track_state(self):
+    self.stored_track_state = {}
+    self.stored_track_state['carr_phase'] = self.carr_phase
+    self.stored_track_state['code_phase'] = self.code_phase
+    self.stored_track_state['carr_phase_acc'] = self.carr_phase_acc
+    self.stored_track_state['code_phase_acc'] = self.code_phase_acc
+
+  def restore_track_state(self):
+    if not self.stored_track_state:
+      logger.error("No stored track state available")
+      return
+
+    self.carr_phase = self.stored_track_state['carr_phase']
+    self.code_phase = self.stored_track_state['code_phase']
+    self.carr_phase_acc = self.stored_track_state['carr_phase_acc']
+    self.code_phase_acc = self.stored_track_state['code_phase_acc']
+
+    self.stored_track_state = None
+
   def run(self, samples):
     """
     Run tracking channel for the given batch of data.
@@ -372,22 +391,32 @@ class TrackingChannel(object):
     samples_processed = 0
     samples_total = len(samples[self.signal]['samples'])
 
-    estimated_blksize = self.coherent_ms * self.sampling_freq / 1e3
+    estimated_blksize = 2 * self.coherent_ms * self.sampling_freq / 1e3
+
+    if estimated_blksize > self.samples_to_track:
+      raise ValueError("Sample file too short")
+
+    # check if there is a problem with batch size unless we are at the last
+    # batch
+    if ((sample_index + estimated_blksize) > samples_total and
+        self.samples_to_track - self.samples_tracked > estimated_blksize):
+      logging.error("Sample batch too small")
+      raise ValueError("Sample batch too small")
 
     self.track_result.status = 'T'
 
-    while self.samples_tracked < self.samples_to_track and \
-            (sample_index + 2 * estimated_blksize) < samples_total:
-
+    while (self.samples_tracked < self.samples_to_track and
+            (sample_index + estimated_blksize) < samples_total):
       self._run_preprocess()
 
+      lf_dict = self.loop_filter.to_dict()
       if self.pipelining:
         # Pipelining and prediction
         corr_code_freq = self.next_code_freq
         corr_carr_freq = self.next_carr_freq
 
-        self.next_code_freq = self.loop_filter.to_dict()['code_freq']
-        self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
+        self.next_code_freq = lf_dict['code_freq']
+        self.next_carr_freq = lf_dict['carr_freq']
 
         if self.short_n_long and not self.stage1 and not self.short_step:
           # In case of short/long cycles, the correction applicable for the
@@ -406,42 +435,55 @@ class TrackingChannel(object):
 
       else:
         # Immediate correction simulation
-        self.next_code_freq = self.loop_filter.to_dict()['code_freq']
-        self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
+        self.next_code_freq = lf_dict['code_freq']
+        self.next_carr_freq = lf_dict['carr_freq']
 
         corr_code_freq = self.next_code_freq
         corr_carr_freq = self.next_carr_freq
 
       coherent_iter, code_chips_to_integrate = self._short_n_long_preprocess()
 
+      coherent_idx = 0
+      # Store state in case of insufficient sample count left
+      self.store_track_state()
+      code_freq = corr_code_freq + self.chipping_rate
+      code_step = code_freq / self.sampling_freq
+
       for _ in range(self.coherent_iter):
 
-        if (sample_index + 2 * estimated_blksize) >= samples_total:
-          break
+        if (sample_index + coherent_idx + code_step * code_chips_to_integrate >=
+            samples_total):
+          # Restore state because loop cannot be finished
+          self.restore_track_state()
+          self.sample_index += samples_processed
+          return self._get_result()
 
-        samples_ = samples[self.signal]['samples'][sample_index:]
+        samples_ =\
+          samples[self.signal]['samples'][(sample_index + coherent_idx):]
 
-        E_, P_, L_, blksize, self.code_phase, self.carr_phase = self.correlator(
+        E_, P_, L_, blksize, self.code_phase, self.carr_phase = \
+          self.correlator(
             samples_,
             code_chips_to_integrate,
-            corr_code_freq + self.chipping_rate, self.code_phase,
+            code_freq, self.code_phase,
             corr_carr_freq + self.IF, self.carr_phase,
             self.prn_code,
             self.sampling_freq,
-            self.signal
-        )
+            self.signal)
 
         if blksize > estimated_blksize:
-          estimated_blksize = blksize
+          estimated_blksize = 2 * blksize
 
-        sample_index += blksize
-        samples_processed += blksize
+        coherent_idx += blksize
         self.carr_phase_acc += corr_carr_freq * blksize / self.sampling_freq
         self.code_phase_acc += corr_code_freq * blksize / self.sampling_freq
 
         self.E += E_
         self.P += P_
         self.L += L_
+
+      sample_index += coherent_idx
+      samples_processed += coherent_idx
 
       more_integration_needed = self._short_n_long_postprocess()
       if more_integration_needed:
