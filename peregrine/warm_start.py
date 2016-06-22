@@ -91,9 +91,12 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
 
     samplingFreq = settings.freq_profile['sampling_freq']
 
-    a = acquisition.Acquisition(signal, samplingFreq,
+    a = acquisition.Acquisition(gps.L1CA,
+                                signal,
+                                samplingFreq,
                                 settings.freq_profile['GPS_L1_IF'],
                                 samplingFreq * settings.code_period,
+                                settings.code_length,
                                 n_codes_integrate=n_codes_integrate,
                                 wisdom_file = wiz_file)
     # Attempt to acquire both the sats we predict are visible
@@ -102,7 +105,7 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
                                 prns = pred + notup,
                                 doppler_priors = pred_dopp + [0 for p in notup],
                                 doppler_search = settings.rxFreqTol * gps.l1,
-                                show_progress = True, multi = True)
+                                progress_bar_output='stderr', multi = True)
     nacq_results = acq_results[len(pred):]
     acq_results = acq_results[:len(pred)]
 
