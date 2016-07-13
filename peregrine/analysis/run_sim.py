@@ -27,8 +27,9 @@ class CfgClass:
     self.IQ_DATA = "iqdata.bin"
     self.TRACK_DATA = "track_res"
     self.TRACK_RES_DATA = "track_res.json"
-    self.BAND = "l2c"    # "l1ca"
-    self.fpgaSim = " "  # "--short-long-cycles "
+    self.BAND = 'l1ca' # "l2c"
+    #self.fpgaSim = " "  # "--short-long-cycles "
+    self.fpgaSim = "--short-long-cycles "
 
   def isL1CA(self):
     if "l1ca" == self.BAND:
@@ -62,9 +63,9 @@ def runCmd(cmd):
 def runIqGen(lens, snr, dop, acc):
   cmd = "python " + peregrinePath() + "/peregrine/iqgen/iqgen_main.py"
   if cfg.isL1CA():
-    cmd = cmd + " --gps-sv 1 --encoder 1bit --bands l1ca --message-type crc --profile low_rate"
+    cmd = cmd + " --gps-sv 1 --encoder 1bit --bands l1ca --message-type zero+one --profile low_rate"
   else:
-    cmd = cmd + " --gps-sv 1 --encoder 1bit --bands l1ca+l2c --message-type crc --profile low_rate"
+    cmd = cmd + " --gps-sv 1 --encoder 1bit --bands l1ca+l2c --message-type zero+one --profile low_rate"
 
   if float(acc) != 0.0:
     cmd = cmd + " --doppler-type linear --doppler-speed " + acc + " "
@@ -117,7 +118,7 @@ def runIqGen(lens, snr, dop, acc):
 def runTracker(dopp, cp, lens):
   if cfg.isL1CA():
     cmd = "python " + peregrinePath() + \
-          "/peregrine/analysis/tracking_loop.py -f 1bit -P 1 --profile low_rate --l1ca-profile med --ms-to-process -1 "
+          "/peregrine/analysis/tracking_loop.py -f 1bit -P 1 --profile low_rate --l1ca-profile med "
     # "--short-long-cycles " tracking loop corrections are taken in use in FPGA with a delay of 1 ms
     cmd = cmd + cfg.fpgaSim
     cmd = cmd + "-p " + cp + " -d " + dopp
@@ -170,11 +171,11 @@ def processTrackResults(acc):
   CN0 = data['CN0']
   dopp = data['carr_doppler']
   lock = data['lock_detect_outp']
-  nsamples = len(CN0)
+  coherent_ms = data['coherent_ms']
   acc = float(acc)
 
   avgCN0 = np.mean(CN0)
-  lockRate = np.sum(lock) / nsamples
+  lockRate = np.sum([a * b for a, b in zip(lock, coherent_ms)]) / np.sum(coherent_ms)
 
   dopErr = np.ndarray(shape=(1, len(dopp)), dtype=float)
 

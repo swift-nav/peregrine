@@ -20,6 +20,7 @@ from peregrine.tracking import Tracker
 from peregrine.gps_constants import L1CA, L2C
 from peregrine.glo_constants import GLO_L1, GLO_L2, glo_l1_step, glo_l2_step
 from peregrine.run import populate_peregrine_cmd_line_arguments
+from peregrine.tracking_loop import TrackingLoop3
 
 
 def main():
@@ -181,7 +182,8 @@ def main():
                     stage2_loop_filter_params=stage2_params,
                     tracker_options=tracker_options,
                     output_file=args.output_file,
-                    progress_bar_output=args.progress_bar)
+                    progress_bar_output=args.progress_bar,
+                    loop_filter_class=TrackingLoop3)
   tracker.start()
   condition = True
   while condition:

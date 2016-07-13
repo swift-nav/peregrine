@@ -14,7 +14,7 @@ import os
 import sys
 import argparse
 import json
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
 import peregrine.gps_constants
 
@@ -72,8 +72,11 @@ def lockrateCn0Plot(filename):
   lockrate = map(lambda x: x[0], r)
   avgcn0 = map(lambda x: x[1], r)
 
+  x, y = zip(*sorted((xVal, np.mean([yVal for a, yVal in zip(avgcn0, lockrate) if xVal==a])) for xVal in set(avgcn0)))
+
   fig = plt.figure()
-  plt.plot(avgcn0, lockrate, 'o-')
+  plt.plot(avgcn0, lockrate, 'o')
+  plt.plot(x, y, '-')
   plt.xlabel('CN0')
   plt.ylabel('PLL lock rate')
   #plt.scatter(avgcn0, lockrate)
