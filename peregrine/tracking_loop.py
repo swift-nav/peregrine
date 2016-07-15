@@ -9,6 +9,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
+from peregrine.include.controlled_root import controlled_root
 
 def costas_discriminator(I, Q):
   if I == 0:
@@ -96,6 +97,12 @@ class TrackingLoop3:
     self.phase_c1 = phase_b3 * phase_omega_0
     self.phase_c2 = phase_a3 * phase_omega_0 * phase_omega_0
     self.phase_c3 = phase_omega_0 * phase_omega_0 * phase_omega_0
+    # self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1 / loop_freq, carr_bw)
+    # print "T = ", 1 / loop_freq, " BW = ", carr_bw
+
+    # self.phase_c1 = 0.00013553072504812747
+    # self.phase_c2 = 0.006445479093110773
+    # self.phase_c3 = 0.11739536416734386
 
     # DLL constants
     code_omega_0 = code_bw / 0.53
@@ -106,9 +113,9 @@ class TrackingLoop3:
 
     self.carr_to_code = carr_to_code
 
-    self.code_vel = 0
-    self.phase_acc = 0
-    self.phase_vel = 0
+    # self.code_vel = 0
+    # self.phase_acc = 0
+    # self.phase_vel = 0
 
   def update(self, E, P, L):
     """

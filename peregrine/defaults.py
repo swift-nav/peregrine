@@ -187,7 +187,7 @@ l1ca_stage1_loop_filter_params = {
     "code_zeta": 0.7,     # Code loop zeta
     "code_k": 1,          # Code loop k
     "carr_to_code": 1540,  # Carrier-to-code freq ratio (carrier aiding)
-    "carr_bw": 10,        # Carrier loop NBW
+    "carr_bw": 15,        # Carrier loop NBW
     "carr_zeta": 0.7,     # Carrier loop zeta
     "carr_k": 1,          # Carrier loop k
     "carr_freq_b1": 5}    # Carrier loop aiding_igain
@@ -257,8 +257,8 @@ l1ca_stage_params_med = \
 
      {'coherent_ms': 20,
       'loop_filter_params': {'code_params': (1., 0.7, 1.),   # NBW, zeta, k
-                             'carr_params': (1., 0.7, 1.),  # NBW, zeta, k
-                             'loop_freq': 1000./4,         # 1000/coherent_ms
+                             'carr_params': (15., 0.7, 1.),  # NBW, zeta, k
+                             'loop_freq': 1000./20,         # 1000/coherent_ms
                              'carr_freq_b1': 0,          # fll_aid
                              'carr_to_code': 1540.           # carr_to_code
                              }
