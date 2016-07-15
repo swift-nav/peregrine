@@ -33,6 +33,7 @@ from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
 from peregrine.include.generateGLOcode import GLOCode
 from peregrine.tracking_file_utils import createTrackingOutputFileNames
+from peregrine.cn0 import CN0_Est_MM
 
 import logging
 import sys
@@ -177,7 +178,7 @@ class TrackingChannel(object):
         lp=self.lock_detect_params["lp"],
         lo=self.lock_detect_params["lo"])
 
-    self.cn0_est = CN0Estimator(
+    self.cn0_est = CN0_Est_MM(
         bw=1e3 / self.coherent_ms,
         cn0_0=self.cn0_0,
         cutoff_freq=0.1,
@@ -605,7 +606,7 @@ class TrackingChannelL1CA(TrackingChannel):
           k2=self.lock_detect_params["k2"],
           lp=self.lock_detect_params["lp"],
           lo=self.lock_detect_params["lo"])
-      self.cn0_est = CN0Estimator(bw=1e3 / self.stage2_coherent_ms,
+      self.cn0_est = CN0_Est_MM(bw=1e3 / self.stage2_coherent_ms,
                                   cn0_0=self.track_result.cn0[self.i - 1],
                                   cutoff_freq=10,
                                   loop_freq=1e3 / self.stage2_coherent_ms)

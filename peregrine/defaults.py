@@ -247,19 +247,19 @@ l1ca_stage_params_slow2 = \
 # 1;5 ms stages
 l1ca_stage_params_med = \
     ({'coherent_ms': 1,
-      'loop_filter_params': {'code_params': (5., 0.7, 1.),   # NBW, zeta, k
-                             'carr_params': (13., 0.7, 1.),  # NBW, zeta, k
+      'loop_filter_params': {'code_params': (3., 0.7, 1.),   # NBW, zeta, k
+                             'carr_params': (15., 0.7, 1.),  # NBW, zeta, k
                              'loop_freq': 1000.,             # 1000/coherent_ms
-                             'carr_freq_b1': 1.,          # fll_aid
+                             'carr_freq_b1': 5.,          # fll_aid
                              'carr_to_code': 1540.           # carr_to_code
                              }
       },
 
-     {'coherent_ms': 4,
+     {'coherent_ms': 20,
       'loop_filter_params': {'code_params': (1., 0.7, 1.),   # NBW, zeta, k
-                             'carr_params': (2., 0.7, 1.),  # NBW, zeta, k
+                             'carr_params': (1., 0.7, 1.),  # NBW, zeta, k
                              'loop_freq': 1000./4,         # 1000/coherent_ms
-                             'carr_freq_b1': 1.,          # fll_aid
+                             'carr_freq_b1': 0,          # fll_aid
                              'carr_to_code': 1540.           # carr_to_code
                              }
       }

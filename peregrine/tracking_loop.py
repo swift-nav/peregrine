@@ -106,6 +106,10 @@ class TrackingLoop3:
 
     self.carr_to_code = carr_to_code
 
+    self.code_vel = 0
+    self.phase_acc = 0
+    self.phase_vel = 0
+
   def update(self, E, P, L):
     """
     Tracking loop update
