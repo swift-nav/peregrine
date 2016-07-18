@@ -1012,6 +1012,7 @@ class Tracker(object):
 
     """
 
+    print "loop_filter_class = ", loop_filter_class
     self.samples = samples
     self.sampling_freq = sampling_freq
     self.ms_to_track = ms_to_track

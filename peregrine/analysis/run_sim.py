@@ -237,7 +237,7 @@ def produce(lens, snr, dop, acc):
 
 def runCn0Range():
   length = 30                    # Duration (s)
-  snrRng = range(-200, -350, -10)  # SNR for iqgen command. Unit 0.1 dBHz
+  snrRng = range(-330, -370, -1)  # SNR for iqgen command. Unit 0.1 dBHz
   doppler = 0                   # Hz
   acceleration = 0.0            # Hz / s
   for snr in snrRng:
