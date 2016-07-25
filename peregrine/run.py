@@ -29,6 +29,7 @@ from peregrine.tracking_file_utils import removeTrackingOutputFiles
 from peregrine.tracking_file_utils import TrackingResults
 from peregrine.tracking_file_utils import createTrackingDumpOutputFileName
 import peregrine.glo_constants as glo
+from peregrine.tracking_loop import TrackingLoop3, TrackingLoop3b, TrackingLoop2b
 
 
 class SaveConfigAction(argparse.Action):
@@ -329,7 +330,8 @@ def main():
                                tracker_options=tracker_options,
                                output_file=args.file,
                                progress_bar_output=args.progress_bar,
-                               check_l2c_mask=args.check_l2c_mask)
+                               check_l2c_mask=args.check_l2c_mask,
+                               loop_filter_class=TrackingLoop3)
     # The tracking channels are designed to support batch processing.
     # In the batch processing mode the data samples are provided in
     # batches (chunks) of 'defaults.processing_block_size' bytes size.

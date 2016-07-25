@@ -190,7 +190,7 @@ l1ca_stage1_loop_filter_params = {
     "carr_bw": 15,        # Carrier loop NBW
     "carr_zeta": 0.7,     # Carrier loop zeta
     "carr_k": 1,          # Carrier loop k
-    "carr_freq_b1": 0}    # Carrier loop aiding_igain
+    "carr_freq_b1": 1}    # Carrier loop aiding_igain
 
 l2c_loop_filter_params = {
     "loop_freq": 50,      # loop frequency [Hz]
@@ -271,16 +271,16 @@ l1ca_stage_params_med = \
       'loop_filter_params': {'code_params': (1., 0.7, 1.),   # NBW, zeta, k
                              'carr_params': (10., 0.7, 1.),  # NBW, zeta, k
                              'loop_freq': 1000.,             # 1000/coherent_ms
-                             'carr_freq_igain': 5.,          # fll_aid
+                             'carr_freq_b1': 5.,          # fll_aid
                              'carr_to_code': 1540.           # carr_to_code
                              }
       },
 
-     {'coherent_ms': 5,
+     {'coherent_ms': 20,
       'loop_filter_params': {'code_params': (1., 0.707, 1.),   # NBW, zeta, k
-                             'carr_params': (7., 0.707, 1.),  # NBW, zeta, k
-                             'loop_freq': 1000. / 5,         # 1000/coherent_ms
-                             'carr_freq_igain': 0.,          # fll_aid
+                             'carr_params': (3, 0.707, 1.),  # NBW, zeta, k
+                             'loop_freq': 1000. / 20,         # 1000/coherent_ms
+                             'carr_freq_b1': 0.,          # fll_aid
                              'carr_to_code': 1540.           # carr_to_code
                              }
       }

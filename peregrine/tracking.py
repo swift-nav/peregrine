@@ -501,6 +501,9 @@ class TrackingChannel(object):
       self.track_result.code_freq[self.i] = \
           self.loop_filter.to_dict()['code_freq'] + self.chipping_rate
 
+      self.track_result.phase_err[self.i] = \
+          self.loop_filter.to_dict()['phase_err']
+
       # Record stuff for postprocessing
       self.track_result.absolute_sample[self.i] = self.sample_index + \
           samples_processed
@@ -509,8 +512,10 @@ class TrackingChannel(object):
       self.track_result.P[self.i] = self.P
       self.track_result.L[self.i] = self.L
 
-      self.track_result.cn0[self.i] = self.cn0_est.update(
-          self.P.real, self.P.imag)
+      self.track_result.cn0[self.i], \
+      self.track_result.snr[self.i], \
+      self.track_result.snr_db[self.i] = \
+          self.cn0_est.update(self.P.real, self.P.imag)
 
       self.track_result.lock_detect_outo[self.i] = self.lock_detect_outo
       self.track_result.lock_detect_outp[self.i] = self.lock_detect_outp
@@ -1290,6 +1295,8 @@ class TrackResults:
     self.P = np.zeros(n_points, dtype=np.complex128)
     self.L = np.zeros(n_points, dtype=np.complex128)
     self.cn0 = np.zeros(n_points)
+    self.snr = np.zeros(n_points)
+    self.snr_db = np.zeros(n_points)
     self.lock_detect_outp = np.zeros(n_points)
     self.lock_detect_outo = np.zeros(n_points)
     self.lock_detect_pcount1 = np.zeros(n_points)
@@ -1297,6 +1304,7 @@ class TrackResults:
     self.lock_detect_lpfi = np.zeros(n_points)
     self.lock_detect_lpfq = np.zeros(n_points)
     self.alias_detect_err_hz = np.zeros(n_points)
+    self.phase_err = np.zeros(n_points)
     self.nav_msg = NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
     self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()
@@ -1342,11 +1350,11 @@ class TrackResults:
         f1.write(
             "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
             "code_phase,code_freq,"
-            "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
+            "CN0,SNR,SNR_DB,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
             "lock_detect_outp,lock_detect_outo,"
             "lock_detect_pcount1,lock_detect_pcount2,"
             "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
-            "code_phase_acc\n")
+            "phase_err,code_phase_acc\n")
       for i in range(size):
         f1.write("%s," % int(self.absolute_sample[i]))
         f1.write("%s," % self.ms_tracked[i])
@@ -1358,6 +1366,8 @@ class TrackResults:
         f1.write("%s," % self.code_phase[i])
         f1.write("%s," % self.code_freq[i])
         f1.write("%s," % self.cn0[i])
+        f1.write("%s," % self.snr[i])
+        f1.write("%s," % self.snr_db[i])
         f1.write("%s," % self.E[i].real)
         f1.write("%s," % self.E[i].imag)
         f1.write("%s," % self.P[i].real)
@@ -1371,6 +1381,7 @@ class TrackResults:
         f1.write("%s," % self.lock_detect_lpfi[i])
         f1.write("%s," % self.lock_detect_lpfq[i])
         f1.write("%s," % self.alias_detect_err_hz[i])
+        f1.write("%s," % self.phase_err[i])
         f1.write("%s\n" % self.code_phase_acc[i])
 
     self.print_start = 0

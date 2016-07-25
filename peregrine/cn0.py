@@ -28,25 +28,19 @@ class CN0_Est_MM(object):
 
     The method uses the function for SNR computation:
 
-    \frac{C}{N_0}(n) = \frac{P_d}{P_n},
+    C/N0(n) = P_d / P_n,
     where P_n(n) = M2(n) - P_d(n),
-    where P_d(n) = \sqrt{2# M2(n)^2 - M4(n)},
+    where P_d(n) = sqrt(2 * M2(n)^2 - M4(n)),
     where
-    M2(n) = \frac{1}{2}(I(n)^2 + I(n-1)^2 + Q(n)^2 + Q(n-1)^2)
-    M4(n) = \frac{1}{2}(I(n)^4 + I(n-1)^4 + Q(n)^4 + Q(n-1)^4)
-
-    Parameters
-    ----------
-\param s     The estimator state struct to initialize.
-\param p     Common C/N0 estimator parameters.
-\param cn0_0 The initial value of \f$ C / N_0 \f$ in dBHz.
-
-\return None
+    M2(n) = sum(1,N)(I(n)^2 + I(n-1)^2 + Q(n)^2 + Q(n-1)^2) / N
+    M4(n) = sum(1,N)(I(n)^4 + I(n-1)^4 + Q(n)^4 + Q(n-1)^4) / N
 
     Parameters
     ----------
     coherent_ms : int
       Coherent integration time [ms].
+    cn0_0
+      The initial value of C/N_0 in dBHz.
 
 
     """
@@ -55,29 +49,31 @@ class CN0_Est_MM(object):
     self.M4_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
     self.index = 0
     self.log_bw = 10 * np.log10(loop_freq)
+    self.snr_db = 0
+    self.snr = 0
 
 
   def _compute_cn0(self, M_2, M_4):
     tmp = 2 * M_2 * M_2 - M_4
 
     if tmp < 0:
-      snr = 1 / CN0_MM_NSR_MIN
+      self.snr = 1 / CN0_MM_NSR_MIN
     else:
       P_d = np.sqrt(tmp)
       P_n = M_2 - P_d
 
-      # Ensure the NSR is within the limit
+      # Ensure the SNR is within the limit
       if P_d < P_n * CN0_MM_NSR_MIN_MULTIPLIER:
         return 60
       elif P_n == 0:
         return 10
       else:
-        snr = P_d / P_n
+        self.snr = P_d / P_n
 
-    snr_db = 10 * np.log10(snr)
+    self.snr_db = 10 * np.log10(self.snr)
 
     # Compute CN0
-    x= self.log_bw + snr_db
+    x= self.log_bw + self.snr_db
     if x < 10:
       return 10
     if x > 60:
@@ -95,13 +91,13 @@ class CN0_Est_MM(object):
       arr[-1] = x
       return np.average(arr)
 
-  # Computes \f$ C / N_0 \f$ with Moment method.
+  # Computes C/N0 with Moment method.
   #
   # s Initialized estimator object.
   # I In-phase signal component
   # Q Quadrature phase signal component.
   #
-  # Computed \f$ C / N_0 \f$ value
+  # Computed C/N0 & SNR values
   def update(self, I, Q):
     m_2 = I * I + Q * Q
     m_4 = m_2 * m_2
@@ -115,4 +111,4 @@ class CN0_Est_MM(object):
     # Compute and store updated CN0
     self.cn0_db = self._compute_cn0(M_2, M_4)
 
-    return self.cn0_db
+    return (self.cn0_db, self.snr, self.snr_db)

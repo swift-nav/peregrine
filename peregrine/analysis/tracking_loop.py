@@ -182,8 +182,8 @@ def main():
                     stage2_loop_filter_params=stage2_params,
                     tracker_options=tracker_options,
                     output_file=args.output_file,
-                    progress_bar_output=args.progress_bar)
-#                    loop_filter_class=TrackingLoop2b)
+                    progress_bar_output=args.progress_bar,
+                    loop_filter_class=TrackingLoop3)
   tracker.start()
   condition = True
   while condition:
