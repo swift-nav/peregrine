@@ -33,7 +33,7 @@ from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
 from peregrine.include.generateGLOcode import GLOCode
 from peregrine.tracking_file_utils import createTrackingOutputFileNames
-from peregrine.cn0 import CN0_Est_MM
+from peregrine.cn0 import CN0_Est_MM, CN0_Est_BL
 
 import logging
 import sys

@@ -16,7 +16,7 @@ CN0_MM_NSR_MIN_MULTIPLIER = 1e-6
 # Maximum supported NSR value (1/CN0_MM_NSR_MIN_MULTIPLIER)
 CN0_MM_NSR_MIN = 1e6
 
-CN0_MOVING_AVG_WINDOW_SIZE = 200
+CN0_MOVING_AVG_WINDOW_SIZE = 500
 
 class CN0_Est_MM(object):
 
@@ -112,3 +112,87 @@ class CN0_Est_MM(object):
     self.cn0_db = self._compute_cn0(M_2, M_4)
 
     return (self.cn0_db, self.snr, self.snr_db)
+
+
+class CN0_Est_BL(object):
+
+  def __init__(self, bw, cn0_0, cutoff_freq, loop_freq):
+    """
+    Initialize the C/N0 estimator state.
+
+    Initializes Moment method C/N0 estimator.
+
+    The method uses the function for SNR computation:
+
+    C/N0(n) = P_d / P_n,
+    where P_n(n) = M2(n) - P_d(n),
+    where P_d(n) = sqrt(2 * M2(n)^2 - M4(n)),
+    where
+    M2(n) = sum(1,N)(I(n)^2 + I(n-1)^2 + Q(n)^2 + Q(n-1)^2) / N
+    M4(n) = sum(1,N)(I(n)^4 + I(n-1)^4 + Q(n)^4 + Q(n-1)^4) / N
+
+    Parameters
+    ----------
+    coherent_ms : int
+      Coherent integration time [ms].
+    cn0_0
+      The initial value of C/N_0 in dBHz.
+
+
+    """
+    # self.cn0_db = cn0_0
+    # self.M2_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
+    # self.M4_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
+    # self.index = 0
+    # self.log_bw = 10 * np.log10(loop_freq)
+    # self.snr_db = 0
+    # self.snr = 0
+
+    self.nsr_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
+    self.snr_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
+    self.index = 0
+    self.log_bw = 10. * np.log10(loop_freq)
+    self.I_prev_abs = -1.
+    self.Q_prev_abs = -1.
+    self.nsr = 10. ** (0.1 * (self.log_bw - cn0_0))
+    self.snr = 0
+
+  def _moving_average(self, arr, x):
+    if self.index < CN0_MOVING_AVG_WINDOW_SIZE:
+      arr[self.index] = x
+      return np.average(arr[:self.index + 1])
+    else:
+      arr[:-1] = arr[1:]
+      arr[-1] = x
+      return np.average(arr)
+
+  # Computes C/N0 with Moment method.
+  #
+  # s Initialized estimator object.
+  # I In-phase signal component
+  # Q Quadrature phase signal component.
+  #
+  # Computed C/N0 & SNR values
+  def update(self, I, Q):
+    if self.I_prev_abs < 0.:
+      # This is the first iteration, just update the prev state.
+      self.I_prev_abs = np.absolute(I)
+      self.Q_prev_abs = np.absolute(Q)
+    else:
+      P_n = np.absolute(I) - self.I_prev_abs
+      P_n = P_n * P_n
+
+      P_s = 0.5 * (I * I + self.I_prev_abs * self.I_prev_abs)
+
+      self.I_prev_abs = np.absolute(I)
+      self.Q_prev_abs = np.absolute(Q)
+
+      self.nsr = self._moving_average(self.nsr_arr, P_n / P_s)
+      self.snr = self._moving_average(self.snr_arr, I ** 2 / (2 * Q ** 2))
+      if self.index < CN0_MOVING_AVG_WINDOW_SIZE:
+        self.index += 1
+
+    cn0 = self.log_bw - 10.*np.log10(self.nsr)
+
+    return (cn0, self.snr, 10 * np.log10(self.snr))
+
