@@ -127,6 +127,24 @@ def _tracking_channel_factory(parameters):
   if parameters['acq'].signal == glo_constants.GLO_L1:
     return TrackingChannelGLOL1(parameters)
 
+def get_fsm_states(ms, short_n_long, bit_sync):
+  if ms == 1:
+    ms = '1ms'
+  if ms == 20:
+    ms = '20ms'
+
+  if short_n_long:
+    mode = 'short_n_long'
+  else:
+    mode = 'ideal'
+
+  if bit_sync:
+    bit_sync_status = 'bit_sync'
+  else:
+    bit_sync_status = 'no_bit_sync'
+
+  return defaults.fsm_states[ms][bit_sync_status][mode]
+
 
 class TrackingChannel(object):
   """
@@ -199,8 +217,11 @@ class TrackingChannel(object):
         carr_freq_b1=self.loop_filter_params['carr_freq_b1'],
     )
 
-    self.next_code_freq = self.loop_filter.to_dict()['code_freq']
-    self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
+    self.code_freq_1 = self.code_freq_2 = self.corr_code_freq = \
+      self.loop_filter.to_dict()['code_freq']
+
+    self.carr_freq_1 = self.carr_freq_2 = self.corr_carr_freq = \
+      self.loop_filter.to_dict()['carr_freq']
 
     self.track_result = TrackResults(self.results_num,
                                      self.acq.prn,
@@ -212,6 +233,8 @@ class TrackingChannel(object):
     self.sample_index += self.acq.sample_index
     self.sample_index += self.acq.code_phase * self.samples_per_chip
     self.sample_index = int(math.floor(self.sample_index))
+    self.fsm_states = params['fsm_states']
+    self.fsm_step = 0
     self.carr_phase_acc = 0.0
     self.code_phase_acc = 0.0
     self.samples_tracked = 0
@@ -219,22 +242,7 @@ class TrackingChannel(object):
     self.started = False
     self.lock_detect_outo = 0
     self.lock_detect_outp = 0
-
-    self.pipelining = False    # Flag if pipelining is used
-    self.pipelining_k = 0.     # Error prediction coefficient for pipelining
-    self.short_n_long = False  # Short/Long cycle simulation
-    self.short_step = True    # Short cycle
-    if self.tracker_options:
-      mode = self.tracker_options['mode']
-      if mode == 'pipelining':
-        self.pipelining = True
-        self.pipelining_k = self.tracker_options['k']
-      elif mode == 'short-long-cycles':
-        self.short_n_long = True
-        self.pipelining = True
-        self.pipelining_k = self.tracker_options['k']
-      else:
-        raise ValueError("Invalid tracker mode %s" % str(mode))
+    self.E = self.P = self.L = 0.j
 
   def dump(self):
     """
@@ -319,12 +327,6 @@ class TrackingChannel(object):
     """
     return None
 
-  def _short_n_long_preprocess(self):
-    pass
-
-  def _short_n_long_postprocess(self):
-    pass
-
   def is_pickleable(self):
     """
     Check if object is pickleable.
@@ -381,94 +383,70 @@ class TrackingChannel(object):
     samples_processed = 0
     samples_total = len(samples[self.signal]['samples'])
 
-    estimated_blksize = self.coherent_ms * self.sampling_freq / 1e3
+    coherent_ms = self.fsm_states['coherent_ms']
+    estimated_blksize = coherent_ms * self.sampling_freq / 1e3
 
     self.track_result.status = 'T'
 
     while self.samples_tracked < self.samples_to_track and \
             (sample_index + 2 * estimated_blksize) < samples_total:
 
-      self._run_preprocess()
+      cur_fsm_state = self.fsm_states[self.fsm_step]
+      flags_pre = cur_fsm_state[2]['pre']
 
-      if self.pipelining:
-        # Pipelining and prediction
-        corr_code_freq = self.next_code_freq
-        corr_carr_freq = self.next_carr_freq
+      if defaults.APPLY_CORR_1 in flags_pre:
+        self.corr_code_freq = self.code_freq_1
+        self.corr_carr_freq = self.carr_freq_1
+      elif defaults.APPLY_CORR_2 in flags_pre:
+        self.corr_code_freq = self.code_freq_2
+        self.corr_carr_freq = self.carr_freq_2
 
-        self.next_code_freq = self.loop_filter.to_dict()['code_freq']
-        self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
+      samples_ = samples[self.signal]['samples'][sample_index:]
 
-        if self.short_n_long and not self.stage1 and not self.short_step:
-          # In case of short/long cycles, the correction applicable for the
-          # long cycle is smaller proportionally to the actual cycle size
-          pipelining_k = self.pipelining_k / (self.coherent_ms - 1)
-        else:
-          pipelining_k = self.pipelining_k
+      E_, P_, L_, blksize, self.code_phase, self.carr_phase = self.correlator(
+          samples_,
+          self.code_phase + cur_fsm_state[0],
+          self.corr_code_freq + self.chipping_rate, self.code_phase,
+          self.corr_carr_freq + self.IF, self.carr_phase,
+          self.prn_code,
+          self.sampling_freq,
+          self.signal
+      )
 
-        # There is an error between target frequency and actual one. Affect
-        # the target frequency according to the computed error
-        carr_freq_error = self.next_carr_freq - corr_carr_freq
-        self.next_carr_freq += carr_freq_error * pipelining_k
+      sample_index += blksize
+      samples_processed += blksize
+      self.carr_phase_acc += self.corr_carr_freq * blksize / self.sampling_freq
+      self.code_phase_acc += self.corr_code_freq * blksize / self.sampling_freq
+      estimated_blksize -= blksize
 
-        code_freq_error = self.next_code_freq - corr_code_freq
-        self.next_code_freq += code_freq_error * pipelining_k
+      self.E += E_
+      self.P += P_
+      self.L += L_
 
+      flags_post = cur_fsm_state[2]['post']
+      self.fsm_step = cur_fsm_state[1]
+
+      if defaults.RUN_LD in flags_post:
+        # Update PLL lock detector
+        self.lock_detect_outo, \
+            self.lock_detect_outp, \
+            lock_detect_pcount1, \
+            lock_detect_pcount2, \
+            lock_detect_lpfi, \
+            lock_detect_lpfq = self.lock_detect.update(self.P.real,
+                                                       self.P.imag,
+                                                       1)
+
+      if self.lock_detect_outo:
+        if defaults.ALIAS_DETECT_1ST in flags_post or \
+           defaults.ALIAS_DETECT_BOTH in flags_post:
+          self.alias_detector.first(P_)
+
+        if defaults.ALIAS_DETECT_2ND in flags_post or \
+           defaults.ALIAS_DETECT_BOTH in flags_post:
+          self.alias_detector.second(P_)
       else:
-        # Immediate correction simulation
-        self.next_code_freq = self.loop_filter.to_dict()['code_freq']
-        self.next_carr_freq = self.loop_filter.to_dict()['carr_freq']
-
-        corr_code_freq = self.next_code_freq
-        corr_carr_freq = self.next_carr_freq
-
-      if self.short_n_long:
-        coherent_iter, code_chips_to_integrate = self._short_n_long_preprocess()
-      else:
-        coherent_iter, code_chips_to_integrate = \
-            self.alias_detector.preprocess()
-        self.E = self.P = self.L = 0.j
-
-      # Estimated blksize might change as a result of a change of
-      # the coherent integration time.
-      estimated_blksize = self.coherent_ms * self.sampling_freq / 1e3
-      if (sample_index + 2 * estimated_blksize) > samples_total:
-        continue
-
-      for _ in range(coherent_iter):
-
-        samples_ = samples[self.signal]['samples'][sample_index:]
-
-        E_, P_, L_, blksize, self.code_phase, self.carr_phase = self.correlator(
-            samples_,
-            self.code_phase + code_chips_to_integrate,
-            corr_code_freq + self.chipping_rate, self.code_phase,
-            corr_carr_freq + self.IF, self.carr_phase,
-            self.prn_code,
-            self.sampling_freq,
-            self.signal
-        )
-
-        sample_index += blksize
-        samples_processed += blksize
-        self.carr_phase_acc += corr_carr_freq * blksize / self.sampling_freq
-        self.code_phase_acc += corr_code_freq * blksize / self.sampling_freq
-
-        self.E += E_
-        self.P += P_
-        self.L += L_
-
-        if self.short_n_long:
-          continue
-
-        if self.lock_detect_outo:
-          code_chips_to_integrate = self.alias_detector.postprocess(P_)
-        else:
-          self.alias_detector.reinit(self.coherent_ms)
-
-      if self.short_n_long:
-        more_integration_needed = self._short_n_long_postprocess()
-        if more_integration_needed:
-          continue
+        self.alias_detector.reinit(self.coherent_ms)
 
       err_hz = self.alias_detector.get_err_hz()
       if abs(err_hz) > 0:
@@ -477,17 +455,20 @@ class TrackingChannel(object):
                     (self.prn + 1, self.signal, -err_hz))
         self.loop_filter.adjust_freq(err_hz)
 
-      # Update PLL lock detector
-      self.lock_detect_outo, \
-          self.lock_detect_outp, \
-          lock_detect_pcount1, \
-          lock_detect_pcount2, \
-          lock_detect_lpfi, \
-          lock_detect_lpfq = self.lock_detect.update(self.P.real,
-                                                     self.P.imag,
-                                                     coherent_iter)
+      if not (defaults.GET_CORR_1 in flags_post) and \
+         not (defaults.GET_CORR_2 in flags_post):
+        continue
 
+      # run tracking loop
       self.loop_filter.update(self.E, self.P, self.L)
+
+      if defaults.GET_CORR_1 in flags_post:
+        self.code_freq_1 = self.loop_filter.to_dict()['code_freq']
+        self.carr_freq_1 = self.loop_filter.to_dict()['carr_freq']
+      elif defaults.GET_CORR_2 in flags_post:
+        self.code_freq_2 = self.loop_filter.to_dict()['code_freq']
+        self.carr_freq_2 = self.loop_filter.to_dict()['carr_freq']
+
       self.track_result.coherent_ms[self.i] = self.coherent_ms
 
       self.track_result.IF = self.IF
@@ -526,7 +507,13 @@ class TrackingChannel(object):
 
       self.track_result.alias_detect_err_hz[self.i] = err_hz
 
+      self._run_preprocess()
       self._run_postprocess()
+
+      # Estimated blksize might change as a result of a change of
+      # the coherent integration time.
+      coherent_ms = self.fsm_states['coherent_ms']
+      estimated_blksize = coherent_ms * self.sampling_freq / 1e3
 
       self.samples_tracked = self.sample_index + samples_processed
       self.track_result.ms_tracked[self.i] = self.samples_tracked * 1e3 / \
@@ -535,6 +522,9 @@ class TrackingChannel(object):
       self.i += 1
       if self.i >= self.results_num:
         self.dump()
+
+      self.E = self.P = self.L = 0.j
+
 
     if self.i > 0:
       self.dump()
@@ -576,7 +566,17 @@ class TrackingChannelL1CA(TrackingChannel):
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
     params['sample_index'] = params['samples']['sample_index']
     params['alias_detector'] = \
-        alias_detector.AliasDetectorL1CA(params['coherent_ms'])
+        alias_detector.AliasDetector(params['coherent_ms'])
+
+    self.short_n_long = False
+    if params['tracker_options']:
+      mode = params['tracker_options']['mode']
+      if mode == 'short-long-cycles':
+        self.short_n_long = True
+
+    params['fsm_states'] = get_fsm_states(ms=params['coherent_ms'],
+                                          short_n_long=self.short_n_long,
+                                          bit_sync=False)
 
     TrackingChannel.__init__(self, params)
 
@@ -616,7 +616,10 @@ class TrackingChannelL1CA(TrackingChannel):
                                   cutoff_freq=10,
                                   loop_freq=1e3 / self.stage2_coherent_ms)
 
-    self.coherent_iter = self.coherent_ms
+      self.fsm_states = get_fsm_states(ms=self.coherent_ms,
+                                       short_n_long=self.short_n_long,
+                                       bit_sync=True)
+
 
   def _get_result(self):
     """
@@ -635,34 +638,6 @@ class TrackingChannelL1CA(TrackingChannel):
       self.l2c_handover_done = True
       return self.l2c_handover_acq
     return None
-
-  def _short_n_long_preprocess(self):
-    if self.stage1:
-      self.E = self.P = self.L = 0.j
-    else:
-      # When simulating short and long cycles, short step resets EPL
-      # registers, and long one adds up to them
-      if self.short_step:
-        self.E = self.P = self.L = 0.j
-        self.coherent_iter = 1
-      else:
-        self.coherent_iter = self.coherent_ms - 1
-
-    self.code_chips_to_integrate = gps_constants.chips_per_code
-
-    return self.coherent_iter, self.code_chips_to_integrate
-
-  def _short_n_long_postprocess(self):
-    more_integration_needed = False
-    if not self.stage1:
-      if self.short_step:
-        # In case of short step - go to next integration period
-        self.short_step = False
-        more_integration_needed = True
-      else:
-        # Next step is short cycle
-        self.short_step = True
-    return more_integration_needed
 
   def _run_postprocess(self):
     """
@@ -736,7 +711,6 @@ class TrackingChannelL2C(TrackingChannel):
     cn0_0 += 10 * np.log10(defaults.L2C_CHANNEL_BANDWIDTH_HZ)
     params['cn0_0'] = cn0_0
     params['coherent_ms'] = defaults.l2c_coherent_integration_time_ms
-    params['coherent_iter'] = 1
     params['loop_filter_params'] = defaults.l2c_loop_filter_params
     params['lock_detect_params'] = defaults.l2c_lock_detect_params_20ms
     params['IF'] = params['samples'][gps_constants.L2C]['IF']
@@ -746,7 +720,17 @@ class TrackingChannelL2C(TrackingChannel):
     params['chipping_rate'] = gps_constants.l2c_chip_rate
     params['sample_index'] = 0
     params['alias_detector'] = \
-        alias_detector.AliasDetectorL2C(params['coherent_ms'])
+        alias_detector.AliasDetector(params['coherent_ms'])
+
+    short_n_long = False
+    if params['tracker_options']:
+      mode = params['tracker_options']['mode']
+      if mode == 'short-long-cycles':
+        short_n_long = True
+
+    params['fsm_states'] = get_fsm_states(ms=params['coherent_ms'],
+                                          short_n_long=short_n_long,
+                                          bit_sync=True)
 
     TrackingChannel.__init__(self, params)
 
@@ -762,35 +746,6 @@ class TrackingChannelL2C(TrackingChannel):
        False - the L2C tracking object is not pickleable
     """
     return False
-
-  def _short_n_long_preprocess(self):
-    # When simulating short and long cycles, short step resets EPL
-    # registers, and long one adds up to them
-    if self.short_step:
-      self.E = self.P = self.L = 0.j
-      # L2C CM code is only half of the PRN code length.
-      # The other half is CL code. Thus multiply by 2.
-      self.code_chips_to_integrate = \
-          int(2 * defaults.l2c_short_step_chips)
-    else:
-      # L2C CM code is only half of the PRN code length.
-      # The other half is CL code. Thus multiply by 2.
-      self.code_chips_to_integrate = \
-          2 * gps_constants.l2_cm_chips_per_code - \
-          self.code_chips_to_integrate
-    code_chips_to_integrate = self.code_chips_to_integrate
-
-    return self.coherent_iter, code_chips_to_integrate
-
-  def _short_n_long_postprocess(self):
-    more_integration_needed = False
-    if self.short_step:
-      self.short_step = False
-      more_integration_needed = True
-    else:
-      self.short_step = True
-
-    return more_integration_needed
 
   def _run_postprocess(self):
     """

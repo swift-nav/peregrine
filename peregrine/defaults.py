@@ -8,6 +8,8 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+import gps_constants
+
 acqThreshold = 21.0  # SNR (unitless)
 acqSanityCheck = True  # Check for sats known to be below the horizon
 navSanityMaxResid = 25.0  # meters per SV, normalized nav residuals
@@ -332,6 +334,232 @@ l1ca_stage_profiles = {'slow': l1ca_stage_params_slow,
                        'med': l1ca_stage_params_med,
                        'fast': l1ca_stage_params_fast,
                        'extrafast': l1ca_stage_params_extrafast}
+
+ALIAS_DETECT_1ST = 1
+ALIAS_DETECT_2ND = 2
+ALIAS_DETECT_BOTH = 3
+RUN_LD = 4
+APPLY_CORR_1 = 5
+APPLY_CORR_2 = 6
+GET_CORR_1 = 7
+GET_CORR_2 = 8
+
+fsm_states = \
+  { '1ms':
+    { 'no_bit_sync':
+      { 'short_n_long':
+        { 'coherent_ms': 1,
+          't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
+          'alias_acc_length_ms': 500,
+          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}),
+          1: (1023, 0, {'pre': (APPLY_CORR_2,), 'post': (RUN_LD, GET_CORR_2)}) },
+
+        'ideal':
+        { 'coherent_ms': 1,
+          't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
+          'alias_acc_length_ms': 500,
+          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_2)}),
+          1: (1023, 0, {'pre': (APPLY_CORR_2,), 'post': (RUN_LD, GET_CORR_1)}) }
+      },
+      'bit_sync':
+      { 'short_n_long':
+        {  'coherent_ms': 1,
+           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
+           'alias_acc_length_ms': 500,
+
+           # start-up
+           0: (1023, 2, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_1) }),
+
+           # normal
+           1: (1023, 2, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_1) }),
+           2: (1023, 3, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           3: (1023, 4, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           4: (1023, 5, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           5: (1023, 6, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           6: (1023, 7, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           7: (1023, 8, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           8: (1023, 9, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           9: (1023, 10, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           10: (1023, 11, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           11: (1023, 12, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           12: (1023, 13, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           13: (1023, 14, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           14: (1023, 15, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           15: (1023, 16, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           16: (1023, 17, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           17: (1023, 18, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           18: (1023, 19, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           19: (1023, 20, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           20: (1023, 1, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_2) }) },
+        'ideal':
+        {  'coherent_ms': 1,
+           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
+           'alias_acc_length_ms': 500,
+
+           # start-up
+           0: (1023, 2, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_2) }),
+
+           # normal
+           1: (1023, 2, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_2) }),
+           2: (1023, 3, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           3: (1023, 4, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           4: (1023, 5, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           5: (1023, 6, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           6: (1023, 7, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           7: (1023, 8, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           8: (1023, 9, {'pre': (APPLY_CORR_2,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           9: (1023, 10, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           10: (1023, 11, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           11: (1023, 12, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           12: (1023, 13, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           13: (1023, 14, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           14: (1023, 15, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           15: (1023, 16, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           16: (1023, 17, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           17: (1023, 18, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           18: (1023, 19, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
+           19: (1023, 20, {'pre': (APPLY_CORR_1,),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
+           20: (1023, 1, {'pre': (APPLY_CORR_2,),
+                          'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
+        }
+      },
+
+    '20ms':
+    { 'bit_sync':
+      { 'short_n_long':
+        {  'coherent_ms': 20,
+           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
+           'alias_acc_length_ms': 500,
+
+           0: (1023, 1, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
+           1: (1023, 2, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           2: (1023, 3, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           3: (1023, 4, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           4: (1023, 5, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           5: (1023, 6, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           6: (1023, 7, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           7: (1023, 8, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           8: (1023, 9, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           9: (1023, 10, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           10: (1023, 11, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           11: (1023, 12, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           12: (1023, 13, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           13: (1023, 14, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           14: (1023, 15, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           15: (1023, 16, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           16: (1023, 17, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           17: (1023, 18, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           18: (1023, 19, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           19: (1023, 0, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
+        'ideal':
+        {  'coherent_ms': 20,
+           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
+           'alias_acc_length_ms': 500,
+
+           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+                         'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
+           1: (1023, 2, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           2: (1023, 3, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           3: (1023, 4, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           4: (1023, 5, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           5: (1023, 6, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           6: (1023, 7, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           7: (1023, 8, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           8: (1023, 9, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           9: (1023, 10, {'pre': (),
+                         'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           10: (1023, 11, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           11: (1023, 12, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           12: (1023, 13, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           13: (1023, 14, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           14: (1023, 15, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           15: (1023, 16, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           16: (1023, 17, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           17: (1023, 18, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           18: (1023, 19, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
+           19: (1023, 0, {'pre': (),
+                          'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) }
+        }
+      }
+    }
 
 # pessimistic set
 l1ca_lock_detect_params_pess = {"k1": 0.10, "k2": 1.4, "lp": 200, "lo": 50}
