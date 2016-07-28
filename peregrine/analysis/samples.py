@@ -15,6 +15,8 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
+from peregrine import defaults
+from peregrine.gps_constants import L1CA, L2C
 
 __all__ = ['hist', 'psd', 'summary']
 
@@ -77,9 +79,20 @@ def hist(samples, ax=None, value_range=None, bin_width=1.0, max_len=ANALYSIS_MAX
 
   ticks = np.linspace(min_val, max_val, n_bins)
 
+  if min_val == -3 and max_val == 3:
+    # taken from https://hal-enac.archives-ouvertes.fr/hal-01021721/document
+    expected_dist = '16.35 33.65 33.65 16.35 [%]'
+    total = len(samples)
+    have = str(100 * np.count_nonzero(samples == -3) / total) + ' ' + \
+           str(100 * np.count_nonzero(samples == -1) / total) + ' ' + \
+           str(100 * np.count_nonzero(samples == 1) / total) + ' ' + \
+           str(100 * np.count_nonzero(samples == 3) / total) + ' [%] '
+  else:
+    expected_dist = 'TBD'
+
   ax.hist(samples, bins=bins, color='0.9')
 
-  ax.set_title('Histogram')
+  ax.set_title('Histogram: ' + have + '(expected: ' + expected_dist + ')')
   ax.set_xlabel('Sample value')
   if len(ticks) < 22:
     ax.set_xticks(ticks)
@@ -168,12 +181,13 @@ def summary(samples, sampling_freq=None, max_len=ANALYSIS_MAX_LEN):
     `None` then the whole array will be used.
 
   """
-  fig = plt.figure()
-  ax1 = fig.add_subplot(121)
-  ax2 = fig.add_subplot(122)
 
-  hist(samples[0], ax=ax1, max_len=max_len)
-  psd(samples[0], sampling_freq, ax=ax2, max_len=max_len)
+  fig = plt.figure()
+  ax1 = fig.add_subplot(111)
+  # ax2 = fig.add_subplot(122)
+
+  hist(samples, ax=ax1, max_len=max_len)
+  # psd(samples, sampling_freq, ax=ax2, max_len=max_len)
 
   fig.set_size_inches(10, 4, forward=True)
   fig.tight_layout()
@@ -193,8 +207,17 @@ def main():
                       + "'int8', '1bit', '1bitrev' or 'piksi' (default)")
   args = parser.parse_args()
 
-  samples = peregrine.samples.load_samples(args.file, args.num_samples, file_format=args.format)
-  summary(samples)
+  # the actual frequency profile is irrelevant for this utility
+  freq_profile = defaults.freq_profile_high_rate
+  samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
+             L2C: {'IF': freq_profile['GPS_L2_IF']},
+             'samples_total': args.num_samples,
+             'sample_index': 0}
+
+  samples = peregrine.samples.load_samples(samples=samples,
+                                           filename=args.file,
+                                           file_format=args.format)
+  summary(samples['l1ca']['samples'])
 
   plt.show()
 
