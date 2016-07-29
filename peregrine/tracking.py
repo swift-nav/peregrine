@@ -130,8 +130,18 @@ def _tracking_channel_factory(parameters):
 def get_fsm_states(ms, short_n_long, bit_sync):
   if ms == 1:
     ms = '1ms'
-  if ms == 20:
+  elif ms == 2:
+    ms = '2ms'
+  elif ms == 4:
+    ms = '4ms'
+  elif ms == 5:
+    ms = '5ms'
+  elif ms == 10:
+    ms = '10ms'
+  elif ms == 20:
     ms = '20ms'
+  else:
+    raise ValueError("Not implemented!")
 
   if short_n_long:
     mode = 'short_n_long'
@@ -507,8 +517,8 @@ class TrackingChannel(object):
 
       self.track_result.alias_detect_err_hz[self.i] = err_hz
 
-      self._run_preprocess()
       self._run_postprocess()
+      self._run_preprocess()
 
       # Estimated blksize might change as a result of a change of
       # the coherent integration time.
@@ -619,6 +629,7 @@ class TrackingChannelL1CA(TrackingChannel):
       self.fsm_states = get_fsm_states(ms=self.coherent_ms,
                                        short_n_long=self.short_n_long,
                                        bit_sync=True)
+      self.fsm_step = 0
 
 
   def _get_result(self):
