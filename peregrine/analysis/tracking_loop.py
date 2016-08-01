@@ -18,6 +18,7 @@ from peregrine import defaults
 from peregrine.log import default_logging_config
 from peregrine.tracking import Tracker
 from peregrine.gps_constants import L1CA, L2C
+from peregrine.glo_constants import GLO_L1, GLO_L2
 from peregrine.run import populate_peregrine_cmd_line_arguments
 
 
@@ -129,6 +130,8 @@ def main():
 
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
              L2C: {'IF': freq_profile['GPS_L2_IF']},
+             GLO_L1: {'IF': freq_profile['GLO_L1_IF']},
+             GLO_L2: {'IF': freq_profile['GLO_L2_IF']},
              'samples_total': -1,
              'sample_index': skip_samples}
 

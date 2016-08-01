@@ -14,7 +14,7 @@ import numpy as np
 import math
 import defaults
 from peregrine.gps_constants import L1CA, L2C
-from peregrine.glo_constants import GLO_L1
+from peregrine.glo_constants import GLO_L1, GLO_L2
 
 __all__ = ['load_samples', 'save_samples']
 
@@ -67,8 +67,7 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
   rounded_len = num_samples * sample_block_size
 
   bits = np.unpackbits(s_file)
-  samples = np.empty((n_rx, num_samples - sample_offset),
-                     dtype=value_lookup.dtype)
+  samples = {}
 
   for rx in range(n_rx):
     # Construct multi-bit sample values
@@ -79,7 +78,9 @@ def __load_samples_n_bits(filename, num_samples, num_skip, n_bits,
     # Generate sample values using value_lookup table
     chan = value_lookup[tmp]
     chan = chan[sample_offset:]
-    samples[channel_lookup[rx]][:] = chan
+    copy = np.empty(num_samples - sample_offset, dtype=value_lookup.dtype)
+    copy[:] = chan
+    samples[channel_lookup[rx]] = copy
   return samples
 
 
@@ -140,9 +141,9 @@ def __load_samples_two_bits(filename, num_samples, num_skip, channel_lookup):
 
 
 def _load_samples(filename,
-                 num_samples=defaults.processing_block_size,
-                 num_skip=0,
-                 file_format='piksi'):
+                  num_samples=defaults.processing_block_size,
+                  num_skip=0,
+                  file_format='piksi'):
   """
   Load sample data from a file.
 
@@ -185,43 +186,55 @@ def _load_samples(filename,
     If `file_format` is unrecognised.
 
   """
-  if file_format == 'int8':
+
+  encoding_profile = defaults.file_encoding_profile[file_format]
+
+  if file_format.startswith('int8'):
     with open(filename, 'rb') as f:
       f.seek(num_skip)
-      samples = np.zeros((1, num_samples), dtype=np.int8)
-      samples[:] = np.fromfile(f, dtype=np.int8, count=num_samples)
-  elif file_format == 'c8c8':
+      copy = np.empty(num_samples, dtype=np.int8)
+      copy[:] = np.fromfile(f, dtype=np.int8, count=num_samples)
+      samples = {}
+      samples[encoding_profile[0]] = copy
+  elif file_format.startswith('c8c8') and not file_format.startswith('c8c8_tayloe'):
     # Interleaved complex samples from two receivers, i.e. first four bytes are
     # I0 Q0 I1 Q1
     s_file = np.memmap(filename, offset=num_skip, dtype=np.int8, mode='r')
     n_rx = 2
     if num_samples > 0:
       s_file = s_file[:num_samples * 2 * n_rx]
-    samples = np.empty([n_rx, len(s_file) / (2 * n_rx)], dtype=np.complex64)
+    samples = {}
     for rx in range(n_rx):
-      samples[rx] = s_file[2 * rx::2 * n_rx] + s_file[2 * rx + 1::2 * n_rx] * 1j
-  elif file_format == 'c8c8_tayloe':
+      copy = np.empty(len(s_file) / (2 * n_rx), dtype=np.complex64)
+      copy[:] = s_file[2 * rx::2 * n_rx] + s_file[2 * rx + 1::2 * n_rx] * 1j
+      samples[encoding_profile[rx]] = copy
+  elif file_format.startswith('c8c8_tayloe'):
     # Interleaved complex samples from two receivers, i.e. first four bytes are
-    # I0 Q0 I1 Q1.  Tayloe-upconverted to become purely real with fs=4fs0,fi=fs0
+    # I0 Q0 I1 Q1.  Tayloe-upconverted to become purely real with
+    # fs=4fs0,fi=fs0
     s_file = np.memmap(filename, offset=num_skip, dtype=np.int8, mode='r')
     n_rx = 2
     if num_samples > 0:
       s_file = s_file[:num_samples * 2 * n_rx]
-    samples = np.empty([n_rx, 4 * len(s_file) / (2 * n_rx)], dtype=np.int8)
+    samples = {}
     for rx in range(n_rx):
-      samples[rx][0::4] = s_file[2 * rx::2 * n_rx]
-      samples[rx][1::4] = -s_file[2 * rx + 1::2 * n_rx]
-      samples[rx][2::4] = -s_file[2 * rx::2 * n_rx]
-      samples[rx][3::4] = s_file[2 * rx + 1::2 * n_rx]
+      copy = np.empty(4 * len(s_file) / (2 * n_rx), dtype=np.int8)
+      copy[0::4] = s_file[2 * rx::2 * n_rx]
+      copy[1::4] = -s_file[2 * rx + 1::2 * n_rx]
+      copy[2::4] = -s_file[2 * rx::2 * n_rx]
+      copy[3::4] = s_file[2 * rx + 1::2 * n_rx]
+      samples[encoding_profile[rx]] = copy
 
-  elif file_format == 'piksinew':
+  elif file_format.startswith('piksinew'):
     packed = np.memmap(filename, offset=num_skip, dtype=np.uint8, mode='r')
     if num_samples > 0:
       packed = packed[:num_samples]
-    samples = np.empty((1, len(packed)), dtype=np.int8)
-    samples[0][:] = (packed >> 6) - 1
+    copy = np.empty(len(packed), dtype=np.int8)
+    copy[:] = (packed >> 6) - 1
+    samples = {}
+    samples[encoding_profile[0]] = copy
 
-  elif file_format == 'piksi':
+  elif file_format.startswith('piksi'):
     """
     Piksi format is packed 3-bit sign-magnitude samples, 2 samples per byte.
 
@@ -261,11 +274,13 @@ def _load_samples(filename,
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
-    tmp = np.ndarray((1, len(samples)), dtype=np.int8)
-    tmp[0][:] = samples
-    samples = tmp
+    copy = np.ndarray(len(samples), dtype=np.int8)
+    copy[:] = samples
+    result = {}
+    result[encoding_profile[0]] = copy
+    samples = result
 
-  elif file_format == '1bit' or file_format == '1bitrev':
+  elif file_format == '1bitrev':
     if num_samples > 0:
       num_skip_bytes = num_skip / 8
       num_skip_samples = num_skip % 8
@@ -287,25 +302,20 @@ def _load_samples(filename,
     samples = samples[num_skip_samples:]
     if num_samples > 0:
       samples = samples[:num_samples]
-    tmp = np.ndarray((1, len(samples)), dtype=np.int8)
-    tmp[0][:] = samples
-    samples = tmp
+    result = {}
+    copy = np.ndarray(len(samples), dtype=np.int8)
+    copy[:] = samples
+    result[encoding_profile[0]] = copy
+    samples = result
 
-  elif file_format == '1bit_x2':
-    # Interleaved single bit samples from two receivers: -1, +1
+  elif file_format.startswith('1bit'):
+    # Interleaved single bit samples from one, two or four receivers: -1, +1
     samples = __load_samples_one_bit(filename, num_samples, num_skip,
-                                     defaults.file_encoding_1bit_x2)
-  elif file_format == '2bits':
-    # Two bit samples from one receiver: -3, -1, +1, +3
-    samples = __load_samples_two_bits(filename, num_samples, num_skip, [0])
-  elif file_format == '2bits_x2':
-    # Interleaved two bit samples from two receivers: -3, -1, +1, +3
+                                     encoding_profile)
+  elif file_format.startswith('2bits'):
+    # Two bit samples from one, two or four receivers: -3, -1, +1, +3
     samples = __load_samples_two_bits(filename, num_samples, num_skip,
-                                      defaults.file_encoding_2bits_x2)
-  elif file_format == '2bits_x4':
-    # Interleaved two bit samples from four receivers: -3, -1, +1, +3
-    samples = __load_samples_two_bits(filename, num_samples, num_skip,
-                                       defaults.file_encoding_2bits_x4)
+                                      encoding_profile)
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 
@@ -313,6 +323,7 @@ def _load_samples(filename,
 
 
 def __get_samples_total(filename, file_format, sample_index):
+
   if file_format == 'int8':
     samples_block_size = 8
   elif file_format == 'piksi':
@@ -328,20 +339,23 @@ def __get_samples_total(filename, file_format, sample_index):
 
     """
     samples_block_size = 4
-  elif file_format == '1bit' or file_format == '1bitrev':
-    samples_block_size = 1
-  elif file_format == '1bit_x2':
+  elif file_format.startswith('1bit_x4'):
+    # Interleaved single bit samples from four receivers: -1, +1
+    samples_block_size = 4
+  elif file_format.startswith('1bit_x2'):
     # Interleaved single bit samples from two receivers: -1, +1
     samples_block_size = 2
-  elif file_format == '2bits':
-    # Two bit samples from one receiver: -3, -1, +1, +3
-    samples_block_size = 2
-  elif file_format == '2bits_x2':
-    # Interleaved two bit samples from two receivers: -3, -1, +1, +3
-    samples_block_size = 4
-  elif file_format == '2bits_x4':
+  elif file_format.startswith('1bit'):
+    samples_block_size = 1
+  elif file_format.startswith('2bits_x4'):
     # Interleaved two bit samples from four receivers: -3, -1, +1, +3
     samples_block_size = 8
+  elif file_format.startswith('2bits_x2'):
+    # Interleaved two bit samples from two receivers: -3, -1, +1, +3
+    samples_block_size = 4
+  elif file_format.startswith('2bits'):
+    # Two bit samples from one receiver: -3, -1, +1, +3
+    samples_block_size = 2
   else:
     raise ValueError("Unknown file type '%s'" % file_format)
 
@@ -367,11 +381,14 @@ def load_samples(samples,
                          num_samples,
                          samples['sample_index'],
                          file_format)
-  samples[L1CA]['samples'] = signal[defaults.sample_channel_GPS_L1]
-  if len(signal) > 1:
+  if L1CA in samples and defaults.sample_channel_GPS_L1 in signal:
+    samples[L1CA]['samples'] = signal[defaults.sample_channel_GPS_L1]
+  if L2C in samples and defaults.sample_channel_GPS_L2 in signal:
     samples[L2C]['samples'] = signal[defaults.sample_channel_GPS_L2]
-  if len(signal) > 2:
+  if GLO_L1 in samples and defaults.sample_channel_GLO_L1 in signal:
     samples[GLO_L1]['samples'] = signal[defaults.sample_channel_GLO_L1]
+  if GLO_L2 in samples and defaults.sample_channel_GLO_L2 in signal:
+    samples[GLO_L2]['samples'] = signal[defaults.sample_channel_GLO_L2]
 
   return samples
 
