@@ -25,7 +25,6 @@ from peregrine.iqgen.bits import signals
 import sys
 import traceback
 import logging
-import scipy
 import scipy.constants
 import numpy
 import time
@@ -434,8 +433,8 @@ def printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder):
     elif isinstance(_sv, GLOSatellite):
       band1 = outputConfig.GLONASS.L1
       band2 = outputConfig.GLONASS.L2
-      band1IncreaseDb = 60. - lpfFA_db[band1.INDEX]  # GLONASS L1
-      band2IncreaseDb = 60. - lpfFA_db[band2.INDEX]  # GLONASS L2
+      band1IncreaseDb = 57. - lpfFA_db[band1.INDEX]  # GLONASS L1
+      band2IncreaseDb = 57. - lpfFA_db[band2.INDEX]  # GLONASS L2
       signal1 = signals.GLONASS.L1S[_sv.prn]
       signal2 = signals.GLONASS.L2S[_sv.prn]
       _msg1 = _sv.getL1Message()
@@ -546,8 +545,8 @@ def generateSamples(outputFile,
   # Print out parameters
   #
   logger.info(
-    "Generating samples, sample rate={} Hz, interval={} seconds".format(
-      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
+      "Generating samples, sample rate={} Hz, interval={} seconds".format(
+          outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
   logger.debug("Jobs: %d" % threadCount)
 
   _count = 0l
@@ -602,8 +601,8 @@ def generateSamples(outputFile,
 
   # Print out parameters
   logger.info(
-    "Generating samples, sample rate={} Hz, interval={} seconds".format(
-      outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
+      "Generating samples, sample rate={} Hz, interval={} seconds".format(
+          outputConfig.SAMPLE_RATE_HZ, nSamples / outputConfig.SAMPLE_RATE_HZ))
   logger.debug("Jobs: %d" % threadCount)
   # Print out SV parameters
   printSvInfo(sv_list, outputConfig, lpfFA_db, noiseParams, encoder)

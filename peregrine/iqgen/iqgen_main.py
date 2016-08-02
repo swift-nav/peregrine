@@ -273,9 +273,9 @@ def prepareArgsParser():
           raise ValueError("Signal band must be specified before doppler")
       elif isinstance(sv, GLOSatellite):
         if sv.isL1Enabled():
-          frequency_hz = signals.GLONASS.L1S[sv.prn].CENTER_FREQUENCY_HZ
+          signal = signals.GLONASS.L1S[sv.prn]
         elif sv.isL2Enabled():
-          frequency_hz = signals.GLONASS.L2S[sv.prn].CENTER_FREQUENCY_HZ
+          signal = signals.GLONASS.L2S[sv.prn]
         else:
           raise ValueError("Signal band must be specified before doppler")
       else:
@@ -571,8 +571,7 @@ def prepareArgsParser():
   amplitudeGrp.add_argument('--amplitude-type',
                             default="poly",
                             choices=["poly", "sine"],
-                            help=
-                              "Configure amplitude type: polynomial or sine.",
+                            help="Configure amplitude type: polynomial or sine.",
                             action=UpdateAmplitudeType)
   amplitudeGrp.add_argument('--amplitude-units',
                             default="snr-db",
@@ -656,8 +655,7 @@ def prepareArgsParser():
                        action=UpdateTcxoType)
   parser.add_argument('--group-delays',
                       type=bool,
-                      help=
-                        "Enable/disable group delays simulation between bands")
+                      help="Enable/disable group delays simulation between bands")
   parser.add_argument('--debug',
                       type=argparse.FileType('wb'),
                       help="Debug output file")
@@ -755,9 +753,9 @@ def printOutputConfig(outputConfig, args):
   print "  GPS L1 IF:       ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
   print "  GPS L2 IF:       ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
   print "  GLONASS L1[0] IF:",\
-    outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
+      outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "  GLONASS L2[0] IF:",\
-    outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
+      outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "Other parameters:"
   print "  TCXO:           ", args.tcxo
   print "  noise sigma:    ", args.noise_sigma
