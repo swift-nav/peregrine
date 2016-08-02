@@ -1,15 +1,20 @@
-# -*- coding: utf-8 -*-
+# Copyright (C) 2016 Swift Navigation Inc.
+# Contact: Tommi Paakki <tommi.paakki@exafore.com>
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
 """
-Created on Thu Jul 14 14:29:34 2016
-
-@author: tpaakki
-
 This script generates controlled-root loop parameters, based on 
 "Stephens, S. A., and J. C. Thomas, "Controlled-Root Formulation for 
 Digital Phase-Locked Loops," IEEE Trans. on Aerospace and Electronics
  Systems, January 1995"
-
 """
+
 from math import factorial, exp
 import cmath
 
