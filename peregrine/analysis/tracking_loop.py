@@ -18,7 +18,7 @@ from peregrine import defaults
 from peregrine.log import default_logging_config
 from peregrine.tracking import Tracker
 from peregrine.gps_constants import L1CA, L2C
-from peregrine.glo_constants import GLO_L1, GLO_L2
+from peregrine.glo_constants import GLO_L1, GLO_L2, glo_l1_step, glo_l2_step
 from peregrine.run import populate_peregrine_cmd_line_arguments
 
 
@@ -41,9 +41,9 @@ def main():
                            help="carrier Doppler frequency [Hz]. ")
 
   signalParam.add_argument("-S", "--signal",
-                           choices=[L1CA, L2C],
+                           choices=[L1CA, L2C, GLO_L1, GLO_L2],
                            metavar='BAND',
-                           help="Signal type (l1ca / l2c)")
+                           help="Signal type (l1ca, l2c, glo_l1, glo_l2)")
   signalParam.add_argument("--l2c-handover",
                            action='store_true',
                            help="Perform L2C handover",
@@ -79,13 +79,25 @@ def main():
 
   isL1CA = (args.signal == L1CA)
   isL2C = (args.signal == L2C)
+  isGLO_L1 = (args.signal == GLO_L1)
+  isGLO_L2 = (args.signal == GLO_L2)
 
   if isL1CA:
     signal = L1CA
     IF = freq_profile['GPS_L1_IF']
+    prn = int(args.prn) - 1
   elif isL2C:
     signal = L2C
     IF = freq_profile['GPS_L2_IF']
+    prn = int(args.prn) - 1
+  elif isGLO_L1:
+    signal = GLO_L1
+    IF = freq_profile['GLO_L1_IF'] + glo_l1_step * int(args.prn)
+    prn = int(args.prn)
+  elif isGLO_L2:
+    signal = GLO_L2
+    IF = freq_profile['GLO_L2_IF'] + glo_l2_step * int(args.prn)
+    prn = int(args.prn)
   else:
     raise NotImplementedError()
 
@@ -98,7 +110,6 @@ def main():
 
   carr_doppler = float(args.carr_doppler)
   code_phase = float(args.code_phase)
-  prn = int(args.prn) - 1
 
   ms_to_process = int(args.ms_to_process)
 
@@ -148,8 +159,10 @@ def main():
   print "File format:                            %s" % args.file_format
   print "PRN to track [1-32]:                    %s" % args.prn
   print "Time to process [s]:                    %s" % (ms_to_process / 1e3)
-  print "L1 IF [Hz]:                             %f" % freq_profile['GPS_L1_IF']
-  print "L2 IF [Hz]:                             %f" % freq_profile['GPS_L2_IF']
+  print "GPS L1 IF [Hz]:                         %f" % freq_profile['GPS_L1_IF']
+  print "GPS L2 IF [Hz]:                         %f" % freq_profile['GPS_L2_IF']
+  print "GLO L1 IF [Hz]:                         %f" % freq_profile['GLO_L1_IF']
+  print "GLO L2 IF [Hz]:                         %f" % freq_profile['GLO_L2_IF']
   print "Sampling frequency [Hz]:                %f" % sampling_freq
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
   print "Initial code phase [chips]:             %s" % code_phase
