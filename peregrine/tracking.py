@@ -1376,8 +1376,11 @@ class TrackResults:
 
   def makeOutputFileNames(self, outputFileName):
     # mangle the output file names with the tracked signal name
+    prn = self.prn
+    if self.signal == gps_constants.L1CA or self.signal == gps_constants.L2C:
+      prn += 1
     fn_analysis, fn_results = createTrackingOutputFileNames(outputFileName,
-                                                            self.prn + 1,
+                                                            prn,
                                                             self.signal)
     return fn_analysis, fn_results
 
