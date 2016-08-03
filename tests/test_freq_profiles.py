@@ -8,21 +8,22 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from test_acquisition import run_acq_test
+from peregrine import defaults
 
 
 def test_custom_rate():
-  run_acq_test(-4000, 0, [1], '2bits', 'custom_rate')
+  run_acq_test(-4000, 0, [1], defaults.FORMAT_2BITS_X1_GPS_L1, 'custom_rate')
 
 
 def test_low_rate():
-  run_acq_test(-2000, 0, [2], '2bits', 'low_rate')
+  run_acq_test(-2000, 0, [2], defaults.FORMAT_2BITS_X1_GPS_L1, 'low_rate')
 
 
 def test_normal_rate():
-  run_acq_test(2000, 0, [3], '2bits', 'normal_rate')
+  run_acq_test(2000, 0, [3], defaults.FORMAT_2BITS_X1_GPS_L1, 'normal_rate')
 
 
 # Takes long time to complete in Travis CI test and
 # therefore fails
-#def test_high_rate():
-#  run_acq_test(2000, 0, [4], '2bits', 'high_rate')
+# def test_high_rate():
+#  run_acq_test(2000, 0, [4], defaults.FORMAT_2BITS_X1_GPS_L1, 'high_rate')
