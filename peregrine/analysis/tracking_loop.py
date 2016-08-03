@@ -134,11 +134,6 @@ def main():
 
   if args.l1ca_profile:
     profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
-    stage2_coherent_ms = profile[1]['coherent_ms']
-    stage2_params = profile[1]['loop_filter_params']
-  else:
-    stage2_coherent_ms = None
-    stage2_params = None
 
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
              L2C: {'IF': freq_profile['GPS_L2_IF']},
@@ -178,8 +173,6 @@ def main():
                     ms_to_track=ms_to_process,
                     sampling_freq=sampling_freq,  # [Hz]
                     l2c_handover=l2c_handover,
-                    stage2_coherent_ms=stage2_coherent_ms,
-                    stage2_loop_filter_params=stage2_params,
                     tracker_options=tracker_options,
                     output_file=args.output_file,
                     progress_bar_output=args.progress_bar,

@@ -51,6 +51,9 @@ class TrackingLoop3:
     self.phase_acc = 0
     self.phase_vel = kwargs['carr_freq']
     self.phase_err = 0
+    self.fll_bw = kwargs['carr_freq_b1']
+    self.pll_bw = kwargs['carr_bw']
+    self.dll_bw = kwargs['code_bw']
 
     self.P_prev = 1+0j
 
@@ -84,6 +87,17 @@ class TrackingLoop3:
     # Common parameters
     self.T = 1. / loop_freq
 
+    # self.code_vel = 0
+    # self.phase_vel = 0
+
+    if self.fll_bw and not carr_freq_b1:
+      # FLL is turned off
+      self.phase_acc = 0
+
+    self.fll_bw = carr_freq_b1
+    self.pll_bw = carr_bw
+    self.dll_bw = code_bw
+
     # FLL constants
     freq_omega_0 = carr_freq_b1 / 0.53
     freq_a2 = 1.414
@@ -101,7 +115,7 @@ class TrackingLoop3:
     self.phase_c2 = phase_a3 * phase_omega_0 * phase_omega_0
     self.phase_c3 = phase_omega_0 * phase_omega_0 * phase_omega_0
     # self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1 / loop_freq, carr_bw)
-    print "T = ", 1 / loop_freq, " BW = ", carr_bw
+    # print "T = ", 1 / loop_freq, " BW = ", carr_bw
 
     # self.phase_c1 = 0.00013553072504812747
     # self.phase_c2 = 0.006445479093110773
@@ -115,11 +129,7 @@ class TrackingLoop3:
     self.code_c2 = code_omega_0 * code_omega_0
 
     self.carr_to_code = carr_to_code
-    print "phase_acc = ", self.phase_acc, " phase_vel = ", self.phase_vel
-
-    # self.code_vel = 0
-    self.phase_acc = 0
-    # self.phase_vel = 0
+    # print "phase_acc = ", self.phase_acc, " phase_vel = ", self.phase_vel
 
   def update(self, E, P, L):
     """
