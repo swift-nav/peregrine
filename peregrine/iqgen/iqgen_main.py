@@ -85,6 +85,7 @@ from peregrine.iqgen.bits.satellite_factory import factoryObject as satelliteFO
 from peregrine.iqgen.bits.tcxo_factory import factoryObject as tcxoFO
 
 from peregrine.log import default_logging_config
+from peregrine import defaults
 
 logger = logging.getLogger(__name__)
 
@@ -666,7 +667,22 @@ def prepareArgsParser():
                       help="Amount of data to generate, in seconds")
   parser.add_argument('--encoder',
                       default="2bits",
-                      choices=["1bit", "2bits"],
+                      choices=["1bit", "2bits",
+                               defaults.FORMAT_1BIT_X1_GPS_L1,
+                               defaults.FORMAT_1BIT_X1_GPS_L2,
+                               defaults.FORMAT_1BIT_X1_GLO_L1,
+                               defaults.FORMAT_1BIT_X1_GLO_L2,
+                               defaults.FORMAT_1BIT_X2_GPS_L1L2,
+                               defaults.FORMAT_1BIT_X2_GLO_L1L2,
+                               defaults.FORMAT_1BIT_X4_GPS_L1L2_GLO_L1L2,
+                               defaults.FORMAT_2BITS_X1_GPS_L1,
+                               defaults.FORMAT_2BITS_X1_GPS_L2,
+                               defaults.FORMAT_2BITS_X1_GLO_L1,
+                               defaults.FORMAT_2BITS_X1_GLO_L2,
+                               defaults.FORMAT_2BITS_X2_GPS_L1L2,
+                               defaults.FORMAT_2BITS_X2_GLO_L1L2,
+                               defaults.FORMAT_2BITS_X4_GPS_L1L2_GLO_L1L2
+                               ],
                       help="Output data format")
   parser.add_argument('--output',
                       type=argparse.FileType('wb'),
@@ -801,8 +817,39 @@ def selectEncoder(encoderType, outputConfig, enabledBands):
 
   enabledGPS = enabledGPSL1 or enabledGPSL2
   enabledGLONASS = enabledGLONASSL1 or enabledGLONASSL2
-  # Configure data encoder
-  if encoderType == "1bit":
+
+  # Explicitly defined encoders
+  if encoderType == defaults.FORMAT_1BIT_X1_GPS_L1:
+    encoder = GPSL1BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X1_GPS_L2:
+    encoder = GPSL2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X2_GPS_L1L2:
+    encoder = GPSL1L2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X1_GLO_L1:
+    encoder = GLONASSL1BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X1_GLO_L2:
+    encoder = GLONASSL2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X2_GLO_L1L2:
+    encoder = GLONASSL1L2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X4_GPS_L1L2_GLO_L1L2:
+    encoder = GPSGLONASSBitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GPS_L1:
+    encoder = GPSL1TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GPS_L2:
+    encoder = GPSL2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X2_GPS_L1L2:
+    encoder = GPSL1L2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GLO_L1:
+    encoder = GLONASSL1TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GLO_L2:
+    encoder = GLONASSL2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X2_GLO_L1L2:
+    encoder = GLONASSL1L2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X4_GPS_L1L2_GLO_L1L2:
+    encoder = GPSGLONASSTwoBitsEncoder(outputConfig)
+
+  # Encoder auto-detection
+  elif encoderType == "1bit":
     if enabledGPS and enabledGLONASS:
       encoder = GPSGLONASSBitEncoder(outputConfig)
     elif enabledGPS:
