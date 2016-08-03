@@ -51,6 +51,7 @@ class TrackingLoop3:
     self.phase_acc = 0
     self.phase_vel = kwargs['carr_freq']
     self.phase_err = 0
+    self.code_err = 0
     self.fll_bw = kwargs['carr_freq_b1']
     self.pll_bw = kwargs['carr_bw']
     self.dll_bw = kwargs['code_bw']
@@ -156,8 +157,7 @@ class TrackingLoop3:
     freq_error = 0
     if self.freq_c1 != 0 and self.T != 0:
       freq_error = frequency_discriminator(P.real, P.imag, self.P_prev.real, self.P_prev.imag) / self.T
-
-    self.P_prev = P
+      self.P_prev = P
 
     prev = self.phase_acc
     self.phase_acc += freq_error * self.freq_c2 * self.T + self.phase_err * self.phase_c3 * self.T
@@ -170,11 +170,11 @@ class TrackingLoop3:
     self.carr_freq = sum
 
     # Code loop
-    code_error = -dll_discriminator(E, P, L)
+    self.code_err = -dll_discriminator(E, P, L)
 
     prev = self.code_vel
-    self.code_vel += self.code_c2 * code_error * self.T
-    sum = (prev + self.code_vel) * 0.5 + self.code_c1 * code_error
+    self.code_vel += self.code_c2 * self.code_err * self.T
+    sum = (prev + self.code_vel) * 0.5 + self.code_c1 * self.code_err
 
     self.code_freq = sum
     if self.carr_to_code > 0:

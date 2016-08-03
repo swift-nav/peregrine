@@ -685,17 +685,19 @@ class TrackingChannel(object):
       self.track_result.carr_phase[self.i] = self.carr_phase
       self.track_result.carr_phase_acc[self.i] = self.carr_phase_acc
       self.track_result.carr_freq[self.i] = \
-          self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi) + self.IF
+          self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
 
       self.track_result.code_phase[self.i] = self.code_phase
       self.track_result.code_phase_acc[self.i] = self.code_phase_acc
       self.track_result.code_freq[self.i] = \
-          self.loop_filter.to_dict()['code_freq'] / (2 * np.pi) + \
-          self.chipping_rate
+          self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
 
       self.track_result.phase_err[self.i] = \
           self.loop_filter.to_dict()['phase_err']
       self.track_result.phase_err_max[self.i] = self.track_profile['phase_err']
+
+      self.track_result.code_err[self.i] = \
+          self.loop_filter.to_dict()['code_err']
 
       self.track_result.acceleration[self.i] = \
           self.loop_filter.to_dict()['phase_acc']
@@ -1419,6 +1421,7 @@ class TrackResults:
     self.alias_detect_err_hz = np.zeros(n_points)
     self.phase_err = np.zeros(n_points)
     self.phase_err_max = np.zeros(n_points)
+    self.code_err = np.zeros(n_points)
     self.acceleration = np.zeros(n_points)
     self.dynamics = np.zeros(n_points)
     self.nav_msg = NavMsg()
@@ -1477,7 +1480,7 @@ class TrackResults:
             "sample_index,ms_tracked,coherent_ms,bit_sync,fll_bw,pll_bw,dll_bw,"
             "track_timer_ms,"
             "lock_detect_outp,lock_detect_outo,dynamics,"
-            "phase_err,phase_err_max,CN0,IF,doppler_phase,"
+            "phase_err,phase_err_max,code_err,CN0,IF,doppler_phase,"
             "carr_doppler,code_phase,code_freq,"
             "SNR,SNR_DB,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
             "lock_detect_pcount1,lock_detect_pcount2,"
@@ -1502,12 +1505,12 @@ class TrackResults:
         f1.write("%s," % self.dynamics[i])
         f1.write("%s," % self.phase_err[i])
         f1.write("%s," % self.phase_err_max[i])
+        f1.write("%s," % self.code_err[i])
         f1.write("%s," % self.cn0[i])
 
         f1.write("%s," % self.IF)
         f1.write("%s," % self.carr_phase[i])
-        f1.write("%s," % (self.carr_freq[i] -
-                          self.IF))
+        f1.write("%s," % self.carr_freq[i])
         f1.write("%s," % self.code_phase[i])
         f1.write("%s," % self.code_freq[i])
         f1.write("%s," % self.snr[i])
