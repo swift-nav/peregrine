@@ -130,7 +130,6 @@ class TrackingLoop3:
     self.code_c2 = code_omega_0 * code_omega_0
 
     self.carr_to_code = carr_to_code
-    # print "phase_acc = ", self.phase_acc, " phase_vel = ", self.phase_vel
 
   def update(self, E, P, L):
     """

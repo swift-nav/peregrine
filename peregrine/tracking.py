@@ -219,7 +219,7 @@ class TrackingChannel(object):
 
     self.profiles_history = []
     self.track_candidates = []
-    self.stabilization_time = 50
+    self.stabilization_time = 25
     self.coherent_ms = coherent_ms
     self.alias_detector = alias_detector.AliasDetector(self.coherent_ms)
 
@@ -254,7 +254,7 @@ class TrackingChannel(object):
 
     self.loop_filter = self.loop_filter_class(
         loop_freq=loop_filter_params['loop_freq'],
-        code_freq=params['code_freq_init'] * 2 * np.pi,
+        code_freq=0,
         code_bw=code_params[0], # code_bw'
         code_zeta=code_params[1], # code_zeta
         code_k=code_params[2], # code_k
@@ -266,17 +266,11 @@ class TrackingChannel(object):
         carr_freq_b1=loop_filter_params['carr_freq_b1'],
     )
 
-    self.code_freq_1 = self.code_freq_2 = \
-      self.loop_filter.to_dict()['code_freq']
+    self.code_freq_1 = self.code_freq_2 = self.corr_code_freq = \
+      params['code_freq_init']
 
-    self.corr_code_freq = self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
-
-    self.carr_freq_1 = self.carr_freq_2 = \
-      self.loop_filter.to_dict()['carr_freq']
-
-    self.corr_carr_freq = self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
-
-    print self.corr_carr_freq, self.corr_code_freq
+    self.carr_freq_1 = self.carr_freq_2 = self.corr_carr_freq = \
+      self.acq.doppler
 
     self.track_result = TrackResults(self.results_num,
                                      self.acq.prn,
@@ -599,11 +593,11 @@ class TrackingChannel(object):
       flags_pre = cur_fsm_state[2]['pre']
 
       if defaults.APPLY_CORR_1 in flags_pre:
-        self.corr_code_freq = self.code_freq_1 / (2 * np.pi)
-        self.corr_carr_freq = self.carr_freq_1 / (2 * np.pi)
+        self.corr_code_freq = self.code_freq_1
+        self.corr_carr_freq = self.carr_freq_1
       elif defaults.APPLY_CORR_2 in flags_pre:
-        self.corr_code_freq = self.code_freq_2 / (2 * np.pi)
-        self.corr_carr_freq = self.carr_freq_2 / (2 * np.pi)
+        self.corr_code_freq = self.code_freq_2
+        self.corr_carr_freq = self.carr_freq_2
 
       samples_ = samples[self.signal]['samples'][sample_index:]
 
@@ -673,11 +667,11 @@ class TrackingChannel(object):
       self.loop_filter.update(self.E, self.P, self.L)
 
       if defaults.GET_CORR_1 in flags_post:
-        self.code_freq_1 = self.loop_filter.to_dict()['code_freq']
-        self.carr_freq_1 = self.loop_filter.to_dict()['carr_freq']
+        self.code_freq_1 = self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
+        self.carr_freq_1 = self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
       elif defaults.GET_CORR_2 in flags_post:
-        self.code_freq_2 = self.loop_filter.to_dict()['code_freq']
-        self.carr_freq_2 = self.loop_filter.to_dict()['carr_freq']
+        self.code_freq_2 = self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
+        self.carr_freq_2 = self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
 
       self.track_result.coherent_ms[self.i] = self.coherent_ms
 
@@ -690,7 +684,7 @@ class TrackingChannel(object):
       self.track_result.code_phase[self.i] = self.code_phase
       self.track_result.code_phase_acc[self.i] = self.code_phase_acc
       self.track_result.code_freq[self.i] = \
-          self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
+          self.loop_filter.to_dict()['code_freq']
 
       self.track_result.phase_err[self.i] = \
           self.loop_filter.to_dict()['phase_err']
