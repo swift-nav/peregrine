@@ -219,7 +219,7 @@ class TrackingChannel(object):
 
     self.profiles_history = []
     self.track_candidates = []
-    self.stabilization_time = 150
+    self.stabilization_time = 200
     self.coherent_ms = coherent_ms
     self.alias_detector = alias_detector.AliasDetector(self.coherent_ms)
 
@@ -416,10 +416,20 @@ class TrackingChannel(object):
     for candidate in self.track_candidates:
       pll_bw_index = candidate['pll_bw_index']
       pll_bw = self.track_params['pll_bw'][pll_bw_index]
+
+      fll_bw_index = candidate['fll_bw_index']
+      fll_bw = self.track_params['fll_bw'][fll_bw_index]
+
       coherent_ms_index = candidate['coherent_ms_index']
       coherent_ms = self.track_params['coherent_ms'][coherent_ms_index]
-      if pll_bw * coherent_ms * 1e-3 <= 0.04:
-        res.append(candidate)
+
+      if pll_bw * coherent_ms * 1e-3 > 0.04:
+        continue
+
+      if fll_bw == 0 and self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi) > 100:
+        continue
+
+      res.append(candidate)
 
     print "filtered candidates: ", res
     return res
@@ -814,7 +824,7 @@ class TrackingChannelL1CA(TrackingChannel):
     params['loop_filter_params_template'] = \
         defaults.l1ca_loop_filter_params_template
 
-    params['lock_detect_params'] = defaults.l1ca_lock_detect_params_normal
+    params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
     params['sample_index'] = params['samples']['sample_index']
 
