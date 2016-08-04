@@ -91,9 +91,9 @@ class TrackingLoop3:
     # self.code_vel = 0
     # self.phase_vel = 0
 
-    if self.fll_bw and not carr_freq_b1:
-      # FLL is turned off
-      self.phase_acc = 0
+    # if self.fll_bw and not carr_freq_b1:
+    #   # FLL is turned off
+    #   self.phase_acc = 0
 
     self.fll_bw = carr_freq_b1
     self.pll_bw = carr_bw
