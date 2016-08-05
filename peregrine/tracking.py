@@ -219,7 +219,7 @@ class TrackingChannel(object):
 
     self.profiles_history = []
     self.track_candidates = []
-    self.stabilization_time = 200
+    self.stabilization_time = 100
     self.coherent_ms = coherent_ms
     self.alias_detector = alias_detector.AliasDetector(self.coherent_ms)
 
@@ -242,6 +242,18 @@ class TrackingChannel(object):
         k2=self.lock_detect_params["k2"],
         lp=self.lock_detect_params["lp"],
         lo=self.lock_detect_params["lo"])
+
+    self.lock_detect_fast = lock_detect.LockDetector(
+        k1=defaults.lock_detect_params_fast["k1"],
+        k2=defaults.lock_detect_params_fast["k2"],
+        lp=defaults.lock_detect_params_fast["lp"],
+        lo=defaults.lock_detect_params_fast["lo"])
+
+    self.lock_detect_slow = lock_detect.LockDetector(
+        k1=defaults.lock_detect_params_slow["k1"],
+        k2=defaults.lock_detect_params_slow["k2"],
+        lp=defaults.lock_detect_params_slow["lp"],
+        lo=defaults.lock_detect_params_slow["lo"])
 
     self.cn0_est = CN0_Est_MM(
         bw=1e3 / self.coherent_ms,
@@ -366,11 +378,11 @@ class TrackingChannel(object):
     self.alias_detector.reinit(self.coherent_ms)
 
     self.loop_filter.retune(**loop_filter_params)
-    self.lock_detect.reinit(
-        k1=self.lock_detect_params["k1"],
-        k2=self.lock_detect_params["k2"],
-        lp=self.lock_detect_params["lp"],
-        lo=self.lock_detect_params["lo"])
+    # self.lock_detect.reinit(
+    #     k1=self.lock_detect_params["k1"],
+    #     k2=self.lock_detect_params["k2"],
+    #     lp=self.lock_detect_params["lp"],
+    #     lo=self.lock_detect_params["lo"])
     self.cn0_est = CN0_Est_MM(bw=1e3 / self.coherent_ms,
                                 cn0_0=self.track_result.cn0[self.i - 1],
                                 cutoff_freq=10,
@@ -426,8 +438,8 @@ class TrackingChannel(object):
       if pll_bw * coherent_ms * 1e-3 > 0.04:
         continue
 
-      if fll_bw == 0 and self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi) > 100:
-        continue
+      # if fll_bw == 0 and self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi) > 100:
+      #   continue
 
       res.append(candidate)
 
@@ -446,11 +458,20 @@ class TrackingChannel(object):
     self.bit_sync = self.nav_bit_sync.bit_sync_acquired()
 
     if self.lock_detect_outp:
+      if not self.lock_detect_fast_outp:
+        self.fll_bw_index = 1
+        self.pll_bw_index = 0
+        self.coherent_ms_index = 0
+        self.profiles_history = []
+        print "We are about to loose the lock"
+        self._set_track_profile()
+        return
+
       track_settled = self.track_profile_timer_ms >= self.stabilization_time
       if not track_settled:
         return
 
-      iq_ratio = np.absolute(self.lock_detect_lpfi / self.lock_detect_lpfq)
+      iq_ratio = np.absolute(self.lock_detect_slow_lpfi / self.lock_detect_slow_lpfq)
       if not self.track_settled:
         self.track_profile['iq_ratio'] = iq_ratio
         self.track_settled = True
@@ -459,14 +480,26 @@ class TrackingChannel(object):
       if self.track_profile['iq_ratio'] > iq_ratio:
         self.track_profile['iq_ratio'] = iq_ratio
 
+
+      # if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
+      #    iq_ratio < 3 and \
+      #    len(self.profiles_history) > 0:
+
+      # if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
+      #    len(self.profiles_history) > 0:
+
       if len(self.profiles_history):
         prev_iq_ratio = self.profiles_history[-1]['iq_ratio']
       else:
         prev_iq_ratio = 0
 
-      if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
-         iq_ratio < 2 and \
+      if prev_iq_ratio and iq_ratio < prev_iq_ratio * 0.5 and \
          len(self.profiles_history) > 0:
+
+      # if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
+      #    len(self.profiles_history) > 0:
+
+      # if not self.lock_detect_fast_outp and len(self.profiles_history) > 0:
 
         print ""
         print "#################### Current history status history: "
@@ -476,7 +509,7 @@ class TrackingChannel(object):
         print ""
 
         profile = self.profiles_history.pop()
-        print "Low I/Q ratio, Prev: ", prev_iq_ratio, " Now: ", iq_ratio
+        #print "Low I/Q ratio, Prev: ", prev_iq_ratio, " Now: ", iq_ratio
         print "Taking profile from history: ", profile
         self.fll_bw_index = profile['fll_bw_index']
         self.pll_bw_index = profile['pll_bw_index']
@@ -530,12 +563,12 @@ class TrackingChannel(object):
          self.coherent_ms_index == 0:
         return
 
-      # self.fll_bw_index = 0
-      # self.pll_bw_index = 0
-      # self.coherent_ms_index = 0
-      # self.profiles_history = []
-      # print "Back to init profile"
-      # self._set_track_profile()
+      self.fll_bw_index = 0
+      self.pll_bw_index = 0
+      self.coherent_ms_index = 0
+      self.profiles_history = []
+      print "Back to init profile"
+      self._set_track_profile()
 
   def _run_nav_data_decoding(self):
     """
@@ -662,6 +695,36 @@ class TrackingChannel(object):
       flags_post = cur_fsm_state[2]['post']
       self.fsm_index = cur_fsm_state[1]
 
+      if defaults.RUN_LD in flags_post:
+        # Update PLL lock detector
+        self.lock_detect_outo, \
+            self.lock_detect_outp, \
+            lock_detect_pcount1, \
+            lock_detect_pcount2, \
+            self.lock_detect_lpfi, \
+            self.lock_detect_lpfq = self.lock_detect.update(self.P.real,
+                                                       self.P.imag,
+                                                       1)
+        # Update PLL fast lock detector
+        self.lock_detect_fast_outo, \
+            self.lock_detect_fast_outp, \
+            lock_detect_fast_pcount1, \
+            lock_detect_fast_pcount2, \
+            self.lock_detect_fast_lpfi, \
+            self.lock_detect_fast_lpfq = self.lock_detect_fast.update(self.P.real,
+                                                       self.P.imag,
+                                                       1)
+
+        # Update PLL fast lock detector
+        self.lock_detect_slow_outo, \
+            self.lock_detect_slow_outp, \
+            lock_detect_slow_pcount1, \
+            lock_detect_slow_pcount2, \
+            self.lock_detect_slow_lpfi, \
+            self.lock_detect_slow_lpfq = self.lock_detect_slow.update(self.P.real,
+                                                       self.P.imag,
+                                                       1)
+
       if self.lock_detect_outo:
         if defaults.ALIAS_DETECT_1ST in flags_post or \
            defaults.ALIAS_DETECT_BOTH in flags_post:
@@ -683,17 +746,6 @@ class TrackingChannel(object):
       if not (defaults.GET_CORR_1 in flags_post) and \
          not (defaults.GET_CORR_2 in flags_post):
         continue
-
-      if defaults.RUN_LD in flags_post:
-        # Update PLL lock detector
-        self.lock_detect_outo, \
-            self.lock_detect_outp, \
-            lock_detect_pcount1, \
-            lock_detect_pcount2, \
-            self.lock_detect_lpfi, \
-            self.lock_detect_lpfq = self.lock_detect.update(self.P.real,
-                                                       self.P.imag,
-                                                       self.coherent_ms)
 
       self.track_result.dynamics[self.i] = \
         self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
@@ -753,10 +805,19 @@ class TrackingChannel(object):
 
       self.track_result.lock_detect_outo[self.i] = self.lock_detect_outo
       self.track_result.lock_detect_outp[self.i] = self.lock_detect_outp
+      self.track_result.lock_detect_fast_outo[self.i] = self.lock_detect_fast_outo
+      self.track_result.lock_detect_fast_outp[self.i] = self.lock_detect_fast_outp
       self.track_result.lock_detect_pcount1[self.i] = lock_detect_pcount1
       self.track_result.lock_detect_pcount2[self.i] = lock_detect_pcount2
+
       self.track_result.lock_detect_lpfi[self.i] = self.lock_detect_lpfi
       self.track_result.lock_detect_lpfq[self.i] = self.lock_detect_lpfq
+
+      self.track_result.lock_detect_fast_lpfi[self.i] = self.lock_detect_fast_lpfi
+      self.track_result.lock_detect_fast_lpfq[self.i] = self.lock_detect_fast_lpfq
+
+      self.track_result.lock_detect_slow_lpfi[self.i] = self.lock_detect_slow_lpfi
+      self.track_result.lock_detect_slow_lpfq[self.i] = self.lock_detect_slow_lpfq
 
       self.track_result.alias_detect_err_hz[self.i] = err_hz
 
@@ -1444,10 +1505,20 @@ class TrackResults:
     self.snr_db = np.zeros(n_points)
     self.lock_detect_outp = np.zeros(n_points)
     self.lock_detect_outo = np.zeros(n_points)
+    self.lock_detect_fast_outp = np.zeros(n_points)
+    self.lock_detect_fast_outo = np.zeros(n_points)
     self.lock_detect_pcount1 = np.zeros(n_points)
     self.lock_detect_pcount2 = np.zeros(n_points)
+
     self.lock_detect_lpfi = np.zeros(n_points)
     self.lock_detect_lpfq = np.zeros(n_points)
+
+    self.lock_detect_fast_lpfi = np.zeros(n_points)
+    self.lock_detect_fast_lpfq = np.zeros(n_points)
+
+    self.lock_detect_slow_lpfi = np.zeros(n_points)
+    self.lock_detect_slow_lpfq = np.zeros(n_points)
+
     self.alias_detect_err_hz = np.zeros(n_points)
     self.phase_err = np.zeros(n_points)
     self.iq_ratio_min = np.zeros(n_points)
@@ -1510,7 +1581,8 @@ class TrackResults:
             "sample_index,ms_tracked,coherent_ms,bit_sync,fll_bw,pll_bw,dll_bw,"
             "track_timer_ms,"
             "lock_detect_outp,lock_detect_outo,"
-            "iq_ratio,iq_ratio_min,dynamics,"
+            "lock_detect_fast_outp,lock_detect_fast_outo,"
+            "iq_ratio,iq_ratio_fast,iq_ration_slow,iq_ratio_raw,iq_ratio_min,dynamics,"
             "phase_err,code_err,CN0,IF,doppler_phase,"
             "carr_doppler,code_phase,code_freq,"
             "SNR,SNR_DB,P_Mag,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
@@ -1534,7 +1606,13 @@ class TrackResults:
         f1.write("%s," % int(self.lock_detect_outp[i]))
         f1.write("%s," % int(self.lock_detect_outo[i]))
 
+        f1.write("%s," % int(self.lock_detect_fast_outp[i]))
+        f1.write("%s," % int(self.lock_detect_fast_outo[i]))
+
         f1.write("%s," % (self.lock_detect_lpfi[i] / self.lock_detect_lpfq[i]))
+        f1.write("%s," % (self.lock_detect_fast_lpfi[i] / self.lock_detect_fast_lpfq[i]))
+        f1.write("%s," % (self.lock_detect_slow_lpfi[i] / self.lock_detect_slow_lpfq[i]))
+        f1.write("%s," % np.absolute(self.P[i].real / self.P[i].imag))
         f1.write("%s," % self.iq_ratio_min[i])
 
         f1.write("%s," % self.dynamics[i])

@@ -207,7 +207,7 @@ l2c_loop_filter_params = {
 
 l1ca_track_params = {
     'fll_bw': (1, 0),
-    'pll_bw': (30, 20, 18, 16, 14, 10, 8, 6, 4, 2),
+    'pll_bw': (40, 35, 30, 25, 20, 18, 16, 14, 10, 8, 6, 4, 2),
     'coherent_ms': (1, 2, 4, 5, 10, 20) }
 
 l1ca_loop_filter_params_template = {
@@ -1496,7 +1496,7 @@ fsm_states = \
 l1ca_lock_detect_params_pess = {"k1": 0.10, "k2": 1.4, "lp": 200, "lo": 50}
 
 # normal set
-l1ca_lock_detect_params_normal = {"k1": 0.05, "k2": 1.4, "lp": 150, "lo": 50}
+l1ca_lock_detect_params_normal = {"k1": 0.2, "k2": .8, "lp": 150, "lo": 50}
 
 # optimal set
 l1ca_lock_detect_params_opt = {"k1": 0.02, "k2": 1.1, "lp": 150, "lo": 50}
@@ -1506,6 +1506,9 @@ l1ca_lock_detect_params_extraopt = {"k1": 0.02, "k2": 0.8, "lp": 150, "lo": 50}
 
 # disable lock detect
 l1ca_lock_detect_params_disable = {"k1": 0.02, "k2": 1e-6, "lp": 1, "lo": 1}
+
+lock_detect_params_slow = {"k1": 0.005, "k2": 1.4, "lp": 200, "lo": 50}
+lock_detect_params_fast = {"k1": 0.2, "k2": .8, "lp": 50, "lo": 50}
 
 # L2C 20ms lock detect profile
 # References:
