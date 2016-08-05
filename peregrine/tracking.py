@@ -27,7 +27,6 @@ from peregrine import defaults
 from peregrine import gps_constants
 from peregrine import glo_constants
 from peregrine import alias_detector
-from peregrine import dynamics_detector
 from peregrine.acquisition import AcquisitionResult
 from peregrine.acquisition import GloAcquisitionResult
 from peregrine.include.generateCAcode import caCodes
@@ -223,8 +222,6 @@ class TrackingChannel(object):
     self.coherent_ms = coherent_ms
     self.alias_detector = alias_detector.AliasDetector(self.coherent_ms)
 
-    self.dynamics_detector = dynamics_detector.DynamicsDetector()
-
     self.short_n_long = False
     if params['tracker_options']:
       mode = params['tracker_options']['mode']
@@ -378,11 +375,7 @@ class TrackingChannel(object):
     self.alias_detector.reinit(self.coherent_ms)
 
     self.loop_filter.retune(**loop_filter_params)
-    # self.lock_detect.reinit(
-    #     k1=self.lock_detect_params["k1"],
-    #     k2=self.lock_detect_params["k2"],
-    #     lp=self.lock_detect_params["lp"],
-    #     lo=self.lock_detect_params["lo"])
+
     self.cn0_est = CN0_Est_MM(bw=1e3 / self.coherent_ms,
                                 cn0_0=self.track_result.cn0[self.i - 1],
                                 cutoff_freq=10,
@@ -421,7 +414,6 @@ class TrackingChannel(object):
                     'coherent_ms_index': self.coherent_ms_index }
       self.track_candidates.append(candidate)
 
-    print "New track candidates: ", self.track_candidates, " Bit sync: ", self.bit_sync
 
   def _filter_track_candidates(self):
     res = []
@@ -438,12 +430,8 @@ class TrackingChannel(object):
       if pll_bw * coherent_ms * 1e-3 > 0.04:
         continue
 
-      # if fll_bw == 0 and self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi) > 100:
-      #   continue
-
       res.append(candidate)
 
-    print "filtered candidates: ", res
     return res
 
   def _run_track_profile_selection(self):
@@ -463,7 +451,6 @@ class TrackingChannel(object):
         self.pll_bw_index = 0
         self.coherent_ms_index = 0
         self.profiles_history = []
-        print "We are about to loose the lock"
         self._set_track_profile()
         return
 
@@ -475,18 +462,9 @@ class TrackingChannel(object):
       if not self.track_settled:
         self.track_profile['iq_ratio'] = iq_ratio
         self.track_settled = True
-        print "Init track profile iq ratio: ", iq_ratio
 
       if self.track_profile['iq_ratio'] > iq_ratio:
         self.track_profile['iq_ratio'] = iq_ratio
-
-
-      # if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
-      #    iq_ratio < 3 and \
-      #    len(self.profiles_history) > 0:
-
-      # if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
-      #    len(self.profiles_history) > 0:
 
       if len(self.profiles_history):
         prev_iq_ratio = self.profiles_history[-1]['iq_ratio']
@@ -496,21 +474,7 @@ class TrackingChannel(object):
       if prev_iq_ratio and iq_ratio < prev_iq_ratio * 0.5 and \
          len(self.profiles_history) > 0:
 
-      # if prev_iq_ratio and iq_ratio < prev_iq_ratio and \
-      #    len(self.profiles_history) > 0:
-
-      # if not self.lock_detect_fast_outp and len(self.profiles_history) > 0:
-
-        print ""
-        print "#################### Current history status history: "
-        for pr in self.profiles_history:
-          print pr
-        print "#####################################################"
-        print ""
-
         profile = self.profiles_history.pop()
-        #print "Low I/Q ratio, Prev: ", prev_iq_ratio, " Now: ", iq_ratio
-        print "Taking profile from history: ", profile
         self.fll_bw_index = profile['fll_bw_index']
         self.pll_bw_index = profile['pll_bw_index']
         self.coherent_ms_index = profile['coherent_ms_index']
@@ -528,7 +492,6 @@ class TrackingChannel(object):
         self._make_track_candidates()
         self.track_candidates = self._filter_track_candidates()
         if len(self.track_candidates) == 0:
-          print "=================== No candidates"
           return
 
       track_profile = self.track_candidates.pop()
@@ -539,9 +502,6 @@ class TrackingChannel(object):
       if bit_sync_required and not self.bit_sync:
         self.track_candidates.append(track_profile)
         return
-
-      print "Start using next track profile: ", track_profile
-      print "Track candidates in queue: ", self.track_candidates
 
       # switch to next track profile
       history = {'fll_bw_index': self.fll_bw_index,
@@ -554,7 +514,6 @@ class TrackingChannel(object):
       self.pll_bw_index = track_profile['pll_bw_index']
       self.coherent_ms_index = track_profile['coherent_ms_index']
 
-      print "Switch to the next track profile"
       self._set_track_profile()
 
     else:
@@ -567,7 +526,6 @@ class TrackingChannel(object):
       self.pll_bw_index = 0
       self.coherent_ms_index = 0
       self.profiles_history = []
-      print "Back to init profile"
       self._set_track_profile()
 
   def _run_nav_data_decoding(self):
@@ -749,7 +707,6 @@ class TrackingChannel(object):
 
       self.track_result.dynamics[self.i] = \
         self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
-        #self.dynamics_detector.update(self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi), self.coherent_ms)
 
       # run tracking loop
       self.loop_filter.update(self.E, self.P, self.L)
