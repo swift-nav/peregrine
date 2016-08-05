@@ -447,8 +447,13 @@ class TrackingChannel(object):
 
     if self.lock_detect_outp:
       if not self.lock_detect_fast_outp:
+        if self.fll_bw_index == 1 and \
+           self.pll_bw_index == 1 and \
+           self.coherent_ms_index == 0:
+          return
+
         self.fll_bw_index = 1
-        self.pll_bw_index = 0
+        self.pll_bw_index = 1
         self.coherent_ms_index = 0
         self.profiles_history = []
         self._set_track_profile()
