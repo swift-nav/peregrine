@@ -443,7 +443,10 @@ class TrackingChannel(object):
 
     """
 
-    self.bit_sync = self.nav_bit_sync.bit_sync_acquired()
+    bit_sync = self.nav_bit_sync.bit_sync_acquired()
+    if bit_sync and not self.bit_sync:
+      self.track_profile_timer_ms = 0
+    self.bit_sync = bit_sync
 
     if self.lock_detect_outp:
       if not self.lock_detect_fast_outp:
@@ -461,6 +464,10 @@ class TrackingChannel(object):
 
       track_settled = self.track_profile_timer_ms >= self.stabilization_time
       if not track_settled:
+        return
+
+      if int(self.track_profile_timer_ms + 0.5) % 20 != 0:
+        #print self.track_profile_timer_ms
         return
 
       iq_ratio = np.absolute(self.lock_detect_slow_lpfi / self.lock_detect_slow_lpfq)
@@ -1663,6 +1670,7 @@ class NavBitSync:
     self.bit_phase = 0
     self.bit_integrate = 0
     self.synced = False
+    self.sync_acquired = False
     self.bits = []
     self.bit_phase_ref = -1  # A new bit begins when bit_phase == bit_phase_ref
     self.count = 0
@@ -1678,12 +1686,13 @@ class NavBitSync:
       bit = 1 if self.bit_integrate > 0 else 0
       self.bits.append(bit)
       self.bit_integrate = 0
+      self.sync_acquired = True
       return True, bit
     else:
       return False, None
 
   def bit_sync_acquired(self):
-    return self.synced
+    return self.sync_acquired
 
   def update_bit_sync(self, corr, ms):
     raise NotImplementedError
