@@ -245,7 +245,7 @@ class TrackingLoop3b:
     self.freq_c2 = freq_omega_0 * freq_omega_0
 
     # PLL constants
-    self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1 / loop_freq, carr_bw)
+    self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1. / loop_freq, carr_bw)
 
     # DLL constants
     code_omega_0 = code_bw / 0.53
@@ -358,7 +358,7 @@ class TrackingLoop2b:
     carr_bw, carr_zeta, carr_k = carr_params
 
     # Common parameters
-    self.T = 1 / loop_freq
+    self.T = 1. / loop_freq
 
     # FLL constants
     freq_omega_0 = carr_freq_b1 / 0.53
