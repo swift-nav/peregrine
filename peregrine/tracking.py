@@ -470,6 +470,10 @@ class TrackingChannel(object):
       if not track_settled:
         return
 
+      if self.track_profile_timer_ms > 500:
+        # clear history as it is too old
+        self.profiles_history = []
+
       if int(self.track_profile_timer_ms + 0.5) % 20 != 0:
         #print self.track_profile_timer_ms
         return
