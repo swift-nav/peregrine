@@ -88,13 +88,6 @@ class TrackingLoop3:
     # Common parameters
     self.T = 1. / loop_freq
 
-    # self.code_vel = 0
-    # self.phase_vel = 0
-
-    # if self.fll_bw and not carr_freq_b1:
-    #   # FLL is turned off
-    #   self.phase_acc = 0
-
     self.fll_bw = carr_freq_b1
     self.pll_bw = carr_bw
     self.dll_bw = code_bw
@@ -115,12 +108,6 @@ class TrackingLoop3:
     self.phase_c1 = phase_b3 * phase_omega_0
     self.phase_c2 = phase_a3 * phase_omega_0 * phase_omega_0
     self.phase_c3 = phase_omega_0 * phase_omega_0 * phase_omega_0
-    # self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1 / loop_freq, carr_bw)
-    # print "T = ", 1 / loop_freq, " BW = ", carr_bw
-
-    # self.phase_c1 = 0.00013553072504812747
-    # self.phase_c2 = 0.006445479093110773
-    # self.phase_c3 = 0.11739536416734386
 
     # DLL constants
     code_omega_0 = code_bw / 0.53
@@ -200,20 +187,25 @@ class TrackingLoop3b:
 
   def __init__(self, **kwargs):
     # Initial state
-    self.retune( (kwargs['code_bw'], kwargs['code_zeta'], kwargs['code_k']),
-                 (kwargs['carr_bw'], kwargs['carr_zeta'], kwargs['carr_k']),
-                 kwargs['loop_freq'],
-                 kwargs['carr_freq_b1'],
-                 kwargs['carr_to_code'] )
-
     self.carr_freq = kwargs['carr_freq']
     self.code_freq = kwargs['code_freq']
 
     self.code_vel = kwargs['code_freq']
     self.phase_acc = 0
     self.phase_vel = kwargs['carr_freq']
+    self.phase_err = 0
+    self.code_err = 0
+    self.fll_bw = kwargs['carr_freq_b1']
+    self.pll_bw = kwargs['carr_bw']
+    self.dll_bw = kwargs['code_bw']
 
     self.P_prev = 1+0j
+
+    self.retune( (kwargs['code_bw'], kwargs['code_zeta'], kwargs['code_k']),
+                 (kwargs['carr_bw'], kwargs['carr_zeta'], kwargs['carr_k']),
+                 kwargs['loop_freq'],
+                 kwargs['carr_freq_b1'],
+                 kwargs['carr_to_code'] )
 
 
   def retune(self, code_params, carr_params, loop_freq, carr_freq_b1, carr_to_code):
@@ -238,7 +230,11 @@ class TrackingLoop3b:
     carr_bw, carr_zeta, carr_k = carr_params
 
     # Common parameters
-    self.T = 1 / loop_freq
+    self.T = 1. / loop_freq
+
+    self.fll_bw = carr_freq_b1
+    self.pll_bw = carr_bw
+    self.dll_bw = code_bw
 
     # FLL constants
     freq_omega_0 = carr_freq_b1 / 0.53
@@ -249,82 +245,7 @@ class TrackingLoop3b:
     self.freq_c2 = freq_omega_0 * freq_omega_0
 
     # PLL constants
-    phase_omega_0 = carr_bw / 0.7845
-    phase_a3 = 1.1
-    phase_b3 = 2.4
-
-    # self.phase_c1 = phase_b3 * phase_omega_0
-    # self.phase_c2 = phase_a3 * phase_omega_0 * phase_omega_0
-    # self.phase_c3 = phase_omega_0 * phase_omega_0 * phase_omega_0
-
-    # self.phase_c1 = 0.2532
-    # self.phase_c2 = 0.03710
-    # self.phase_c3 = 0.002344
-
-    # BL*T = 0.015 no delay
-    # self.phase_c1 = 0.03742
-    # self.phase_c2 = 6.356e-04
-    # self.phase_c3 = 4.084e-06
-
-    # BL*T = 0.015 with delay
-    # self.phase_c1 = 0.03575
-    # self.phase_c2 = 5.859e-04
-    # self.phase_c3 = 3.646e-06
-
-    # BL*T = 0.050 with delay
-    # self.phase_c1 = 0.09928
-    # self.phase_c2 = 0.004802
-    # self.phase_c3 = 9.066e-05
-
-    if carr_bw / loop_freq == 0.1:
-      # BL*T = 0.100 with delay
-      self.phase_c1 = 0.1599
-      self.phase_c2 = 0.01333
-      self.phase_c3 = 4.494e-04
-    # BL*T = 0.100 without delay
-      # self.phase_c1 = 0.1991
-      # self.phase_c2 = 0.01995
-      # self.phase_c3 = 7.924e-04
-    elif carr_bw / loop_freq == 0.050:
-      self.phase_c1 = 0.09928
-      self.phase_c2 = 0.004802
-      self.phase_c3 = 9.066e-05
-    elif carr_bw / loop_freq == 0.070:
-      self.phase_c1 = 0.1268
-      self.phase_c2 = 0.008066
-      self.phase_c3 = 2.032-04
-    elif carr_bw / loop_freq == 0.15:
-      self.phase_c1 = 0.2003
-      self.phase_c2 = 0.02203
-      self.phase_c3 = 0.001012
-    elif carr_bw / loop_freq == 0.2:
-      # without delay
-      self.phase_c1 = 0.3183
-      self.phase_c2 = 0.05595
-      self.phase_c3 = 0.004103
-      # with delay
-      # self.phase_c1 = 0.2290
-      # self.phase_c2 = 0.02994
-      # self.phase_c3 = 0.001683
-    # BL*T = 0.400 without delay
-    # self.phase_c1 = 0.4499
-    # self.phase_c2 = 0.1253
-    # self.phase_c3 = 0.01584
-
-    # BL*T = 0.300 without delay
-    # self.phase_c1 = 0.3951
-    # self.phase_c2 = 0.09238
-    # self.phase_c3 = 0.009451
-
-    # BL*T = 0.250 without delay
-    # self.phase_c1 = 0.3606
-    # self.phase_c2 = 0.07452
-    # self.phase_c3 = 0.006583
-
-    else:
-      self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1 / loop_freq, carr_bw)
-    print "T = ", 1 / loop_freq, " BW = ", carr_bw, "BL*T = ", carr_bw / loop_freq
-    print "c1, c2, c3: ", self.phase_c1, self.phase_c2, self.phase_c3
+    self.phase_c1, self.phase_c2, self.phase_c3 = controlled_root(3, 1 / loop_freq, carr_bw)
 
     # DLL constants
     code_omega_0 = code_bw / 0.53
@@ -334,10 +255,6 @@ class TrackingLoop3b:
     self.code_c2 = code_omega_0 * code_omega_0
 
     self.carr_to_code = carr_to_code
-
-    # self.code_vel = 0
-    # self.phase_acc = 0
-    # self.phase_vel = 0
 
   def update(self, E, P, L):
     """
@@ -362,17 +279,9 @@ class TrackingLoop3b:
     # Carrier loop
     self.phase_err = costas_discriminator(P.real, P.imag)
     freq_error = 0
-    if self.freq_c1 != 0:
+    if self.freq_c1 != 0 and self.T != 0:
       freq_error = frequency_discriminator(P.real, P.imag, self.P_prev.real, self.P_prev.imag) / self.T
-
-    self.P_prev = P
-
-    # self.phase_acc += freq_error * self.freq_c2 * 1 / self.T + self.phase_err * self.phase_c3# * 1 / self.T
-
-    # sum = self.phase_acc + freq_error * self.freq_c1 + self.phase_err * self.phase_c2
-    # self.phase_vel += sum * 1 / self.T
-    # sum = self.phase_vel + self.phase_err * self.phase_c1
-    # self.carr_freq = sum #* self.T
+      self.P_prev = P
 
     self.phase_acc += self.phase_err * self.phase_c3 / self.T
 
@@ -382,11 +291,11 @@ class TrackingLoop3b:
     self.carr_freq = sum
 
     # Code loop
-    code_error = -dll_discriminator(E, P, L)
+    self.code_err = -dll_discriminator(E, P, L)
 
     prev = self.code_vel
-    self.code_vel += self.code_c2 * code_error * self.T
-    sum = (prev + self.code_vel) * 0.5 + self.code_c1 * code_error
+    self.code_vel += self.code_c2 * self.code_err * self.T
+    sum = (prev + self.code_vel) * 0.5 + self.code_c1 * self.code_err
 
     self.code_freq = sum
     if self.carr_to_code > 0:
