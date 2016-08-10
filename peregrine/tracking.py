@@ -290,8 +290,11 @@ class TrackingChannel(object):
                                      self.acq.prn,
                                      self.acq.signal)
     self.track_profile_timer_ms = 0
+    self.dynamics_timer_ms = 0
+    self.dynamics_detected = False
     self.code_phase = 0.0
     self.carr_phase = 0.0
+    self.lock_detect_outp_prev = False
     self.samples_per_chip = int(round(self.sampling_freq / self.chipping_rate))
     self.sample_index = params['sample_index']
     self.sample_index += self.acq.sample_index
@@ -432,7 +435,8 @@ class TrackingChannel(object):
       coherent_ms = self.track_params['coherent_ms'][coherent_ms_index]
 
       if pll_bw * coherent_ms * 1e-3 > 0.04:
-        continue
+        if (coherent_ms != 20 and pll_bw != 5):
+          continue
 
       res.append(candidate)
 
@@ -453,15 +457,22 @@ class TrackingChannel(object):
     self.bit_sync = bit_sync
 
     if self.lock_detect_outp:
+
+      # dynamics in [Hz/s]
+      dynamics = self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
+      if dynamics > 20:
+        self.dynamics_timer_ms = 0
+        self.dynamics_detected = True
+      elif self.dynamics_timer_ms > 10000:
+        self.dynamics_detected = False
+
+      self.lock_detect_outp_prev = True
+
       if not self.lock_detect_fast_outp:
-        if self.fll_bw_index == 1 and \
-           self.pll_bw_index == 1 and \
-           self.coherent_ms_index == 0:
+        if self.fll_bw_index == 0:
           return
 
-        self.fll_bw_index = 1
-        self.pll_bw_index = 1
-        self.coherent_ms_index = 0
+        self.fll_bw_index = 0
         self.profiles_history = []
         self._set_track_profile()
         return
@@ -475,7 +486,7 @@ class TrackingChannel(object):
         self.profiles_history = []
 
       if int(self.track_profile_timer_ms + 0.5) % 20 != 0:
-        #print self.track_profile_timer_ms
+        # wait for bit edge
         return
 
       iq_ratio = np.absolute(self.lock_detect_slow_lpfi / self.lock_detect_slow_lpfq)
@@ -537,14 +548,29 @@ class TrackingChannel(object):
       self._set_track_profile()
 
     else:
-      if self.fll_bw_index == 0 and \
-         self.pll_bw_index == 0 and \
-         self.coherent_ms_index == 0:
-        return
+      if self.lock_detect_outp_prev:
+        self.track_profile_timer_ms = 0
 
-      self.fll_bw_index = 0
-      self.pll_bw_index = 0
-      self.coherent_ms_index = 0
+      self.lock_detect_outp_prev = False
+
+      if self.dynamics_detected:
+        threshold = 50
+      else:
+        threshold = 10000
+
+      if self.track_profile_timer_ms > threshold:
+        if self.fll_bw_index == 0 and \
+           self.pll_bw_index == 0 and \
+           self.coherent_ms_index == 0:
+          return
+        self.fll_bw_index = 0
+        self.pll_bw_index = 0
+        self.coherent_ms_index = 0
+      else:
+        if self.fll_bw_index == 0:
+          return
+        self.fll_bw_index = 0
+
       self.profiles_history = []
       self._set_track_profile()
 
@@ -664,6 +690,7 @@ class TrackingChannel(object):
       )
 
       self.track_profile_timer_ms += 1e3 * blksize / self.sampling_freq
+      self.dynamics_timer_ms += 1e3 * blksize / self.sampling_freq
 
       sample_index += blksize
       samples_processed += blksize
@@ -789,6 +816,7 @@ class TrackingChannel(object):
       self.track_result.dll_bw[self.i] = self.loop_filter.to_dict()['dll_bw']
 
       self.track_result.track_timer_ms[self.i] = self.track_profile_timer_ms
+      self.track_result.dynamics_timer_ms[self.i] = self.dynamics_timer_ms
 
       # Record stuff for postprocessing
       self.track_result.absolute_sample[self.i] = self.sample_index + \
@@ -1540,6 +1568,7 @@ class TrackResults:
     self.dll_bw = np.zeros(n_points)
 
     self.track_timer_ms = np.zeros(n_points)
+    self.dynamics_timer_ms = np.zeros(n_points)
 
     self.signal = signal
     self.ms_tracked = np.zeros(n_points)
@@ -1579,7 +1608,7 @@ class TrackResults:
       if self.print_start:
         f1.write(
             "sample_index,ms_tracked,coherent_ms,bit_sync,fll_bw,pll_bw,dll_bw,"
-            "track_timer_ms,"
+            "track_timer_ms,dynamics_timer_ms,"
             "lock_detect_outp,lock_detect_outo,"
             "lock_detect_fast_outp,lock_detect_fast_outo,"
             "iq_ratio,iq_ratio_fast,iq_ration_slow,iq_ratio_raw,iq_ratio_min,dynamics,"
@@ -1602,6 +1631,7 @@ class TrackResults:
         f1.write("%s," % self.dll_bw[i])
 
         f1.write("%s," % self.track_timer_ms[i])
+        f1.write("%s," % self.dynamics_timer_ms[i])
 
         f1.write("%s," % int(self.lock_detect_outp[i]))
         f1.write("%s," % int(self.lock_detect_outo[i]))
