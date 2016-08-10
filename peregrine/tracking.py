@@ -222,7 +222,7 @@ class TrackingChannel(object):
 
     self.profiles_history = []
     self.track_candidates = []
-    self.stabilization_time = 100
+    self.stabilization_time = 50
     self.coherent_ms = coherent_ms
     self.alias_detector = alias_detector.AliasDetector(self.coherent_ms)
 
