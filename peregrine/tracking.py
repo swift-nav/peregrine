@@ -140,6 +140,10 @@ def get_fsm_states(ms, short_n_long, bit_sync):
     ms = '10ms'
   elif ms == 20:
     ms = '20ms'
+  elif ms == 40:
+    ms = '40ms'
+  elif ms == 80:
+    ms = '80ms'
   else:
     raise ValueError("Not implemented!")
 
@@ -638,6 +642,11 @@ class TrackingChannel(object):
         self.corr_code_freq = self.code_freq_2
         self.corr_carr_freq = self.carr_freq_2
 
+      if defaults.PREPARE_BIT_COMPENSATION in flags_pre:
+        comp_bit_E = 0
+        comp_bit_P = 0
+        comp_bit_L = 0
+
       samples_ = samples[self.signal]['samples'][sample_index:]
 
       E_, P_, L_, blksize, self.code_phase, self.carr_phase = self.correlator(
@@ -664,6 +673,24 @@ class TrackingChannel(object):
 
       flags_post = cur_fsm_state[2]['post']
       self.fsm_index = cur_fsm_state[1]
+
+      if defaults.COMPENSATE_BIT_POLARITY in flags_post:
+        if self.P.real < 0:
+          comp_bit_E += -self.E
+          comp_bit_P += -self.P
+          comp_bit_L += -self.L
+        else:
+          comp_bit_E += self.E
+          comp_bit_P += self.P
+          comp_bit_L += self.L
+        self.E = 0
+        self.P = 0
+        self.L = 0
+
+      if defaults.USE_COMPENSATED_BIT in flags_post:
+        self.E = comp_bit_E
+        self.P = comp_bit_P
+        self.L = comp_bit_L
 
       if defaults.RUN_LD in flags_post:
         # Update PLL lock detector
