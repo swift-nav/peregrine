@@ -24,6 +24,10 @@ def main():
   parser.add_argument("-p", "--par-to-print", default="CN0",
                       help="parameter to print")
 
+  parser.add_argument("--no-toolbar",
+                      action='store_true',
+                      help="Disable toolbar")
+
   parser.add_argument("--profile",
                       choices=['peregrine', 'custom_rate', 'low_rate',
                                'normal_rate', 'piksi_v3', 'high_rate'],
@@ -46,24 +50,39 @@ def main():
   else:
     raise NotImplementedError()
 
-  fig = plt.figure()
-  plt.title(args.par_to_print.replace('_', ' ').title() + ' vs Time')
-  ax1 = fig.add_subplot(111)
+  if args.no_toolbar:
+    plt.rcParams['toolbar'] = 'None'
 
-  plt.ylabel(args.par_to_print.replace('_', ' ').title(), color='b')
-  plt.xlabel('Time [s]')
+  params = [x.strip() for x in args.par_to_print.split(',')]
+  params_num = len(params)
+  if params_num == 1:
+    params.append('111')
+
+  params = [tuple(params[i:i+2]) for i in range(0, params_num, 2)]
 
   data = np.genfromtxt(args.file, dtype=float, delimiter=',', names=True)
 
   time_stamps = np.array(data['sample_index'])
   time_stamps = time_stamps - data['sample_index'][0]
   time_stamps = time_stamps / freq_profile['sampling_freq']
-  
-  plt.plot(time_stamps, np.array(data[args.par_to_print]), 'r.')
+  time_stamp_min = min(time_stamps)
+  time_stamp_max = max(time_stamps)
 
-  plt.legend(loc='upper right')
+  fig = plt.figure(figsize=(11, 15))
+  plt.subplots_adjust(wspace=0.25, hspace=0.75)
 
-  plt.grid()
+  for (par_to_print,layout) in params:
+    sub = fig.add_subplot(layout)
+    sub.set_title(par_to_print.replace('_', ' ').title() + ' vs Time')
+    sub.grid()
+    sub.set_xlim([time_stamp_min, time_stamp_max])
+
+    sub.set_ylabel(par_to_print.replace('_', ' ').title(), color='b')
+    sub.set_xlabel('Time [s]')
+    sub.legend(loc='upper right')
+
+    sub.plot(time_stamps, np.array(data[par_to_print]), 'r.')
+
   plt.axis('tight')
   plt.show()
 
