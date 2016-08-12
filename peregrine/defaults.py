@@ -1348,7 +1348,17 @@ l1ca_lock_detect_params_extraopt = {"k1": 0.02, "k2": 0.8, "lp": 150, "lo": 50}
 l1ca_lock_detect_params_disable = {"k1": 0.02, "k2": 1e-6, "lp": 1, "lo": 1}
 
 lock_detect_params_slow = {"k1": 0.005, "k2": 1.4, "lp": 200, "lo": 50}
-lock_detect_params_fast = {"k1": 0.2, "k2": .8, "lp": 50, "lo": 50}
+lock_detect_params_fast = (
+  (40, {"k1": 0.2, "k2": .80, "lp": 50, "lo": 50}),
+  (35, {"k1": 0.2, "k2": .83, "lp": 50, "lo": 50}),
+  (30, {"k1": 0.2, "k2": .86, "lp": 50, "lo": 50}),
+  (25, {"k1": 0.2, "k2": .89, "lp": 50, "lo": 50}),
+  (20, {"k1": 0.2, "k2": .92, "lp": 50, "lo": 50}),
+  (15, {"k1": 0.2, "k2": .95, "lp": 50, "lo": 50}),
+  (10, {"k1": 0.2, "k2": .98, "lp": 50, "lo": 50}),
+  ( 5, {"k1": 0.2, "k2": 1.0, "lp": 50, "lo": 50}) )
+
+tracking_loop_stabilization_time_ms = 50
 
 # L2C 20ms lock detect profile
 # References:

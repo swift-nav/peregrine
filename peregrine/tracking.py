@@ -9,6 +9,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
+import scipy.constants as constants
 import math
 import parallel_processing as pp
 import multiprocessing as mp
@@ -160,6 +161,13 @@ def get_fsm_states(ms, short_n_long, bit_sync):
   return defaults.fsm_states[ms][bit_sync_status][mode]
 
 
+def get_lock_detector(cur_bw, lock_detect_set):
+  for bw, params in lock_detect_set:
+    if cur_bw < bw:
+      continue
+    return params
+
+
 class TrackingChannel(object):
   """
   Tracking channel base class.
@@ -244,11 +252,18 @@ class TrackingChannel(object):
         lp=self.lock_detect_params["lp"],
         lo=self.lock_detect_params["lo"])
 
+    code_params = loop_filter_params['code_params']
+    carr_params = loop_filter_params['carr_params']
+    pll_bw = carr_params[0]
+
+    lock_detect_params_fast = get_lock_detector(pll_bw,
+                                              defaults.lock_detect_params_fast)
+
     self.lock_detect_fast = lock_detect.LockDetector(
-        k1=defaults.lock_detect_params_fast["k1"],
-        k2=defaults.lock_detect_params_fast["k2"],
-        lp=defaults.lock_detect_params_fast["lp"],
-        lo=defaults.lock_detect_params_fast["lo"])
+        k1=lock_detect_params_fast["k1"],
+        k2=lock_detect_params_fast["k2"],
+        lp=lock_detect_params_fast["lp"],
+        lo=lock_detect_params_fast["lo"])
 
     self.lock_detect_slow = lock_detect.LockDetector(
         k1=defaults.lock_detect_params_slow["k1"],
@@ -262,9 +277,6 @@ class TrackingChannel(object):
         cutoff_freq=0.1,
         loop_freq=loop_filter_params["loop_freq"]
     )
-
-    code_params = loop_filter_params['code_params']
-    carr_params = loop_filter_params['carr_params']
 
     self.loop_filter = self.loop_filter_class(
         loop_freq=loop_filter_params['loop_freq'],
@@ -380,6 +392,14 @@ class TrackingChannel(object):
                 (self.prn + 1, self.signal, self.coherent_ms, pll_bw, fll_bw))
 
     self.alias_detector.reinit(self.coherent_ms)
+
+    lock_detect_params_fast = get_lock_detector(pll_bw,
+                                              defaults.lock_detect_params_fast)
+
+    self.lock_detect_fast.reinit(k1=lock_detect_params_fast["k1"],
+                                k2=lock_detect_params_fast["k2"],
+                                lp=lock_detect_params_fast["lp"],
+                                lo=lock_detect_params_fast["lo"])
 
     self.loop_filter.retune(**loop_filter_params)
 
