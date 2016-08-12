@@ -388,8 +388,8 @@ class TrackingChannel(object):
 
     self.coherent_ms = coherent_ms
 
-    logger.info("[PRN: %d (%s)] coherent_ms=%d and PLL bw=%f FLL bw=%f" %
-                (self.prn + 1, self.signal, self.coherent_ms, pll_bw, fll_bw))
+    # logger.info("[PRN: %d (%s)] coherent_ms=%d and PLL bw=%f FLL bw=%f" %
+    #             (self.prn + 1, self.signal, self.coherent_ms, pll_bw, fll_bw))
 
     lock_detect_params_fast = get_lock_detector(pll_bw,
                                               defaults.lock_detect_params_fast)

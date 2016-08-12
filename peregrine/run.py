@@ -137,35 +137,14 @@ def populate_peregrine_cmd_line_arguments(parser):
 
   fpgaSim = parser.add_argument_group('FPGA simulation',
                                       'FPGA delay control simulation')
-  fpgaExcl = fpgaSim.add_mutually_exclusive_group(required=False)
-  fpgaExcl.add_argument("--pipelining",
-                        type=float,
-                        nargs='?',
-                        metavar='PIPELINING_K',
-                        help="Use FPGA pipelining simulation. Supply optional "
-                        " coefficient (%f)" % defaults.pipelining_k,
-                        const=defaults.pipelining_k,
-                        default=None)
 
-  fpgaExcl.add_argument("--short-long-cycles",
-                        type=float,
-                        nargs='?',
-                        metavar='PIPELINING_K',
-                        help="Use FPGA short-long cycle simulation. Supply"
-                        " optional pipelining coefficient (0.)",
-                        const=0.,
-                        default=None)
+  fpgaSim.add_argument("--short-long-cycles",
+                        help="Use FPGA short-long cycle simulation.",
+                        action="store_true")
 
   signalParam = parser.add_argument_group('Signal tracking',
                                           'Parameters for satellite vehicle'
                                           ' signal')
-
-  signalParam.add_argument('--l1ca-profile',
-                           metavar='PROFILE',
-                           help='L1 C/A stage profile. Controls coherent'
-                                ' integration time and tuning parameters: %s.' %
-                                str(defaults.l1ca_stage_profiles.keys()),
-                           choices=defaults.l1ca_stage_profiles.keys())
 
   return signalParam
 
@@ -210,16 +189,8 @@ def main():
   else:
     raise NotImplementedError()
 
-  if args.l1ca_profile:
-    profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
-    stage2_coherent_ms = profile[1]['coherent_ms']
-    stage2_params = profile[1]['loop_filter_params']
-  else:
-    stage2_coherent_ms = None
-    stage2_params = None
-
-  if args.pipelining is not None:
-    tracker_options = {'mode': 'pipelining', 'k': args.pipelining}
+  if args.short_long_cycles is not None:
+    tracker_options = {'mode': 'short-long-cycles'}
   else:
     tracker_options = None
 
@@ -325,8 +296,6 @@ def main():
                                ms_to_track=ms_to_process,
                                sampling_freq=freq_profile[
                                    'sampling_freq'],  # [Hz]
-                               stage2_coherent_ms=stage2_coherent_ms,
-                               stage2_loop_filter_params=stage2_params,
                                tracker_options=tracker_options,
                                output_file=args.file,
                                progress_bar_output=args.progress_bar,

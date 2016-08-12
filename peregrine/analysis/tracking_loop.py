@@ -114,12 +114,8 @@ def main():
 
   ms_to_process = int(args.ms_to_process)
 
-  if args.pipelining is not None:
-    tracker_options = {'mode': 'pipelining',
-                       'k': args.pipelining}
-  elif args.short_long_cycles is not None:
-    tracker_options = {'mode': 'short-long-cycles',
-                       'k': args.short_long_cycles}
+  if args.short_long_cycles is not None:
+    tracker_options = {'mode': 'short-long-cycles'}
   else:
     tracker_options = None
 
@@ -131,9 +127,6 @@ def main():
                                  status='A',
                                  signal=signal,
                                  sample_index=skip_samples)
-
-  if args.l1ca_profile:
-    profile = defaults.l1ca_stage_profiles[args.l1ca_profile]
 
   samples = {L1CA: {'IF': freq_profile['GPS_L1_IF']},
              L2C: {'IF': freq_profile['GPS_L2_IF']},
@@ -163,7 +156,6 @@ def main():
   print "Initial carrier Doppler frequency [Hz]: %s" % carr_doppler
   print "Initial code phase [chips]:             %s" % code_phase
   print "Signal:                                 %s" % args.signal
-  print "L1 stage profile:                       %s" % args.l1ca_profile
   print "Tracker options:                        %s" % str(tracker_options)
   print "L2C handover:                           %s" % str(l2c_handover)
   print "======================================================================"

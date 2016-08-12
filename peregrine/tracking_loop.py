@@ -378,7 +378,6 @@ class TrackingLoop2b:
     self.phase_c1 = phase_a2 * phase_omega_0
     self.phase_c2 = phase_omega_0 * phase_omega_0
     # self.phase_c1, self.phase_c2 = controlled_root(2, 1 / loop_freq, carr_bw)
-    # print "T = ", 1 / loop_freq, " BW = ", carr_bw
 
     # DLL constants
     code_omega_0 = code_bw / 0.53
@@ -509,7 +508,6 @@ class TrackingLoop3Optimal:
     self.phase_c1 = phase_a2 * phase_omega_0
     self.phase_c2 = phase_omega_0 * phase_omega_0
     # self.phase_c1, self.phase_c2 = controlled_root(2, 1 / loop_freq, carr_bw)
-    # print "T = ", 1 / loop_freq, " BW = ", carr_bw
 
     # DLL constants
     code_omega_0 = code_bw / 0.53
