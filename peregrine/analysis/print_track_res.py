@@ -69,6 +69,7 @@ def main():
   time_stamp_max = max(time_stamps)
 
   fig = plt.figure(figsize=(11, 15))
+  fig.patch.set_facecolor('white')
   plt.subplots_adjust(wspace=0.25, hspace=0.75)
 
   for (par_to_print,layout) in params:
