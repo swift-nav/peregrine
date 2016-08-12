@@ -364,19 +364,16 @@ fsm_states = \
     { 'no_bit_sync':
       { 'short_n_long':
         { 'coherent_ms': 1,
-          'alias_acc_length_ms': 500,
           0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}),
           1: (1023, 0, {'pre': (APPLY_CORR_2,), 'post': (RUN_LD, GET_CORR_2)}) },
 
         'ideal':
         { 'coherent_ms': 1,
-          'alias_acc_length_ms': 500,
           0: (1023, 0, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}) }
       },
       'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 1,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_1) }),
@@ -420,7 +417,6 @@ fsm_states = \
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_2) }) },
         'ideal':
         {  'coherent_ms': 1,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_1) }),
@@ -469,7 +465,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 2,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -513,7 +508,6 @@ fsm_states = \
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
         {  'coherent_ms': 2,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -562,7 +556,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 4,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -606,7 +599,6 @@ fsm_states = \
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
         {  'coherent_ms': 4,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -655,7 +647,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 5,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -699,7 +690,6 @@ fsm_states = \
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
         {  'coherent_ms': 5,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -748,7 +738,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 10,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -792,7 +781,6 @@ fsm_states = \
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
         {  'coherent_ms': 10,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
@@ -841,8 +829,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 20,
-           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
@@ -886,8 +872,6 @@ fsm_states = \
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
         {  'coherent_ms': 20,
-           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
@@ -936,8 +920,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 40,
-           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (PREPARE_BIT_COMPENSATION,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
@@ -1027,8 +1009,6 @@ fsm_states = \
                                    USE_COMPENSATED_BIT) }) },
         'ideal':
         {  'coherent_ms': 40,
-           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
@@ -1077,8 +1057,6 @@ fsm_states = \
     { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 80,
-           't_diff_s': 1023 * 1 / gps_constants.l1ca_chip_rate,
-           'alias_acc_length_ms': 500,
 
            0: (1023, 1, {'pre': (PREPARE_BIT_COMPENSATION,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
