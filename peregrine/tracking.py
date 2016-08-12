@@ -521,18 +521,14 @@ class TrackingChannel(object):
 
       if len(self.profiles_history):
         prev_iq_ratio = self.profiles_history[-1]['iq_ratio']
-      else:
-        prev_iq_ratio = 0
-
-      if prev_iq_ratio and iq_ratio < prev_iq_ratio * 0.5 and \
-         len(self.profiles_history) > 0:
-
-        profile = self.profiles_history.pop()
-        self.fll_bw_index = profile['fll_bw_index']
-        self.pll_bw_index = profile['pll_bw_index']
-        self.coherent_ms_index = profile['coherent_ms_index']
-        self._set_track_profile()
-        return
+        if prev_iq_ratio and iq_ratio < prev_iq_ratio * 0.5:
+          # revert to previous profile
+          profile = self.profiles_history.pop()
+          self.fll_bw_index = profile['fll_bw_index']
+          self.pll_bw_index = profile['pll_bw_index']
+          self.coherent_ms_index = profile['coherent_ms_index']
+          self._set_track_profile()
+          return
 
       final_profile = \
         self.fll_bw_index == len(self.track_params['fll_bw']) - 1 and \
