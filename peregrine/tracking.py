@@ -547,27 +547,29 @@ class TrackingChannel(object):
         if len(self.track_candidates) == 0:
           return
 
-      track_profile = self.track_candidates.pop()
-      coherent_ms_index = track_profile['coherent_ms_index']
-      coherent_ms = self.track_params['coherent_ms'][coherent_ms_index]
-      bit_sync_required = (coherent_ms != 1)
+      for i, track_profile in reversed(list(enumerate(self.track_candidates))):
+        coherent_ms_index = track_profile['coherent_ms_index']
+        coherent_ms = self.track_params['coherent_ms'][coherent_ms_index]
+        bit_sync_required = (coherent_ms != 1)
 
-      if bit_sync_required and not self.bit_sync:
-        self.track_candidates.append(track_profile)
-        return
+        if bit_sync_required and not self.bit_sync:
+          continue
 
-      # switch to next track profile
-      history = {'fll_bw_index': self.fll_bw_index,
-                 'pll_bw_index': self.pll_bw_index,
-                 'coherent_ms_index': self.coherent_ms_index,
-                 'iq_ratio': self.track_profile['iq_ratio'] }
-      self.profiles_history.append(history)
+        track_profile = self.track_candidates.pop(i)
 
-      self.fll_bw_index = track_profile['fll_bw_index']
-      self.pll_bw_index = track_profile['pll_bw_index']
-      self.coherent_ms_index = track_profile['coherent_ms_index']
+        # switch to next track profile
+        history = {'fll_bw_index': self.fll_bw_index,
+                   'pll_bw_index': self.pll_bw_index,
+                   'coherent_ms_index': self.coherent_ms_index,
+                   'iq_ratio': self.track_profile['iq_ratio'] }
+        self.profiles_history.append(history)
 
-      self._set_track_profile()
+        self.fll_bw_index = track_profile['fll_bw_index']
+        self.pll_bw_index = track_profile['pll_bw_index']
+        self.coherent_ms_index = track_profile['coherent_ms_index']
+
+        self._set_track_profile()
+        break
 
     else:
       if self.lock_detect_outp_prev:
