@@ -363,19 +363,15 @@ fsm_states = \
   { '1ms':
     { 'no_bit_sync':
       { 'short_n_long':
-        { 'coherent_ms': 1,
-          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}),
+        { 0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}),
           1: (1023, 0, {'pre': (APPLY_CORR_2,), 'post': (RUN_LD, GET_CORR_2)}) },
 
         'ideal':
-        { 'coherent_ms': 1,
-          0: (1023, 0, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}) }
+        { 0: (1023, 0, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}) }
       },
       'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 1,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_1) }),
            1: (1023, 2, {'pre': (APPLY_CORR_2,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_2) }),
@@ -416,9 +412,7 @@ fsm_states = \
            19: (1023, 0, {'pre': (APPLY_CORR_2,),
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_2) }) },
         'ideal':
-        {  'coherent_ms': 1,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST, GET_CORR_1) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
@@ -464,9 +458,7 @@ fsm_states = \
     '2ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 2,
-
-           0: (1023, 1, {'pre': (),
+        {  0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
@@ -507,9 +499,7 @@ fsm_states = \
            19: (1023, 0, {'pre': (APPLY_CORR_1,),
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
-        {  'coherent_ms': 2,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH, GET_CORR_1) }),
@@ -555,9 +545,7 @@ fsm_states = \
     '4ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 4,
-
-           0: (1023, 1, {'pre': (),
+        {  0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH) }),
@@ -598,9 +586,7 @@ fsm_states = \
            19: (1023, 0, {'pre': (),
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
-        {  'coherent_ms': 4,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH) }),
@@ -646,9 +632,7 @@ fsm_states = \
     '5ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 5,
-
-           0: (1023, 1, {'pre': (),
+        {  0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH) }),
@@ -689,9 +673,7 @@ fsm_states = \
            19: (1023, 0, {'pre': (),
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
-        {  'coherent_ms': 5,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH) }),
@@ -737,9 +719,7 @@ fsm_states = \
     '10ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 10,
-
-           0: (1023, 1, {'pre': (),
+        {  0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH) }),
@@ -780,9 +760,7 @@ fsm_states = \
            19: (1023, 0, {'pre': (),
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
-        {  'coherent_ms': 10,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST) }),
            1: (1023, 2, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH) }),
@@ -828,9 +806,7 @@ fsm_states = \
     '20ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 20,
-
-           0: (1023, 1, {'pre': (),
+        {  0: (1023, 1, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
@@ -871,9 +847,7 @@ fsm_states = \
            19: (1023, 0, {'pre': (),
                           'post': (RUN_LD, ALIAS_DETECT_2ND, GET_CORR_1) }) },
         'ideal':
-        {  'coherent_ms': 20,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
            1: (1023, 2, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
@@ -919,9 +893,7 @@ fsm_states = \
     '40ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 40,
-
-           0: (1023, 1, {'pre': (PREPARE_BIT_COMPENSATION,),
+        {  0: (1023, 1, {'pre': (PREPARE_BIT_COMPENSATION,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
@@ -1008,9 +980,7 @@ fsm_states = \
                                    COMPENSATE_BIT_POLARITY,
                                    USE_COMPENSATED_BIT) }) },
         'ideal':
-        {  'coherent_ms': 40,
-
-           0: (1023, 1, {'pre': (APPLY_CORR_1,),
+        {  0: (1023, 1, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
            1: (1023, 2, {'pre': (),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
@@ -1056,9 +1026,7 @@ fsm_states = \
     '80ms':
     { 'bit_sync':
       { 'short_n_long':
-        {  'coherent_ms': 80,
-
-           0: (1023, 1, {'pre': (PREPARE_BIT_COMPENSATION,),
+        {  0: (1023, 1, {'pre': (PREPARE_BIT_COMPENSATION,),
                          'post': (RUN_LD, ALIAS_DETECT_1ST,) }),
            1: (1023, 2, {'pre': (APPLY_CORR_1,),
                          'post': (RUN_LD, ALIAS_DETECT_BOTH,) }),
