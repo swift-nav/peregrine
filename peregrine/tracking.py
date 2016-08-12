@@ -473,6 +473,7 @@ class TrackingChannel(object):
 
     bit_sync = self.nav_bit_sync.bit_sync_acquired()
     if bit_sync and not self.bit_sync:
+      # we just got bit sync
       self.track_profile_timer_ms = 0
     self.bit_sync = bit_sync
 
@@ -509,7 +510,8 @@ class TrackingChannel(object):
         # wait for bit edge
         return
 
-      iq_ratio = np.absolute(self.lock_detect_slow_lpfi / self.lock_detect_slow_lpfq)
+      iq_ratio = np.absolute(self.lock_detect_slow_lpfi / \
+                             self.lock_detect_slow_lpfq)
       if not self.track_settled:
         self.track_profile['iq_ratio'] = iq_ratio
         self.track_settled = True
@@ -569,9 +571,9 @@ class TrackingChannel(object):
 
     else:
       if self.lock_detect_outp_prev:
+        # we just lost the lock
         self.track_profile_timer_ms = 0
-
-      self.lock_detect_outp_prev = False
+        self.lock_detect_outp_prev = False
 
       if self.dynamics_detected:
         threshold = 50
