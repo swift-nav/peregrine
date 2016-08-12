@@ -455,8 +455,16 @@ class TrackingChannel(object):
       coherent_ms = self.track_params['coherent_ms'][coherent_ms_index]
 
       if pll_bw * coherent_ms * 1e-3 > 0.04:
-        if (coherent_ms != 20 and pll_bw != 5):
-          continue
+        if self.dynamics_detected:
+          if coherent_ms <= 5 and pll_bw <= 10:
+            pass
+          else:
+            continue
+        else:
+          if pll_bw <= 5:
+            pass
+          else:
+            continue
 
       res.append(candidate)
 
@@ -479,21 +487,25 @@ class TrackingChannel(object):
 
     if self.lock_detect_outp:
 
-      # dynamics in [Hz/s]
-      dynamics = self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
-      if dynamics > 20:
-        self.dynamics_timer_ms = 0
-        self.dynamics_detected = True
-      elif self.dynamics_timer_ms > 10000:
-        self.dynamics_detected = False
-
       self.lock_detect_outp_prev = True
 
       if not self.lock_detect_fast_outp:
-        if self.fll_bw_index == 0:
-          return
+        # we lost fast lock detector
+        if self.dynamics_detected:
+          # and we are facing dynamics
+          if self.fll_bw_index == 0 and \
+             self.pll_bw_index == 0 and \
+             self.coherent_ms_index == 0:
+            return
+          self.fll_bw_index = 0
+          self.pll_bw_index = 0
+          self.coherent_ms_index = 0
+        else:
+          # we are in static scenario - just add FLL
+          if self.fll_bw_index == 0:
+            return
+          self.fll_bw_index = 0
 
-        self.fll_bw_index = 0
         self.profiles_history = []
         self._set_track_profile()
         return
@@ -501,6 +513,18 @@ class TrackingChannel(object):
       track_settled = self.track_profile_timer_ms >= self.stabilization_time
       if not track_settled:
         return
+
+      # dynamics in [Hz/s]
+      # do no assess dynamics in FLL mode as
+      # the PLL phase acceleration indicator looks to be scrued
+      if self.fll_bw_index != 0:
+        dynamics = self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
+        if dynamics > 30: # [hz/sec]
+          self.dynamics_timer_ms = 0
+          self.dynamics_detected = True
+
+      if self.dynamics_timer_ms > 2000:
+        self.dynamics_detected = False
 
       if self.track_profile_timer_ms > 500:
         # clear history as it is too old
@@ -795,8 +819,10 @@ class TrackingChannel(object):
          not (defaults.GET_CORR_2 in flags_post):
         continue
 
-      self.track_result.dynamics[self.i] = \
-        self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
+      phase_acc_hz_per_s = self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
+      self.track_result.dynamics[self.i] = phase_acc_hz_per_s
+      self.track_result.dynamics_g[self.i] = \
+        phase_acc_hz_per_s * constants.c / (self.carrier_freq * constants.g)
 
       # run tracking loop
       self.loop_filter.update(self.E, self.P, self.L)
@@ -837,6 +863,7 @@ class TrackingChannel(object):
 
       self.track_result.track_timer_ms[self.i] = self.track_profile_timer_ms
       self.track_result.dynamics_timer_ms[self.i] = self.dynamics_timer_ms
+      self.track_result.dynamics_detected[self.i] = self.dynamics_detected
 
       # Record stuff for postprocessing
       self.track_result.absolute_sample[self.i] = self.sample_index + \
@@ -936,6 +963,7 @@ class TrackingChannelL1CA(TrackingChannel):
     params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
     params['sample_index'] = params['samples']['sample_index']
+    params['carrier_freq'] = gps_constants.l1
 
     TrackingChannel.__init__(self, params)
 
@@ -1041,6 +1069,7 @@ class TrackingChannelL2C(TrackingChannel):
         gps_constants.l2c_chip_rate / gps_constants.l2
     params['chipping_rate'] = gps_constants.l2c_chip_rate
     params['sample_index'] = 0
+    params['carrier_freq'] = gps_constants.l2
 
     TrackingChannel.__init__(self, params)
 
@@ -1573,6 +1602,8 @@ class TrackResults:
     self.code_err = np.zeros(n_points)
     self.acceleration = np.zeros(n_points)
     self.dynamics = np.zeros(n_points)
+    self.dynamics_g = np.zeros(n_points)
+    self.dynamics_detected = np.zeros(n_points)
     self.nav_msg = NavMsg()
     self.nav_msg_bit_phase_ref = np.zeros(n_points)
     self.nav_bit_sync = NBSMatchBit() if prn < 32 else NBSSBAS()
@@ -1631,7 +1662,8 @@ class TrackResults:
             "track_timer_ms,dynamics_timer_ms,"
             "lock_detect_outp,lock_detect_outo,"
             "lock_detect_fast_outp,lock_detect_fast_outo,"
-            "iq_ratio,iq_ratio_fast,iq_ration_slow,iq_ratio_raw,iq_ratio_min,dynamics,"
+            "iq_ratio,iq_ratio_fast,iq_ration_slow,iq_ratio_raw,iq_ratio_min,"
+            "dynamics,dynamics_g,dynamics_detected,"
             "phase_err,code_err,CN0,IF,doppler_phase,"
             "carr_doppler,code_phase,code_freq,"
             "SNR,SNR_DB,P_Mag,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
@@ -1666,6 +1698,9 @@ class TrackResults:
         f1.write("%s," % self.iq_ratio_min[i])
 
         f1.write("%s," % self.dynamics[i])
+        f1.write("%s," % self.dynamics_g[i])
+        f1.write("%s," % self.dynamics_detected[i])
+
         f1.write("%s," % self.phase_err[i])
         f1.write("%s," % self.code_err[i])
         f1.write("%s," % self.cn0[i])
