@@ -466,20 +466,7 @@ fsm_states = \
       },
 
     '2ms':
-    { 'no_bit_sync':
-      { 'short_n_long':
-        { 'coherent_ms': 2,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}),
-          1: (1023, 0, {'pre': (APPLY_CORR_2,), 'post': (RUN_LD, GET_CORR_2)}) },
-
-        'ideal':
-        { 'coherent_ms': 2,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          1: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) }
-      },
-      'bit_sync':
+    { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 2,
            'alias_acc_length_ms': 500,
@@ -572,24 +559,7 @@ fsm_states = \
       },
 
     '4ms':
-    { 'no_bit_sync':
-      { 'short_n_long':
-        { 'coherent_ms': 4,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (), 'post': (RUN_LD,)}),
-          1: (1023, 2, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          2: (1023, 3, {'pre': (), 'post': (RUN_LD,)}),
-          3: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) },
-
-        'ideal':
-        { 'coherent_ms': 4,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          1: (1023, 2, {'pre': (), 'post': (RUN_LD,)}),
-          2: (1023, 3, {'pre': (), 'post': (RUN_LD,)}),
-          3: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) }
-      },
-      'bit_sync':
+    { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 4,
            'alias_acc_length_ms': 500,
@@ -682,26 +652,7 @@ fsm_states = \
       },
 
     '5ms':
-    { 'no_bit_sync':
-      { 'short_n_long':
-        { 'coherent_ms': 5,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (), 'post': (RUN_LD,)}),
-          1: (1023, 2, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          2: (1023, 3, {'pre': (), 'post': (RUN_LD,)}),
-          3: (1023, 4, {'pre': (), 'post': (RUN_LD,)}),
-          4: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) },
-
-        'ideal':
-        { 'coherent_ms': 5,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          1: (1023, 2, {'pre': (), 'post': (RUN_LD,)}),
-          2: (1023, 3, {'pre': (), 'post': (RUN_LD,)}),
-          3: (1023, 4, {'pre': (), 'post': (RUN_LD,)}),
-          4: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) }
-      },
-      'bit_sync':
+    { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 5,
            'alias_acc_length_ms': 500,
@@ -794,36 +745,7 @@ fsm_states = \
       },
 
     '10ms':
-    { 'no_bit_sync':
-      { 'short_n_long':
-        { 'coherent_ms': 10,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (), 'post': (RUN_LD,)}),
-          1: (1023, 2, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          2: (1023, 3, {'pre': (), 'post': (RUN_LD,)}),
-          3: (1023, 4, {'pre': (), 'post': (RUN_LD,)}),
-          4: (1023, 5, {'pre': (), 'post': (RUN_LD,)}),
-          5: (1023, 6, {'pre': (), 'post': (RUN_LD,)}),
-          6: (1023, 7, {'pre': (), 'post': (RUN_LD,)}),
-          7: (1023, 8, {'pre': (), 'post': (RUN_LD,)}),
-          8: (1023, 9, {'pre': (), 'post': (RUN_LD,)}),
-          9: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) },
-
-        'ideal':
-        { 'coherent_ms': 10,
-          'alias_acc_length_ms': 500,
-          0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD,)}),
-          1: (1023, 2, {'pre': (), 'post': (RUN_LD,)}),
-          2: (1023, 3, {'pre': (), 'post': (RUN_LD,)}),
-          3: (1023, 4, {'pre': (), 'post': (RUN_LD,)}),
-          4: (1023, 5, {'pre': (), 'post': (RUN_LD,)}),
-          5: (1023, 6, {'pre': (), 'post': (RUN_LD,)}),
-          6: (1023, 7, {'pre': (), 'post': (RUN_LD,)}),
-          7: (1023, 8, {'pre': (), 'post': (RUN_LD,)}),
-          8: (1023, 9, {'pre': (), 'post': (RUN_LD,)}),
-          9: (1023, 0, {'pre': (), 'post': (RUN_LD, GET_CORR_1)}) }
-      },
-      'bit_sync':
+    { 'bit_sync':
       { 'short_n_long':
         {  'coherent_ms': 10,
            'alias_acc_length_ms': 500,
