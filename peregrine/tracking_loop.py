@@ -170,6 +170,9 @@ class TrackingLoop3:
 
   def adjust_freq(self, corr):
     self.carr_freq += corr
+    self.phase_vel += corr
+    self.code_vel += corr / self.carr_to_code
+    self.code_freq += corr / self.carr_to_code
 
   def to_dict(self):
     return { k:v for k, v in self.__dict__.items() \

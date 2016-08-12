@@ -9,7 +9,6 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import numpy as np
-from swiftnav.track import AliasDetector as AD
 from peregrine import defaults
 from peregrine import gps_constants
 from peregrine import glo_constants
@@ -17,25 +16,19 @@ from peregrine import glo_constants
 
 class AliasDetector(object):
 
-  def __init__(self, coherent_ms):
+  def __init__(self):
     """
     Initialize the parameters, which are common across different
     types of tracking channels.
 
     Parameters
     ----------
-    coherent_ms : int
-      Coherent integration time [ms].
+    None
 
     """
-    self.err_hz = 0.
-    self.coherent_ms = coherent_ms
-    self.integration_rounds = defaults.alias_detect_interval_ms / \
-        (defaults.alias_detect_slice_ms * 2)
+    self.reinit()
 
-    self.alias_detect = AD(acc_len=self.integration_rounds, time_diff=2e-3)
-
-  def reinit(self, coherent_ms):
+  def reinit(self):
     """
     Customize the alias detect reinitialization in a subclass.
     The method can be optionally redefined in a subclass to perform
@@ -44,13 +37,19 @@ class AliasDetector(object):
 
     Parameters
     ----------
-    coherent_ms : int
-      Coherent integration time [ms].
+    None
 
     """
-    self.err_hz = 0
-    self.coherent_ms = coherent_ms
-    self.alias_detect.reinit(self.integration_rounds, time_diff=2e-3)
+
+    self.err_hz = 0.
+    self.first_P = 0 + 0j
+    self.acc_len = defaults.alias_detect_interval_ms / \
+                   defaults.alias_detect_slice_ms
+    self.dot = 0.
+    self.cross = 0.
+    self.fl_count = 0
+    self.dt = defaults.alias_detect_slice_ms * 1e-3
+    self.first_set = False
 
   def first(self, P):
     """
@@ -65,7 +64,8 @@ class AliasDetector(object):
       The prompt I/Q samples from correlator.
 
     """
-    self.alias_detect.first(P.real, P.imag)
+    self.first_P = P
+    self.first_set = True
 
   def second(self, P):
     """
@@ -80,7 +80,21 @@ class AliasDetector(object):
       The prompt I/Q samples from correlator.
 
     """
-    self.err_hz = self.alias_detect.second(P.real, P.imag)
+    if not self.first_set:
+      return
+
+    self.dot += (np.absolute(P.real * self.first_P.real) + \
+                 np.absolute(P.imag * self.first_P.imag)) / self.acc_len
+    self.cross += (self.first_P.real * P.imag - P.real * self.first_P.imag) / self.acc_len
+    self.fl_count += 1
+    if self.fl_count == self.acc_len:
+      self.err_hz = np.arctan2(self.cross, self.dot) / (2 * np.pi * self.dt)
+      self.fl_count = 0
+      self.cross = 0
+      self.dot = 0
+    else:
+      self.err_hz = 0
+
     abs_err_hz = abs(self.err_hz)
     err_sign = np.sign(self.err_hz)
     # The expected frequency errors are +-(25 + N * 50) Hz

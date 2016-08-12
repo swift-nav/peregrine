@@ -363,11 +363,16 @@ fsm_states = \
   { '1ms':
     { 'no_bit_sync':
       { 'short_n_long':
-        { 0: (1023, 1, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}),
-          1: (1023, 0, {'pre': (APPLY_CORR_2,), 'post': (RUN_LD, GET_CORR_2)}) },
+        { 0: (1023, 1, {'pre': (APPLY_CORR_1,),
+                        'post': (RUN_LD, GET_CORR_1, ALIAS_DETECT_1ST)}),
+          1: (1023, 0, {'pre': (APPLY_CORR_2,),
+                        'post': (RUN_LD, GET_CORR_2, ALIAS_DETECT_2ND)}) },
 
         'ideal':
-        { 0: (1023, 0, {'pre': (APPLY_CORR_1,), 'post': (RUN_LD, GET_CORR_1)}) }
+        { 0: (1023, 1, {'pre': (APPLY_CORR_1,),
+                        'post': (RUN_LD, GET_CORR_1, ALIAS_DETECT_1ST)}),
+          1: (1023, 0, {'pre': (APPLY_CORR_1,),
+                        'post': (RUN_LD, GET_CORR_1, ALIAS_DETECT_2ND)}) }
       },
       'bit_sync':
       { 'short_n_long':

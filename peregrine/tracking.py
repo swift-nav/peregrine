@@ -230,9 +230,9 @@ class TrackingChannel(object):
 
     self.profiles_history = []
     self.track_candidates = []
-    self.stabilization_time = 50
+    self.stabilization_time = defaults.tracking_loop_stabilization_time_ms
     self.coherent_ms = coherent_ms
-    self.alias_detector = alias_detector.AliasDetector(self.coherent_ms)
+    self.alias_detector = alias_detector.AliasDetector()
 
     self.short_n_long = False
     if params['tracker_options']:
@@ -390,8 +390,6 @@ class TrackingChannel(object):
 
     logger.info("[PRN: %d (%s)] coherent_ms=%d and PLL bw=%f FLL bw=%f" %
                 (self.prn + 1, self.signal, self.coherent_ms, pll_bw, fll_bw))
-
-    self.alias_detector.reinit(self.coherent_ms)
 
     lock_detect_params_fast = get_lock_detector(pll_bw,
                                               defaults.lock_detect_params_fast)
@@ -797,23 +795,20 @@ class TrackingChannel(object):
                                                        self.P.imag,
                                                        1)
 
-      if self.lock_detect_outo:
-        if defaults.ALIAS_DETECT_1ST in flags_post or \
-           defaults.ALIAS_DETECT_BOTH in flags_post:
-          self.alias_detector.first(P_)
+      if defaults.ALIAS_DETECT_1ST in flags_post or \
+         defaults.ALIAS_DETECT_BOTH in flags_post:
+        self.alias_detector.first(P_)
 
-        if defaults.ALIAS_DETECT_2ND in flags_post or \
-           defaults.ALIAS_DETECT_BOTH in flags_post:
-          self.alias_detector.second(P_)
-      else:
-        self.alias_detector.reinit(self.coherent_ms)
+      if defaults.ALIAS_DETECT_2ND in flags_post or \
+         defaults.ALIAS_DETECT_BOTH in flags_post:
+        self.alias_detector.second(P_)
 
       err_hz = self.alias_detector.get_err_hz()
       if abs(err_hz) > 0:
         logger.info("[PRN: %d (%s)] False lock detected. "
                     "Error: %.1f Hz. Correcting..." %
                     (self.prn + 1, self.signal, -err_hz))
-        self.loop_filter.adjust_freq(err_hz)
+        self.loop_filter.adjust_freq(err_hz * 2 * np.pi)
 
       if not (defaults.GET_CORR_1 in flags_post) and \
          not (defaults.GET_CORR_2 in flags_post):
