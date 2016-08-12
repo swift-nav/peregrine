@@ -140,6 +140,7 @@ def populate_peregrine_cmd_line_arguments(parser):
 
   fpgaSim.add_argument("--short-long-cycles",
                         help="Use FPGA short-long cycle simulation.",
+                        default=False,
                         action="store_true")
 
   signalParam = parser.add_argument_group('Signal tracking',
@@ -189,7 +190,7 @@ def main():
   else:
     raise NotImplementedError()
 
-  if args.short_long_cycles is not None:
+  if args.short_long_cycles:
     tracker_options = {'mode': 'short-long-cycles'}
   else:
     tracker_options = None

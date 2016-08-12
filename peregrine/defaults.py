@@ -210,12 +210,25 @@ l1ca_track_params = {
     'pll_bw': (40, 35, 30, 25, 20, 18, 16, 14, 12, 10, 8, 7, 6.5, 6, 5.5, 5),
     'coherent_ms': (1, 2, 4, 5, 10, 20) }
 
+l2c_track_params = {
+    'fll_bw': (1, 0),
+    'pll_bw': (20, 18, 16, 14, 12, 10, 8, 7, 6.5, 6, 5.5, 5),
+    'coherent_ms': (20,) }
+
 l1ca_loop_filter_params_template = {
      'code_params': (1., 0.7, 1.),   # NBW, zeta, k
      'carr_params': (20., 0.7, 1.),   # NBW, zeta, k
      'loop_freq': 1000.,             # 1000/coherent_ms
      'carr_freq_b1': 1.,             # FLL NBW
      'carr_to_code': 1540.           # carr_to_code
+    }
+
+l2c_loop_filter_params_template = {
+     'code_params': (1., 0.7, 1.),   # NBW, zeta, k
+     'carr_params': (20., 0.7, 1.),   # NBW, zeta, k
+     'loop_freq': 1000.,             # 1000/coherent_ms
+     'carr_freq_b1': 1.,             # FLL NBW
+     'carr_to_code': 1200.           # carr_to_code
     }
 
 # Tracking stages. See track.c for more details.

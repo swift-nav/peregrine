@@ -114,7 +114,7 @@ def main():
 
   ms_to_process = int(args.ms_to_process)
 
-  if args.short_long_cycles is not None:
+  if args.short_long_cycles:
     tracker_options = {'mode': 'short-long-cycles'}
   else:
     tracker_options = None

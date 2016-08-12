@@ -240,11 +240,13 @@ class TrackingChannel(object):
       if mode == 'short-long-cycles':
         self.short_n_long = True
 
+    self.bit_sync_prev = self.bit_sync
+
     self.track_settled = False
     self.fsm_index = 0
     self.fsm_states = get_fsm_states(ms=self.coherent_ms,
                                      short_n_long=self.short_n_long,
-                                     bit_sync=False)
+                                     bit_sync=self.bit_sync)
 
     self.lock_detect = lock_detect.LockDetector(
         k1=self.lock_detect_params["k1"],
@@ -477,11 +479,10 @@ class TrackingChannel(object):
 
     """
 
-    bit_sync = self.nav_bit_sync.bit_sync_acquired()
-    if bit_sync and not self.bit_sync:
+    if self.bit_sync and not self.bit_sync_prev:
       # we just got bit sync
       self.track_profile_timer_ms = 0
-    self.bit_sync = bit_sync
+      self.bit_sync_prev = self.bit_sync
 
     if self.lock_detect_outp:
 
@@ -960,6 +961,8 @@ class TrackingChannelL1CA(TrackingChannel):
     params['sample_index'] = params['samples']['sample_index']
     params['carrier_freq'] = gps_constants.l1
 
+    self.bit_sync = False
+
     TrackingChannel.__init__(self, params)
 
     self.nav_msg = NavMsg()
@@ -1016,6 +1019,8 @@ class TrackingChannelL1CA(TrackingChannel):
     self.track_result.tow[self.i] = tow if tow >= 0 else (
         self.track_result.tow[self.i - 1] + self.coherent_ms)
 
+    self.bit_sync = self.nav_bit_sync.bit_sync_acquired()
+
     # Handover to L2C if possible
     if self.l2c_handover and not self.l2c_handover_acq and \
         gps_constants.L2C in self.samples and \
@@ -1056,15 +1061,22 @@ class TrackingChannelL2C(TrackingChannel):
     cn0_0 = 10 * np.log10(params['acq'].snr)
     cn0_0 += 10 * np.log10(defaults.L2C_CHANNEL_BANDWIDTH_HZ)
     params['cn0_0'] = cn0_0
-    params['track_profiles'] = defaults.l2c_track_profiles
+
     params['lock_detect_params'] = defaults.l2c_lock_detect_params_20ms
     params['IF'] = params['samples'][gps_constants.L2C]['IF']
     params['prn_code'] = L2CMCodes[params['acq'].prn]
     params['code_freq_init'] = params['acq'].doppler * \
         gps_constants.l2c_chip_rate / gps_constants.l2
+
+    params['track_params'] = defaults.l2c_track_params
+    params['loop_filter_params_template'] = \
+        defaults.l2c_loop_filter_params_template
+
     params['chipping_rate'] = gps_constants.l2c_chip_rate
     params['sample_index'] = 0
     params['carrier_freq'] = gps_constants.l2
+
+    self.bit_sync = True
 
     TrackingChannel.__init__(self, params)
 

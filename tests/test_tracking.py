@@ -30,7 +30,7 @@ from mock import patch
 
 def run_tracking_loop(prn, signal, dopp, phase, file_name, file_format,
                       freq_profile, skip_val, norun=False, l2chandover=False,
-                      pipelining=None, short_long_cycles=None):
+                      short_long_cycles=False):
   parameters = [
       'tracking_loop',
       '-P', str(prn),
@@ -43,10 +43,8 @@ def run_tracking_loop(prn, signal, dopp, phase, file_name, file_format,
       '--skip-samples', str(skip_val)
   ]
 
-  if pipelining:
-    parameters += ['--pipelining', str(pipelining)]
-  elif short_long_cycles:
-    parameters += ['--short-long-cycles', str(short_long_cycles)]
+  if short_long_cycles:
+    parameters += ['--short-long-cycles']
 
   if norun:
     parameters.append('--no-run')
@@ -80,7 +78,7 @@ def get_tr_loop_res_file_name(sample_file, prn, band):
 def run_track_test(samples_file, expected_lock_ratio, init_doppler,
                    init_code_phase, prn, file_format, freq_profile,
                    skip_samples=None, skip_ms=None,
-                   pipelining=None, short_long_cycles=None):
+                   short_long_cycles=False):
 
   bands = fileformat_to_bands(file_format)
 
@@ -88,7 +86,7 @@ def run_track_test(samples_file, expected_lock_ratio, init_doppler,
 
   run_peregrine(samples_file, file_format, freq_profile,
                 skip_param, skip_val, skip_tracking=False,
-                pipelining=pipelining, short_long_cycles=short_long_cycles)
+                short_long_cycles=short_long_cycles)
 
   for band in bands:
     dopp_ratio = 1
@@ -96,7 +94,6 @@ def run_track_test(samples_file, expected_lock_ratio, init_doppler,
       dopp_ratio = l2 / l1
     run_tracking_loop(prn, band, init_doppler * dopp_ratio, init_code_phase,
                       samples_file, file_format, freq_profile, 0,
-                      pipelining=pipelining,
                       short_long_cycles=short_long_cycles)
 
   # code_phase = propagate_code_phase(init_code_phase,
@@ -104,10 +101,10 @@ def run_track_test(samples_file, expected_lock_ratio, init_doppler,
     # skip_param, skip_val)
 
   check_per_track_results(expected_lock_ratio, samples_file, prn, bands,
-                          pipelining, short_long_cycles)
+                          short_long_cycles)
 
   check_tr_loop_track(expected_lock_ratio, samples_file, prn, bands,
-                      pipelining, short_long_cycles)
+                      short_long_cycles)
 
   # Clean-up.
   os.remove(get_acq_result_file_name(samples_file))
@@ -117,7 +114,7 @@ def run_track_test(samples_file, expected_lock_ratio, init_doppler,
 
 
 def check_per_track_results(expected_lock_ratio, filename, prn, bands,
-                            pipelining, short_long_cycles):
+                            short_long_cycles):
   ret = {}
   print "Peregrine tracking:"
   for band in bands:
@@ -142,14 +139,14 @@ def check_per_track_results(expected_lock_ratio, filename, prn, bands,
       print "band =", band
       lock_ratio = float(lock_detect_outp_sum) / lock_detect_outp_len
       print "lock_ratio =", lock_ratio
-      if (not short_long_cycles and not pipelining) or band != L2C:
+      if not short_long_cycles or band != L2C:
         assert lock_ratio >= expected_lock_ratio
       ret[band]['lock_ratio'] = lock_ratio
   return ret
 
 
 def check_tr_loop_track(expected_lock_ratio, filename, prn, bands,
-                        pipelining, short_long_cycles):
+                        short_long_cycles):
   ret = {}
   print "Tracking loop:"
   for band in bands:
@@ -166,7 +163,7 @@ def check_tr_loop_track(expected_lock_ratio, filename, prn, bands,
       print "band =", band
       lock_ratio = float(lock_detect_outp_sum) / lock_detect_outp_len
       print "lock_ratio =", lock_ratio
-      if (not short_long_cycles and not pipelining) or band != L2C:
+      if not short_long_cycles or band != L2C:
         assert lock_ratio >= expected_lock_ratio
       ret[band]['lock_ratio'] = lock_ratio
   return ret
@@ -190,9 +187,9 @@ def test_tracking_gps():
   run_track_test(samples, 0.6, init_doppler, init_code_phase, prn, file_format,
                  freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-                 freq_profile, pipelining=0.5)
+    freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-                 freq_profile, short_long_cycles=0.5)
+                 freq_profile, short_long_cycles=True)
 
   os.remove(samples)
 

@@ -181,8 +181,7 @@ def run_peregrine(file_name, file_format, freq_profile,
                   skip_param, skip_val,
                   skip_tracking=True,
                   skip_navigation=True,
-                  pipelining=None,
-                  short_long_cycles=None):
+                  short_long_cycles=False):
 
   parameters = [
       'peregrine',
@@ -198,11 +197,8 @@ def run_peregrine(file_name, file_format, freq_profile,
   if skip_navigation:
     parameters += ['-n']
 
-  if pipelining:
-    parameters += ['--pipelining', str(pipelining)]
-
   if short_long_cycles:
-    parameters += ['--short-long-cycles', str(short_long_cycles)]
+    parameters += ['--short-long-cycles']
 
   # Replace argv with args to skip tracking and navigation.
   with patch.object(sys, 'argv', parameters):
