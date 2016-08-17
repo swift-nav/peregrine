@@ -72,7 +72,8 @@ def lockrateCn0Plot(filename):
   lockrate = map(lambda x: x[0], r)
   avgcn0 = map(lambda x: x[1], r)
 
-  x, y = zip(*sorted((xVal, np.mean([yVal for a, yVal in zip(avgcn0, lockrate) if xVal==a])) for xVal in set(avgcn0)))
+  x, y = zip(*sorted((xVal, np.mean([yVal for a, yVal in zip(
+      avgcn0, lockrate) if xVal == a])) for xVal in set(avgcn0)))
 
   fig = plt.figure()
   plt.plot(avgcn0, lockrate, 'o')

@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import argparse
 from peregrine import defaults
 
+
 def main():
   parser = argparse.ArgumentParser()
 
@@ -58,7 +59,7 @@ def main():
   if params_num == 1:
     params.append('111')
 
-  params = [tuple(params[i:i+2]) for i in range(0, params_num, 2)]
+  params = [tuple(params[i:i + 2]) for i in range(0, params_num, 2)]
 
   data = np.genfromtxt(args.file, dtype=float, delimiter=',', names=True)
 
@@ -72,7 +73,7 @@ def main():
   fig.patch.set_facecolor('white')
   plt.subplots_adjust(wspace=0.25, hspace=0.75)
 
-  for (par_to_print,layout) in params:
+  for (par_to_print, layout) in params:
     sub = fig.add_subplot(layout)
     sub.set_title(par_to_print.replace('_', ' ').title() + ' vs Time')
     sub.grid()

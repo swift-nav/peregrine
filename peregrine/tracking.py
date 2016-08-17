@@ -128,7 +128,32 @@ def _tracking_channel_factory(parameters):
   if parameters['acq'].signal == glo_constants.GLO_L1:
     return TrackingChannelGLOL1(parameters)
 
+
 def get_fsm_states(fsm_states, ms, short_n_long, bit_sync):
+  """
+  Tracking loop FSM operation table getter.
+  The right FSM operation table is chosen based on the
+  set of input parameters.
+
+  Parameters
+  ----------
+  fsm_states : dictionary
+    Contains FSM operation tables for different modes
+  ms : integer
+    The integration time [ms]
+  short_n_long : Boolean
+    FPGA operation simulation flag. True - the simulation
+    is requested.
+  bit_sync : Boolean
+    Tells if bit sync is acquired.
+
+  Returns
+  -------
+  out : dictionary
+    The relevant tracking loop FSM operation table
+
+  """
+
   if ms == 1:
     ms = '1ms'
   elif ms == 2:
@@ -162,6 +187,25 @@ def get_fsm_states(fsm_states, ms, short_n_long, bit_sync):
 
 
 def get_lock_detector(cur_bw, lock_detect_set):
+  """
+  Selects the relevant lock detector parameter set.
+  The selection is done based on the current PLL bandwidth.
+
+  Parameters
+  ----------
+  cur_bw : float
+    The current PLL bandwidth
+  lock_detect_set : tuple
+    The combination of PLL bandwidth and its lock detector
+    parameters set
+
+  Returns
+  -------
+  out : dictionary
+    The relevant lock detector parameters set
+
+  """
+
   for bw, params in lock_detect_set:
     if cur_bw < bw:
       continue
@@ -220,7 +264,9 @@ class TrackingChannel(object):
 
     loop_filter_params = self.loop_filter_params_template
     carr_params = loop_filter_params['carr_params']
-    loop_filter_params['carr_params'] = (pll_bw, carr_params[1], carr_params[2])
+    loop_filter_params['carr_params'] = (pll_bw,
+                                         carr_params[1],
+                                         carr_params[2])
     loop_filter_params['loop_freq'] = 1000 / coherent_ms
     loop_filter_params['carr_freq_b1'] = fll_bw
 
@@ -260,7 +306,7 @@ class TrackingChannel(object):
     pll_bw = carr_params[0]
 
     lock_detect_params_fast = get_lock_detector(pll_bw,
-                                              defaults.lock_detect_params_fast)
+                                                defaults.lock_detect_params_fast)
 
     self.lock_detect_fast = lock_detect.LockDetector(
         k1=lock_detect_params_fast["k1"],
@@ -284,22 +330,22 @@ class TrackingChannel(object):
     self.loop_filter = self.loop_filter_class(
         loop_freq=loop_filter_params['loop_freq'],
         code_freq=0,
-        code_bw=code_params[0], # code_bw'
-        code_zeta=code_params[1], # code_zeta
-        code_k=code_params[2], # code_k
+        code_bw=code_params[0],  # code_bw'
+        code_zeta=code_params[1],  # code_zeta
+        code_k=code_params[2],  # code_k
         carr_to_code=loop_filter_params['carr_to_code'],
         carr_freq=self.acq.doppler * 2 * np.pi,
-        carr_bw=carr_params[0], # carr_bw,
-        carr_zeta=carr_params[1], # carr_zeta
-        carr_k=carr_params[2], # carr_k
+        carr_bw=carr_params[0],  # carr_bw,
+        carr_zeta=carr_params[1],  # carr_zeta
+        carr_k=carr_params[2],  # carr_k
         carr_freq_b1=loop_filter_params['carr_freq_b1'],
     )
 
     self.code_freq_1 = self.code_freq_2 = self.corr_code_freq = \
-      params['code_freq_init']
+        params['code_freq_init']
 
     self.carr_freq_1 = self.carr_freq_2 = self.corr_carr_freq = \
-      self.acq.doppler
+        self.acq.doppler
 
     self.track_result = TrackResults(self.results_num,
                                      self.acq.prn,
@@ -373,15 +419,23 @@ class TrackingChannel(object):
     """
     return self.sample_index
 
-
   def _set_track_profile(self):
+    """
+    Set the current track profile.
+    The current track profile determines the PLL BW, FLL BW and
+    the coherent integration time.
+
+    """
+
     coherent_ms = self.track_params['coherent_ms'][self.coherent_ms_index]
     fll_bw = self.track_params['fll_bw'][self.fll_bw_index]
     pll_bw = self.track_params['pll_bw'][self.pll_bw_index]
 
     loop_filter_params = self.loop_filter_params_template
     carr_params = loop_filter_params['carr_params']
-    loop_filter_params['carr_params'] = (pll_bw, carr_params[1], carr_params[2])
+    loop_filter_params['carr_params'] = (pll_bw,
+                                         carr_params[1],
+                                         carr_params[2])
     loop_filter_params['loop_freq'] = 1000 / coherent_ms
     loop_filter_params['carr_freq_b1'] = fll_bw
 
@@ -395,19 +449,19 @@ class TrackingChannel(object):
     #             (self.prn + 1, self.signal, self.coherent_ms, pll_bw, fll_bw))
 
     lock_detect_params_fast = get_lock_detector(pll_bw,
-                                              defaults.lock_detect_params_fast)
+                                                defaults.lock_detect_params_fast)
 
     self.lock_detect_fast.reinit(k1=lock_detect_params_fast["k1"],
-                                k2=lock_detect_params_fast["k2"],
-                                lp=lock_detect_params_fast["lp"],
-                                lo=lock_detect_params_fast["lo"])
+                                 k2=lock_detect_params_fast["k2"],
+                                 lp=lock_detect_params_fast["lp"],
+                                 lo=lock_detect_params_fast["lo"])
 
     self.loop_filter.retune(**loop_filter_params)
 
     self.cn0_est = CN0_Est_MM(bw=1e3 / self.coherent_ms,
-                                cn0_0=self.track_result.cn0[self.i - 1],
-                                cutoff_freq=10,
-                                loop_freq=1e3 / self.coherent_ms)
+                              cn0_0=self.track_result.cn0[self.i - 1],
+                              cutoff_freq=10,
+                              loop_freq=1e3 / self.coherent_ms)
 
     self.fsm_states = get_fsm_states(self.fsm_states_all,
                                      ms=self.coherent_ms,
@@ -417,34 +471,52 @@ class TrackingChannel(object):
     self.track_profile_timer_ms = 0
     self.track_settled = False
 
-
   def _make_track_candidates(self):
+    """
+    Create a list of track profile candidates.
+    The list content depends on the current track profile.
+    We are in the recovery stage, when this function is called.
+    See more details at
+    https://swiftnav.hackpad.com/High-sensitivity-tracking-FLL-PLL-profile-switching-design-HDpuFC1BygA
+
+    """
+
     fll_bw_index = self.fll_bw_index
     if fll_bw_index == len(self.track_params['fll_bw']) - 1:
       coherent_ms_index = self.coherent_ms_index
       if coherent_ms_index < len(self.track_params['coherent_ms']) - 1:
         coherent_ms_index += 1
-        candidate = { 'fll_bw_index': self.fll_bw_index,
-                      'pll_bw_index': self.pll_bw_index,
-                      'coherent_ms_index': coherent_ms_index }
+        candidate = {'fll_bw_index': self.fll_bw_index,
+                     'pll_bw_index': self.pll_bw_index,
+                     'coherent_ms_index': coherent_ms_index}
         self.track_candidates.append(candidate)
 
       pll_bw_index = self.pll_bw_index
       if pll_bw_index < len(self.track_params['pll_bw']) - 1:
         pll_bw_index += 1
-        candidate = { 'fll_bw_index': self.fll_bw_index,
-                      'pll_bw_index': pll_bw_index,
-                      'coherent_ms_index': self.coherent_ms_index }
+        candidate = {'fll_bw_index': self.fll_bw_index,
+                     'pll_bw_index': pll_bw_index,
+                     'coherent_ms_index': self.coherent_ms_index}
         self.track_candidates.append(candidate)
     else:
       fll_bw_index += 1
-      candidate = { 'fll_bw_index': fll_bw_index,
-                    'pll_bw_index': self.pll_bw_index,
-                    'coherent_ms_index': self.coherent_ms_index }
+      candidate = {'fll_bw_index': fll_bw_index,
+                   'pll_bw_index': self.pll_bw_index,
+                   'coherent_ms_index': self.coherent_ms_index}
       self.track_candidates.append(candidate)
 
-
   def _filter_track_candidates(self):
+    """
+    Filter the track candidate list.
+    The track candidate list is created by _make_track_candidate()
+    function.
+
+    Returns
+    -------
+    res: list
+      The filtered track profiles candidates list
+    """
+
     res = []
     for candidate in self.track_candidates:
       pll_bw_index = candidate['pll_bw_index']
@@ -520,7 +592,7 @@ class TrackingChannel(object):
       # the PLL phase acceleration indicator looks to be scrued
       if self.fll_bw_index != 0:
         dynamics = self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
-        if dynamics > 30: # [hz/sec]
+        if dynamics > 30:  # [hz/sec]
           self.dynamics_timer_ms = 0
           self.dynamics_detected = True
 
@@ -535,7 +607,7 @@ class TrackingChannel(object):
         # wait for bit edge
         return
 
-      iq_ratio = np.absolute(self.lock_detect_slow_lpfi / \
+      iq_ratio = np.absolute(self.lock_detect_slow_lpfi /
                              self.lock_detect_slow_lpfq)
       if not self.track_settled:
         self.track_profile['iq_ratio'] = iq_ratio
@@ -556,9 +628,9 @@ class TrackingChannel(object):
           return
 
       final_profile = \
-        self.fll_bw_index == len(self.track_params['fll_bw']) - 1 and \
-        self.pll_bw_index == len(self.track_params['pll_bw']) - 1 and \
-        self.coherent_ms_index == len(self.track_params['coherent_ms']) - 1
+          self.fll_bw_index == len(self.track_params['fll_bw']) - 1 and \
+          self.pll_bw_index == len(self.track_params['pll_bw']) - 1 and \
+          self.coherent_ms_index == len(self.track_params['coherent_ms']) - 1
       if final_profile:
         return
 
@@ -582,7 +654,7 @@ class TrackingChannel(object):
         history = {'fll_bw_index': self.fll_bw_index,
                    'pll_bw_index': self.pll_bw_index,
                    'coherent_ms_index': self.coherent_ms_index,
-                   'iq_ratio': self.track_profile['iq_ratio'] }
+                   'iq_ratio': self.track_profile['iq_ratio']}
         self.profiles_history.append(history)
 
         self.fll_bw_index = track_profile['fll_bw_index']
@@ -776,8 +848,8 @@ class TrackingChannel(object):
             lock_detect_pcount2, \
             self.lock_detect_lpfi, \
             self.lock_detect_lpfq = self.lock_detect.update(self.P.real,
-                                                       self.P.imag,
-                                                       1)
+                                                            self.P.imag,
+                                                            1)
         # Update PLL fast lock detector
         self.lock_detect_fast_outo, \
             self.lock_detect_fast_outp, \
@@ -785,8 +857,8 @@ class TrackingChannel(object):
             lock_detect_fast_pcount2, \
             self.lock_detect_fast_lpfi, \
             self.lock_detect_fast_lpfq = self.lock_detect_fast.update(self.P.real,
-                                                       self.P.imag,
-                                                       1)
+                                                                      self.P.imag,
+                                                                      1)
 
         # Update PLL fast lock detector
         self.lock_detect_slow_outo, \
@@ -795,8 +867,8 @@ class TrackingChannel(object):
             lock_detect_slow_pcount2, \
             self.lock_detect_slow_lpfi, \
             self.lock_detect_slow_lpfq = self.lock_detect_slow.update(self.P.real,
-                                                       self.P.imag,
-                                                       1)
+                                                                      self.P.imag,
+                                                                      1)
 
       if defaults.ALIAS_DETECT_1ST in flags_post or \
          defaults.ALIAS_DETECT_BOTH in flags_post:
@@ -817,20 +889,25 @@ class TrackingChannel(object):
          not (defaults.GET_CORR_2 in flags_post):
         continue
 
-      phase_acc_hz_per_s = self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
+      phase_acc_hz_per_s = \
+          self.loop_filter.to_dict()['phase_acc'] / (2 * np.pi)
       self.track_result.dynamics[self.i] = phase_acc_hz_per_s
       self.track_result.dynamics_g[self.i] = \
-        phase_acc_hz_per_s * constants.c / (self.carrier_freq * constants.g)
+          phase_acc_hz_per_s * constants.c / (self.carrier_freq * constants.g)
 
       # run tracking loop
       self.loop_filter.update(self.E, self.P, self.L)
 
       if defaults.GET_CORR_1 in flags_post:
-        self.code_freq_1 = self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
-        self.carr_freq_1 = self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
+        self.code_freq_1 = \
+            self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
+        self.carr_freq_1 = \
+            self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
       elif defaults.GET_CORR_2 in flags_post:
-        self.code_freq_2 = self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
-        self.carr_freq_2 = self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
+        self.code_freq_2 = \
+            self.loop_filter.to_dict()['code_freq'] / (2 * np.pi)
+        self.carr_freq_2 = \
+            self.loop_filter.to_dict()['carr_freq'] / (2 * np.pi)
 
       self.track_result.coherent_ms[self.i] = self.coherent_ms
 
@@ -872,25 +949,31 @@ class TrackingChannel(object):
       self.track_result.L[self.i] = self.L
 
       self.track_result.cn0[self.i], \
-      self.track_result.snr[self.i], \
-      self.track_result.snr_db[self.i] = \
+          self.track_result.snr[self.i], \
+          self.track_result.snr_db[self.i] = \
           self.cn0_est.update(self.P.real, self.P.imag)
 
       self.track_result.lock_detect_outo[self.i] = self.lock_detect_outo
       self.track_result.lock_detect_outp[self.i] = self.lock_detect_outp
-      self.track_result.lock_detect_fast_outo[self.i] = self.lock_detect_fast_outo
-      self.track_result.lock_detect_fast_outp[self.i] = self.lock_detect_fast_outp
+      self.track_result.lock_detect_fast_outo[self.i] = \
+          self.lock_detect_fast_outo
+      self.track_result.lock_detect_fast_outp[self.i] = \
+          self.lock_detect_fast_outp
       self.track_result.lock_detect_pcount1[self.i] = lock_detect_pcount1
       self.track_result.lock_detect_pcount2[self.i] = lock_detect_pcount2
 
       self.track_result.lock_detect_lpfi[self.i] = self.lock_detect_lpfi
       self.track_result.lock_detect_lpfq[self.i] = self.lock_detect_lpfq
 
-      self.track_result.lock_detect_fast_lpfi[self.i] = self.lock_detect_fast_lpfi
-      self.track_result.lock_detect_fast_lpfq[self.i] = self.lock_detect_fast_lpfq
+      self.track_result.lock_detect_fast_lpfi[self.i] = \
+          self.lock_detect_fast_lpfi
+      self.track_result.lock_detect_fast_lpfq[self.i] = \
+          self.lock_detect_fast_lpfq
 
-      self.track_result.lock_detect_slow_lpfi[self.i] = self.lock_detect_slow_lpfi
-      self.track_result.lock_detect_slow_lpfq[self.i] = self.lock_detect_slow_lpfq
+      self.track_result.lock_detect_slow_lpfi[self.i] = \
+          self.lock_detect_slow_lpfi
+      self.track_result.lock_detect_slow_lpfq[self.i] = \
+          self.lock_detect_slow_lpfq
 
       self.track_result.alias_detect_err_hz[self.i] = err_hz
 
@@ -917,7 +1000,6 @@ class TrackingChannel(object):
         self.dump()
 
       self.E = self.P = self.L = 0.j
-
 
     if self.i > 0:
       self.dump()
@@ -1682,8 +1764,10 @@ class TrackResults:
         f1.write("%s," % int(self.lock_detect_fast_outo[i]))
 
         f1.write("%s," % (self.lock_detect_lpfi[i] / self.lock_detect_lpfq[i]))
-        f1.write("%s," % (self.lock_detect_fast_lpfi[i] / self.lock_detect_fast_lpfq[i]))
-        f1.write("%s," % (self.lock_detect_slow_lpfi[i] / self.lock_detect_slow_lpfq[i]))
+        f1.write("%s," % (self.lock_detect_fast_lpfi[i] /
+                          self.lock_detect_fast_lpfq[i]))
+        f1.write("%s," % (self.lock_detect_slow_lpfi[i] /
+                          self.lock_detect_slow_lpfq[i]))
         f1.write("%s," % np.absolute(self.P[i].real / self.P[i].imag))
         f1.write("%s," % self.iq_ratio_min[i])
 

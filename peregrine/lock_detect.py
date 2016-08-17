@@ -15,40 +15,104 @@ from peregrine import gps_constants
 
 class LockDetector(object):
   """
-  Wraps the `libswiftnav` PLL lock detector implementation.
-
-  The detector state, :libswiftnav:`lock_detect_t` is maintained by
-  the class instance.
+  PLL lock detector implementation.
 
   """
 
   def __init__(self, **kwargs):
+    """
+    Initialize the lock detector parameters
+
+    Parameters
+    ----------
+    params : dictionary
+        k1 - 1st order IIR I & Q filter parameter
+        k2 - filtered in-phase divider
+        lp - pessimistic lock threshold
+        lo - optimistic lock threshold
+
+    """
+
     self.lpfi = 0
     self.lpfq = 0
     self.outo = False
     self.outp = False
     self.pcount1 = 0
     self.pcount2 = 0
-    self.reinit( kwargs['k1'],
-                 kwargs['k2'],
-                 kwargs['lp'],
-                 kwargs['lo'])
+    self.reinit(kwargs['k1'],
+                kwargs['k2'],
+                kwargs['lp'],
+                kwargs['lo'])
 
   def reinit(self, k1, k2, lp, lo):
-    # Adjust LPF coefficient
+    """
+    Adjust low-pass filter (LPF) coefficients
+
+    Parameters
+    ----------
+    params : dictionary
+        k1 - 1st order IIR I & Q filter parameter
+        k2 - filtered in-phase divider
+        lp - pessimistic lock threshold
+        lo - optimistic lock threshold
+
+    """
+
     self.k1 = k1
     self.k2 = k2
     self.lp = lp
     self.lo = lo
 
-  def lpf_update(self, y, x):
+  def _lpf_update(self, y, x):
+    """
+    Low-pass filter (LPF) state update.
+
+    Parameters
+    ----------
+    y : float
+      old state
+    x : float
+      new input
+        lo - optimistic lock threshold
+
+    Returns
+    -------
+    out : float
+      Filtered output
+
+    """
+
     y += self.k1 * (x - y)
     return y
 
   def update(self, I, Q, DT):
+    """
+    Lock detector update.
+
+    Parameters
+    ----------
+    I : int
+      Prompt in-phase correlator output
+    Q : int
+      Prompt quadrature correlator output
+    DT : float
+      Time difference since the last update [ms]
+
+    Returns
+    -------
+    out : tuple
+      outo - optimistic lock detector output
+      outp - pessimistic lock detector output
+      pcount1 - the counter compared against the pessimistic lock threshold
+      pcount2 - the counter compared against the optimistic lock threshold
+      lpfi - filtered in-phase prompt correlator output
+      lpfq - filtered quadrature prompt correlator output
+
+    """
+
     # Calculated low-pass filtered prompt correlations
-    self.lpfi = self.lpf_update(self.lpfi, np.absolute(I) / DT)
-    self.lpfq = self.lpf_update(self.lpfq, np.absolute(Q) / DT)
+    self.lpfi = self._lpf_update(self.lpfi, np.absolute(I) / DT)
+    self.lpfq = self._lpf_update(self.lpfq, np.absolute(Q) / DT)
 
     a = self.lpfi / self.k2
     b = self.lpfq
@@ -71,6 +135,6 @@ class LockDetector(object):
       else:
         self.pcount2 += 1
 
-    return (self.outo, self.outp, \
-            self.pcount1, self.pcount2,\
+    return (self.outo, self.outp,
+            self.pcount1, self.pcount2,
             self.lpfi, self.lpfq)

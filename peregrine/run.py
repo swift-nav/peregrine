@@ -139,9 +139,9 @@ def populate_peregrine_cmd_line_arguments(parser):
                                       'FPGA delay control simulation')
 
   fpgaSim.add_argument("--short-long-cycles",
-                        help="Use FPGA short-long cycle simulation.",
-                        default=False,
-                        action="store_true")
+                       help="Use FPGA short-long cycle simulation.",
+                       default=False,
+                       action="store_true")
 
   signalParam = parser.add_argument_group('Signal tracking',
                                           'Parameters for satellite vehicle'

@@ -16,7 +16,9 @@ CN0_MM_NSR_MIN_MULTIPLIER = 1e-6
 # Maximum supported NSR value (1/CN0_MM_NSR_MIN_MULTIPLIER)
 CN0_MM_NSR_MIN = 1e6
 
+# Moving average filter window size
 CN0_MOVING_AVG_WINDOW_SIZE = 500
+
 
 class CN0_Est_MM(object):
 
@@ -26,7 +28,7 @@ class CN0_Est_MM(object):
 
     Initializes Moment method C/N0 estimator.
 
-    The method uses the function for SNR computation:
+    The method uses the following function for SNR computation:
 
     C/N0(n) = P_d / P_n,
     where P_n(n) = M2(n) - P_d(n),
@@ -37,10 +39,14 @@ class CN0_Est_MM(object):
 
     Parameters
     ----------
-    coherent_ms : int
-      Coherent integration time [ms].
-    cn0_0
-      The initial value of C/N_0 in dBHz.
+    bw : float
+      Unused
+    cn0_0 : float
+      The initial value of C/N_0 in dB-Hz.
+    cutoff_freq : float
+      Unused
+    loop_freq : float
+      The estimator update rate [Hz].
 
 
     """
@@ -52,8 +58,24 @@ class CN0_Est_MM(object):
     self.snr_db = 0
     self.snr = 0
 
-
   def _compute_cn0(self, M_2, M_4):
+    """
+    Compute C/N0 value
+
+    Parameters
+    ----------
+    M_2 : float
+      M2 value
+    M_4 : float
+      M4 value
+
+    Return
+    ------
+      out : float
+        Computed C/N0 value
+
+    """
+
     tmp = 2 * M_2 * M_2 - M_4
 
     if tmp < 0:
@@ -73,7 +95,7 @@ class CN0_Est_MM(object):
     self.snr_db = 10 * np.log10(self.snr)
 
     # Compute CN0
-    x= self.log_bw + self.snr_db
+    x = self.log_bw + self.snr_db
     if x < 10:
       return 10
     if x > 60:
@@ -81,8 +103,23 @@ class CN0_Est_MM(object):
 
     return x
 
-
   def _moving_average(self, arr, x):
+    """
+    Moving average filter.
+
+    Parameters
+    ----------
+    arr : list
+      The list of past values
+    x : float
+      New value
+
+    Return
+    ------
+      out : float
+        Filtered value
+
+    """
     if self.index < CN0_MOVING_AVG_WINDOW_SIZE:
       arr[self.index] = x
       return np.average(arr[:self.index + 1])
@@ -91,14 +128,25 @@ class CN0_Est_MM(object):
       arr[-1] = x
       return np.average(arr)
 
-  # Computes C/N0 with Moment method.
-  #
-  # s Initialized estimator object.
-  # I In-phase signal component
-  # Q Quadrature phase signal component.
-  #
-  # Computed C/N0 & SNR values
   def update(self, I, Q):
+    """
+    Compute C/N0 with Moment method.
+
+    Parameters
+    ----------
+    I : int
+      In-phase signal component.
+    Q : int
+      Quadrature signal component.
+
+    Return
+    ------
+      out : tuple
+        cn0_db - CN0 value in dB-Hz
+        snr - SNR
+        snr_db - SNR [dB]
+
+    """
     m_2 = I * I + Q * Q
     m_4 = m_2 * m_2
 
@@ -120,34 +168,18 @@ class CN0_Est_BL(object):
     """
     Initialize the C/N0 estimator state.
 
-    Initializes Moment method C/N0 estimator.
-
-    The method uses the function for SNR computation:
-
-    C/N0(n) = P_d / P_n,
-    where P_n(n) = M2(n) - P_d(n),
-    where P_d(n) = sqrt(2 * M2(n)^2 - M4(n)),
-    where
-    M2(n) = sum(1,N)(I(n)^2 + I(n-1)^2 + Q(n)^2 + Q(n-1)^2) / N
-    M4(n) = sum(1,N)(I(n)^4 + I(n-1)^4 + Q(n)^4 + Q(n-1)^4) / N
-
     Parameters
     ----------
-    coherent_ms : int
-      Coherent integration time [ms].
-    cn0_0
-      The initial value of C/N_0 in dBHz.
-
+    bw : float
+      Unused
+    cn0_0 : float
+      The initial value of C/N_0 in dB-Hz.
+    cutoff_freq : float
+      Unused
+    loop_freq : float
+      The estimator update rate [Hz].
 
     """
-    # self.cn0_db = cn0_0
-    # self.M2_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
-    # self.M4_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
-    # self.index = 0
-    # self.log_bw = 10 * np.log10(loop_freq)
-    # self.snr_db = 0
-    # self.snr = 0
-
     self.nsr_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
     self.snr_arr = np.ndarray(CN0_MOVING_AVG_WINDOW_SIZE, dtype=np.double)
     self.index = 0
@@ -158,6 +190,23 @@ class CN0_Est_BL(object):
     self.snr = 0
 
   def _moving_average(self, arr, x):
+    """
+    Moving average filter.
+
+    Parameters
+    ----------
+    arr : list
+      The list of past values
+    x : float
+      New value
+
+    Return
+    ------
+      out : float
+        Filtered value
+
+    """
+
     if self.index < CN0_MOVING_AVG_WINDOW_SIZE:
       arr[self.index] = x
       return np.average(arr[:self.index + 1])
@@ -166,14 +215,26 @@ class CN0_Est_BL(object):
       arr[-1] = x
       return np.average(arr)
 
-  # Computes C/N0 with Moment method.
-  #
-  # s Initialized estimator object.
-  # I In-phase signal component
-  # Q Quadrature phase signal component.
-  #
-  # Computed C/N0 & SNR values
   def update(self, I, Q):
+    """
+    Compute C/N0 with BL method.
+
+    Parameters
+    ----------
+    I : int
+      In-phase signal component.
+    Q : int
+      Quadrature signal component.
+
+    Return
+    ------
+      out : tuple
+        cn0_db - CN0 value in dB-Hz
+        snr - SNR
+        snr_db - SNR [dB]
+
+    """
+
     if self.I_prev_abs < 0.:
       # This is the first iteration, just update the prev state.
       self.I_prev_abs = np.absolute(I)
@@ -192,7 +253,6 @@ class CN0_Est_BL(object):
       if self.index < CN0_MOVING_AVG_WINDOW_SIZE:
         self.index += 1
 
-    cn0 = self.log_bw - 10.*np.log10(self.nsr)
+    cn0 = self.log_bw - 10. * np.log10(self.nsr)
 
     return (cn0, self.snr, 10 * np.log10(self.snr))
-

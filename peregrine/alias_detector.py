@@ -18,8 +18,7 @@ class AliasDetector(object):
 
   def __init__(self):
     """
-    Initialize the parameters, which are common across different
-    types of tracking channels.
+    Initialize the alias lock detector parameters.
 
     Parameters
     ----------
@@ -30,10 +29,7 @@ class AliasDetector(object):
 
   def reinit(self):
     """
-    Customize the alias detect reinitialization in a subclass.
-    The method can be optionally redefined in a subclass to perform
-    a subclass specific actions to happen when alias detect
-    reinitialization procedure happens.
+    Alias detector reinitialization.
 
     Parameters
     ----------
@@ -44,7 +40,7 @@ class AliasDetector(object):
     self.err_hz = 0.
     self.first_P = 0 + 0j
     self.acc_len = defaults.alias_detect_interval_ms / \
-                   defaults.alias_detect_slice_ms
+        defaults.alias_detect_slice_ms
     self.dot = 0.
     self.cross = 0.
     self.fl_count = 0
@@ -53,10 +49,7 @@ class AliasDetector(object):
 
   def first(self, P):
     """
-    Customize the alias detect procedure in a subclass.
-    The method can be optionally redefined in a subclass to perform
-    a subclass specific actions to happen before correlator runs
-    next integration round.
+    Provide the first reading of prompt correlator output.
 
     Parameters
     ----------
@@ -69,10 +62,7 @@ class AliasDetector(object):
 
   def second(self, P):
     """
-    Customize the alias detect procedure in a subclass.
-    The method can be optionally redefined in a subclass to perform
-    a subclass specific actions to happen before correlator runs
-    next integration round.
+    Provide the second reading of prompt correlator output
 
     Parameters
     ----------
@@ -83,9 +73,10 @@ class AliasDetector(object):
     if not self.first_set:
       return
 
-    self.dot += (np.absolute(P.real * self.first_P.real) + \
+    self.dot += (np.absolute(P.real * self.first_P.real) +
                  np.absolute(P.imag * self.first_P.imag)) / self.acc_len
-    self.cross += (self.first_P.real * P.imag - P.real * self.first_P.imag) / self.acc_len
+    self.cross += (self.first_P.real * P.imag - P.real *
+                   self.first_P.imag) / self.acc_len
     self.fl_count += 1
     if self.fl_count == self.acc_len:
       self.err_hz = np.arctan2(self.cross, self.dot) / (2 * np.pi * self.dt)
@@ -114,7 +105,7 @@ class AliasDetector(object):
 
   def get_err_hz(self):
     """
-    Customize the alias detect get error procedure in a subclass.
+    Return the last detected frequency error in Hz
 
     """
     return self.err_hz
