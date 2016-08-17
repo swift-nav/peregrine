@@ -215,6 +215,11 @@ l2c_track_params = {
     'pll_bw': (20, 18, 16, 14, 12, 10, 8, 7, 6.5, 6, 5.5, 5),
     'coherent_ms': (20,) }
 
+glol1_track_params = {
+    'fll_bw': (2, 1, 0),
+    'pll_bw': (40, 20, 18, 16, 14, 12, 10, 8, 7, 6.5, 6, 5.5, 5),
+    'coherent_ms': (1,) }
+
 l1ca_loop_filter_params_template = {
      'code_params': (1., 0.7, 1.),   # NBW, zeta, k
      'carr_params': (20., 0.7, 1.),   # NBW, zeta, k
@@ -229,6 +234,14 @@ l2c_loop_filter_params_template = {
      'loop_freq': 1000.,             # 1000/coherent_ms
      'carr_freq_b1': 1.,             # FLL NBW
      'carr_to_code': 1200.           # carr_to_code
+    }
+
+glol1_loop_filter_params_template = {
+     'code_params': (1., 0.7, 1.),   # NBW, zeta, k
+     'carr_params': (20., 0.7, 1.),   # NBW, zeta, k
+     'loop_freq': 1000.,             # 1000/coherent_ms
+     'carr_freq_b1': 1.,             # FLL NBW
+     'carr_to_code': 3135.0293542074364 # carr_to_code
     }
 
 # Tracking stages. See track.c for more details.
@@ -372,7 +385,25 @@ COMPENSATE_BIT_POLARITY = 9
 USE_COMPENSATED_BIT = 10
 PREPARE_BIT_COMPENSATION = 11
 
-fsm_states = \
+glo_fsm_states = \
+  { '1ms':
+    { 'no_bit_sync':
+      { 'short_n_long':
+        { 0: (511, 1, {'pre': (APPLY_CORR_1,),
+                       'post': (RUN_LD, GET_CORR_1, ALIAS_DETECT_1ST)}),
+          1: (511, 0, {'pre': (APPLY_CORR_2,),
+                       'post': (RUN_LD, GET_CORR_2, ALIAS_DETECT_2ND)}) },
+
+        'ideal':
+        { 0: (511, 1, {'pre': (APPLY_CORR_1,),
+                       'post': (RUN_LD, GET_CORR_1, ALIAS_DETECT_1ST)}),
+          1: (511, 0, {'pre': (APPLY_CORR_1,),
+                       'post': (RUN_LD, GET_CORR_1, ALIAS_DETECT_2ND)}) }
+      }
+    }
+  }
+
+gps_fsm_states = \
   { '1ms':
     { 'no_bit_sync':
       { 'short_n_long':
@@ -1256,6 +1287,8 @@ l2c_lock_detect_params_20ms = {
     'k2': 1.5,     # use ~26 degrees I/Q phase angle as a threshold
     'lp': 50,      # 1000ms worth of I/Q samples to reach pessimistic lock
     'lo': 240}     # 4800ms worth of I/Q samples to lower optimistic lock
+
+glol1_lock_detect_params = l1ca_lock_detect_params_opt
 
 # The time interval, over which the alias detection is done.
 # The alias detect algorithm averages the phase angle over this time [ms]

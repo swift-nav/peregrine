@@ -128,7 +128,7 @@ def _tracking_channel_factory(parameters):
   if parameters['acq'].signal == glo_constants.GLO_L1:
     return TrackingChannelGLOL1(parameters)
 
-def get_fsm_states(ms, short_n_long, bit_sync):
+def get_fsm_states(fsm_states, ms, short_n_long, bit_sync):
   if ms == 1:
     ms = '1ms'
   elif ms == 2:
@@ -158,7 +158,7 @@ def get_fsm_states(ms, short_n_long, bit_sync):
   else:
     bit_sync_status = 'no_bit_sync'
 
-  return defaults.fsm_states[ms][bit_sync_status][mode]
+  return fsm_states[ms][bit_sync_status][mode]
 
 
 def get_lock_detector(cur_bw, lock_detect_set):
@@ -244,7 +244,8 @@ class TrackingChannel(object):
 
     self.track_settled = False
     self.fsm_index = 0
-    self.fsm_states = get_fsm_states(ms=self.coherent_ms,
+    self.fsm_states = get_fsm_states(self.fsm_states_all,
+                                     ms=self.coherent_ms,
                                      short_n_long=self.short_n_long,
                                      bit_sync=self.bit_sync)
 
@@ -408,7 +409,8 @@ class TrackingChannel(object):
                                 cutoff_freq=10,
                                 loop_freq=1e3 / self.coherent_ms)
 
-    self.fsm_states = get_fsm_states(ms=self.coherent_ms,
+    self.fsm_states = get_fsm_states(self.fsm_states_all,
+                                     ms=self.coherent_ms,
                                      short_n_long=self.short_n_long,
                                      bit_sync=self.bit_sync)
     self.fsm_index = 0
@@ -960,6 +962,7 @@ class TrackingChannelL1CA(TrackingChannel):
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
     params['sample_index'] = params['samples']['sample_index']
     params['carrier_freq'] = gps_constants.l1
+    params['fsm_states_all'] = defaults.gps_fsm_states
 
     self.bit_sync = False
 
@@ -1075,6 +1078,7 @@ class TrackingChannelL2C(TrackingChannel):
     params['chipping_rate'] = gps_constants.l2c_chip_rate
     params['sample_index'] = 0
     params['carrier_freq'] = gps_constants.l2
+    params['fsm_states_all'] = defaults.gps_fsm_states
 
     self.bit_sync = True
 
@@ -1135,22 +1139,29 @@ class TrackingChannelGLOL1(TrackingChannel):
     GLO L1 tracking initialization parameters
 
     """
+
     # Convert acquisition SNR to C/N0
     cn0_0 = 10 * np.log10(params['acq'].snr)
     cn0_0 += 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+
     params['cn0_0'] = cn0_0
-    params['coherent_ms'] = 1
-    params['coherent_iter'] = 1
-    params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
-    params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
     params['IF'] = params['samples'][glo_constants.GLO_L1]['IF']
     params['prn_code'] = GLOCode
     params['code_freq_init'] = params['acq'].doppler * \
         glo_constants.glo_chip_rate / glo_constants.glo_l1
+
+    params['track_params'] = defaults.glol1_track_params
+    params['loop_filter_params_template'] = \
+        defaults.glol1_loop_filter_params_template
+
+    params['lock_detect_params'] = defaults.glol1_lock_detect_params
     params['chipping_rate'] = glo_constants.glo_chip_rate
-    params['sample_index'] = 0
-    params['alias_detector'] = \
-        alias_detector.AliasDetectorGLO(params['coherent_ms'])
+    params['sample_index'] = params['samples']['sample_index']
+    params['carrier_freq'] = glo_constants.glo_l1
+
+    params['fsm_states_all'] = defaults.glo_fsm_states
+
+    self.bit_sync = False
 
     TrackingChannel.__init__(self, params)
 
@@ -1196,42 +1207,14 @@ class TrackingChannelGLOL1(TrackingChannel):
 
     self.coherent_iter = self.coherent_ms
 
-  def _short_n_long_preprocess(self):
-    if self.stage1:
-      self.E = self.P = self.L = 0.j
-    else:
-      # When simulating short and long cycles, short step resets EPL
-      # registers, and long one adds up to them
-      if self.short_step:
-        self.E = self.P = self.L = 0.j
-        self.coherent_iter = 1
-      else:
-        self.coherent_iter = self.coherent_ms - 1
-
-    self.code_chips_to_integrate = glo_constants.glo_code_len
-
-    return self.coherent_iter, self.code_chips_to_integrate
-
-  def _short_n_long_postprocess(self):
-    more_integration_needed = False
-    if not self.stage1:
-      if self.short_step:
-        # In case of short step - go to next integration period
-        self.short_step = False
-        more_integration_needed = True
-      else:
-        # Next step is short cycle
-        self.short_step = True
-    return more_integration_needed
-
-  def _run_postprocess(self):
+  def _run_nav_data_decoding(self):
     """
     Run GLO L1 coherent integration postprocessing.
     Runs navigation bit sync decoding operation and
     GLO L1 to GLO L2 handover.
     """
 
-    # Handover to L2C if possible
+    # Handover to L2 if possible
     if self.glol2_handover and not self.glol2_handover_acq and \
         glo_constants.GLO_L2 in  self.samples and \
        'samples' in self.samples[glo_constants.GLO_L2]:  # and sync:

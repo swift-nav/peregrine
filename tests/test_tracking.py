@@ -187,7 +187,7 @@ def test_tracking_gps():
   run_track_test(samples, 0.6, init_doppler, init_code_phase, prn, file_format,
                  freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-    freq_profile)
+                 freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
                  freq_profile, short_long_cycles=True)
 
@@ -253,9 +253,9 @@ def test_tracking_glo():
   run_track_test(samples, 0.6, init_doppler, init_code_phase, prn, file_format,
                  freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-                 freq_profile, pipelining=0.5)
+                 freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-                 freq_profile, short_long_cycles=0.5)
+                 freq_profile, short_long_cycles=True)
 
   os.remove(samples)
 
