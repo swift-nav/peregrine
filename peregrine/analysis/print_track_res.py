@@ -63,8 +63,8 @@ def main():
 
   data = np.genfromtxt(args.file, dtype=float, delimiter=',', names=True)
 
-  time_stamps = np.array(data['sample_index'])
-  time_stamps = time_stamps - data['sample_index'][0]
+  time_stamps = np.array(data['sample'])
+  time_stamps = time_stamps - data['sample'][0]
   time_stamps = time_stamps / freq_profile['sampling_freq']
   time_stamp_min = min(time_stamps)
   time_stamp_max = max(time_stamps)
