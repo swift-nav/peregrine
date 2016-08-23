@@ -1256,7 +1256,7 @@ l1ca_lock_detect_params_pess = {"k1": 0.10, "k2": 1.4, "lp": 200, "lo": 50}
 l1ca_lock_detect_params_normal = {"k1": 0.2, "k2": .8, "lp": 150, "lo": 50}
 
 # optimal set
-l1ca_lock_detect_params_opt = {"k1": 0.02, "k2": 1.1, "lp": 150, "lo": 50}
+l1ca_lock_detect_params_opt = {"k1": 0.02, "k2": 1.1, "lp": 50, "lo": 150}
 
 # extra optimal set
 l1ca_lock_detect_params_extraopt = {"k1": 0.02, "k2": 0.8, "lp": 150, "lo": 50}
