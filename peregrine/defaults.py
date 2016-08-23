@@ -208,7 +208,7 @@ l2c_loop_filter_params = {
 l1ca_track_params = {
     'fll_bw': (1, 0),
     'pll_bw': (40, 35, 30, 25, 20, 18, 16, 14, 12, 10, 8, 7, 6.5, 6, 5.5, 5),
-    'coherent_ms': (1, 2, 4, 5, 10, 20)}
+    'coherent_ms': (1, 5, 10, 20)}
 
 l2c_track_params = {
     'fll_bw': (1, 0),

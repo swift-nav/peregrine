@@ -537,20 +537,20 @@ class TrackingChannel(object):
         else:
           continue
 
-      elif coherent_ms == 2:
-        if 12 <= pll_bw and pll_bw <= 30:
-          pass
-        else:
-          continue
+      # elif coherent_ms == 2:
+      #   if 12 <= pll_bw and pll_bw <= 30:
+      #     pass
+      #   else:
+      #     continue
 
-      elif coherent_ms == 4:
-        if 10 <= pll_bw and pll_bw <= 12:
-          pass
-        else:
-          continue
+      # elif coherent_ms == 4:
+      #   if 10 <= pll_bw and pll_bw <= 12:
+      #     pass
+      #   else:
+      #     continue
 
       elif coherent_ms == 5:
-        if 5 <= pll_bw and pll_bw <= 10:
+        if 5 <= pll_bw and pll_bw <= 30:
           pass
         else:
           continue
