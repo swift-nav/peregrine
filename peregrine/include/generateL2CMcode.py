@@ -36,10 +36,10 @@ def generateL2CMcode(PRN):
     - end state of shift register for testing purpuses
   """
   #--- Sanity sheck for PRN number ------------------------------------------
-  if PRN < 0 or PRN > 31:
-    raise ValueError('PRN number(', PRN, ') is not in range [0..31]')
+  if PRN < 0 or PRN > 32:
+    raise ValueError('PRN number(', PRN, ') is not in range [0..32]')
 
-  #--- Initial states for shift register for each PRN[1..32], ---------------
+  #--- Initial states for shift register for each PRN[1..33], ---------------
   # see IS-GPS-200H, Table 3-IIa
   initL2CM = [
       0742417664,  # PRN 1
@@ -73,7 +73,8 @@ def generateL2CMcode(PRN):
       0311627434,
       0710452007,
       0722462133,
-      0050172213  # PRN 32
+      0050172213,  # PRN 32
+      0500653703
   ]
 
   #--- Init L2CM PRN and shift reg ------------------------------------------
@@ -97,6 +98,6 @@ def generateL2CMcode(PRN):
 
   return (L2CM_PRN, shift_reg_out)
 
-L2CMCodes = np.empty((32, 10230), dtype=np.int8)
-for PRN in range(32):
+L2CMCodes = np.empty((33, 10230), dtype=np.int8)
+for PRN in range(33):
   L2CMCodes[PRN][:] = generateL2CMcode(PRN)[0]

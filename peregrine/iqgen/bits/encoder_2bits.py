@@ -36,7 +36,7 @@ class BandTwoBitsEncoder(Encoder):
     bandIndex : int
       Index of the band in the generated sample matrix.
     '''
-    super(BandTwoBitsEncoder, self).__init__(BandTwoBitsEncoder.ATT_LVL_DB)
+    super(BandTwoBitsEncoder, self).__init__(attDb=BandTwoBitsEncoder.ATT_LVL_DB)
     self.bandIndex = bandIndex
 
   @staticmethod
