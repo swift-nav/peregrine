@@ -153,7 +153,7 @@ def _load_samples(filename,
     Number of samples to read, ``-1`` means the whole file.
   num_skip : int, optional
     Number of samples to discard from the beginning of the file.
-  file_format : {'int8'}, optional
+  file_format : string, optional
     Format of the sample data file. Takes one of the following values:
       * `'int8'` : Binary file consisting of a packed array of 8-bit signed
         integers.
