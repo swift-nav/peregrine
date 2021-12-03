@@ -15,6 +15,7 @@ abortIfInsane = True  # Abort the whole attempt if sanity check fails
 useCache = True
 cacheDir = 'cache'
 ephemMaxAge = 4 * 3600.0  # Reject an ephemeris entry if older than this
+elevMask = None # Optional elevation mask (degrees), None to disable
 
 # the size of the sample data block processed at a time
 processing_block_size = int(20e6)  # [samples]

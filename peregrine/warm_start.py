@@ -28,17 +28,26 @@ def horizon_dip(r):
     r_e = norm(swiftnav.coord_system.wgsllh2ecef_(lat, lon, 0))
     return degrees(-acos(r_e / norm(r_e + height)))
 
-def whatsup(ephem, r, t, mask = None):
+def whatsup(ephem, r, t, mask = None, disp = False):
+    hd = horizon_dip(r)
     if mask is None:
-        mask = horizon_dip(r)
+        mask = hd
     wk, tow = datetime_to_tow(t)
     satsup = []
+
+    if disp:
+        print "Approximate horizon dip angle: %+4.1f deg"%hd
+        print "Satellite sky positions from prior (above mask and healthy):"
+        print "PRN\tAz\tEl\t"
+
     for prn in ephem:
         pos, _, _, _ = ephemeris.calc_sat_pos(ephem[prn], tow, wk,
                                               warn_stale = False)
         az, el = swiftnav.coord_system.wgsecef2azel_(pos, r)
         if ephem[prn]['healthy'] and degrees(el) > mask:
             satsup.append(prn)
+            if disp:
+                print "%2d\t%5.1f\t%+5.1f" % (prn + 1, degrees(az), degrees(el))
     return satsup
 
 def whatsdown(ephem, r, t, mask = -45):
@@ -63,7 +72,9 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
     receiver's position, velocity and time.
     """
 
-    pred = whatsup(ephem, r_prior, t_prior)
+    pred = whatsup(ephem, r_prior, t_prior,
+                   mask = settings.elevMask,
+                   disp=True)
     pred_dopp = ephemeris.pred_dopplers(pred, ephem, r_prior, v_prior, t_prior)
     if settings.acqSanityCheck:
         notup = whatsdown(ephem, r_prior, t_prior)
@@ -78,9 +89,14 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
         if os.path.isfile("/etc/fftw/wisdom"):
             shutil.copy("/etc/fftw/wisdom", wiz_file)
 
-    a = acquisition.Acquisition(signal, settings.samplingFreq,
-                                settings.IF,
-                                settings.samplingFreq * gps.code_period,
+    samplingFreq = settings.freq_profile['sampling_freq']
+
+    a = acquisition.Acquisition(gps.L1CA,
+                                signal,
+                                samplingFreq,
+                                settings.freq_profile['GPS_L1_IF'],
+                                samplingFreq * settings.code_period,
+                                settings.code_length,
                                 n_codes_integrate=n_codes_integrate,
                                 wisdom_file = wiz_file)
     # Attempt to acquire both the sats we predict are visible
@@ -89,7 +105,7 @@ def warm_start(signal, t_prior, r_prior, v_prior, ephem, settings,
                                 prns = pred + notup,
                                 doppler_priors = pred_dopp + [0 for p in notup],
                                 doppler_search = settings.rxFreqTol * gps.l1,
-                                show_progress = True, multi = True)
+                                progress_bar_output='stderr', multi = True)
     nacq_results = acq_results[len(pred):]
     acq_results = acq_results[:len(pred)]
 

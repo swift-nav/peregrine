@@ -13,8 +13,9 @@
 from datetime import datetime, timedelta
 from numpy import dot
 from numpy.linalg import norm
+from numpy.linalg import inv
 from peregrine.ephemeris import calc_sat_pos, obtain_ephemeris
-from peregrine.gps_time import datetime_to_tow
+from peregrine.gps_time import datetime_to_tow, utc_to_gpst
 from scipy.optimize import fmin, fmin_powell
 from warnings import warn
 import cPickle
@@ -47,12 +48,12 @@ def resolve_ms_integers(obs_pr, pred_pr, prn_ref, disp = True):
         print "Resolving millisecond integers:"
 
     for prn, pr in obs_pr.iteritems():
-        pr_int_est = (pred_pr[prn] - pr) / gps.code_wavelength
+        pr_int_est = (pred_pr[prn] - pr) / gps.l1ca_code_wavelength
         pr_int = round(pr_int_est)
         if abs(pr_int - pr_int_est) > 0.15:
             logger.warn("Pseudorange integer for PRN %2d is %.4f" % (
                 prn + 1, pr_int_est) + ", which isn't very close to an integer.")
-        pr += pr_int * gps.code_wavelength
+        pr += pr_int * gps.l1ca_code_wavelength
         obs_pr[prn] = pr
         if disp:
             print ("PRN %2d: pred pseudorange = %9.3f km, obs = %9.3f, " + \
@@ -71,7 +72,7 @@ def nav_bit_hypotheses(n_ms):
             return [ [1]*n_ms, [-1]*n_ms]
         return [b + f for b in [[1]*20, [-1]*20] for f in fill_remainder(n_ms - 20)]
     hs = []
-    for nav_edge_phase in range(1,min(n_ms,20)):
+    for nav_edge_phase in range(1,min(n_ms,21)):
         h = [([1]*nav_edge_phase) + f for f in fill_remainder(n_ms - nav_edge_phase)]
         hs += h
     return [k for k,v in itertools.groupby(sorted(hs))]
@@ -79,7 +80,7 @@ def nav_bit_hypotheses(n_ms):
 def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False, coherent = 0, nav_bit_hypoth = None):
     from swiftnav.correlate import track_correlate
     code_freq_shift = (doppler / gps.l1) * gps.chip_rate
-    samples_per_chip = settings.samplingFreq / (gps.chip_rate + code_freq_shift)
+    samples_per_chip = settings.freq_profile['sampling_freq'] / (gps.chip_rate + code_freq_shift)
     samples_per_code = samples_per_chip * gps.chips_per_code
     numSamplesToSkip = round(code_phase * samples_per_chip)
     remCodePhase = (1.0 * numSamplesToSkip / samples_per_chip) - code_phase
@@ -93,12 +94,22 @@ def long_correlation(signal, ca_code, code_phase, doppler, settings, plot=False,
     costas_q = 0.0
     for loopCnt in range(n_ms):
         rawSignal = signal[numSamplesToSkip:]#[:blksize_]
-        I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase = track_correlate_(
+        E, P, L, blksize, remCodePhase, remCarrPhase = track_correlate(
                             rawSignal,
+                            1023, # Chips to correlate
                             code_freq_shift + gps.chip_rate,
                             remCodePhase,
-                            doppler + settings.IF,
-                            remCarrPhase, ca_code, settings)
+                            doppler + settings.freq_profile['GPS_L1_IF'],
+                            remCarrPhase, ca_code, settings.freq_profile['sampling_freq'],
+                            gps.L1CA)
+
+        I_E = E.real
+        Q_E = E.imag
+        I_P = P.real
+        Q_P = P.imag
+        I_L = L.real
+        Q_L = L.imag
+
         numSamplesToSkip += blksize
         #print "@ %d, I_P = %.0f, Q_P = %.0f" % (loopCnt, I_P, Q_P)
         i_p.append(I_P)
@@ -140,12 +151,10 @@ def refine_ob(signal, acq_result, settings, print_results = True, return_sweeps 
     # TODO: Fit code phase results for better resolution
     from peregrine.include.generateCAcode import caCodes
     from scipy import optimize as opt
-    samples_per_chip = settings.samplingFreq / gps.chip_rate
+    samples_per_chip = settings.freq_profile['sampling_freq'] / gps.chip_rate
     samples_per_code = samples_per_chip * gps.chips_per_code
     # Get a vector with the C/A code sampled 1x/chip
     ca_code = caCodes[acq_result.prn]
-    # Add wrapping to either end to be able to do early/late
-    ca_code = np.concatenate(([ca_code[1022]],ca_code,[ca_code[0]]))
 
     dopp_offset_search = 100 # Hz away from acquisition
     code_offsets = np.arange(-1,1, 1.0 / 16 / 2)
@@ -287,14 +296,14 @@ def refine_obs(signal, acq_results, settings,
 
     return obs_cp, obs_dopp
 
-def predict_observables(prior_traj, prior_datetime, prns, ephem, window):
+def predict_observables(prior_traj, prior_datetime, prns, ephem, window, settings):
     from datetime import timedelta
     from numpy.linalg import norm
     from numpy import dot
     """Given a list of PRNs, a set of ephemerides, a nominal capture time (datetime) and a
     and a time window (seconds), compute the ranges and dopplers for
     each satellite at 1ms shifts."""
-    timeres = 50 * gps.code_period # Might be important to keep this an integer number of code periods
+    timeres = 50 * settings.code_period # Might be important to keep this an integer number of code periods
     t0 = prior_datetime - timedelta(seconds=window / 2.0)
     ranges = {}
     dopplers = {}
@@ -351,11 +360,11 @@ def minimize_doppler_error(obs_dopp, times, pred_dopp, plot = False):
 def plot_expected_vs_measured(acqed_prns, prn_ref,
                               obs_pr, obs_dopp,
                               prior_traj, t_better,
-                              ephem):
+                              ephem, settings):
     import matplotlib.pyplot as plt
 
     # Compute predicted observables around this new estimate of capture time
-    pred_ranges, pred_dopplers, times = predict_observables(prior_traj, t_better, acqed_prns, ephem, 20)
+    pred_ranges, pred_dopplers, times = predict_observables(prior_traj, t_better, acqed_prns, ephem, 20, settings)
     pred_pr = pseudoranges_from_ranges(pred_ranges, prn_ref)
 
     ax = plt.figure(figsize=(12,6)).gca()
@@ -476,8 +485,14 @@ def plot_t_recv_sensitivity(r_init, t_ref, obs_pr, ephem, spread = 0.2, step = 0
 def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     prns = los.keys()
     pred_prr = {}
+
+    # TODO: does this break if times of transmission for the different sats
+    #       straddles a GPS week rollover?
+    t_sol_gpst = utc_to_gpst(t_sol)
+    wk, tow = datetime_to_tow(t_sol_gpst)
+
     for prn in prns:
-        _, gps_v, _, clock_rate_err = calc_sat_pos(ephem[prn], tot[prn])
+        _, gps_v, _, clock_rate_err = calc_sat_pos(ephem[prn], tot[prn], week=wk)
         pred_prr[prn] = -dot(gps_v, los[prn]) + clock_rate_err * gps.c
 
     los = np.array(los.values())
@@ -497,8 +512,51 @@ def vel_solve(r_sol, t_sol, ephem, obs_pseudodopp, los, tot):
     print "Receiver clock frequency error: %+6.1f Hz" % f_sol
     return v_sol, f_sol
 
+def unit_vector(v):
+    mag = norm(v)
+    if mag==0:
+        print "unit_vector(): warning, zero magnitude vector!"
+        return v
+    return v/mag
+
+def compute_dops(prns, ephem, r, t, disp=False):
+    """ Compute dilution of precision parameters """
+
+    A = []
+    for prn in prns:
+        wk, tow = datetime_to_tow(t)
+        gps_r, gps_v, clock_err, clock_rate_err = calc_sat_pos(ephem[prn],
+                                                               tow,
+                                                               week = wk,
+                                                               warn_stale=False)
+        r_rx_to_gps = unit_vector(gps_r-r)
+        r_rx_to_gps = np.append(r_rx_to_gps,[1.0])
+        A.append(r_rx_to_gps)
+
+    A = np.array(A)
+    Q = inv(dot(A.T,A))
+    qd = Q.diagonal()
+
+    pdop = math.sqrt(qd[:3].sum())
+    hdop = math.sqrt(qd[:2].sum())
+    vdop = math.sqrt(qd[2])
+    tdop = math.sqrt(qd[3])
+    gdop = math.sqrt(pdop**2 + tdop**2)
+
+    if disp:
+        print "Dilution of precision:"
+        print "  PDOP: %.3f"%pdop
+        print "  TDOP: %.3f"%tdop
+        print "  GDOP: %.3f"%gdop
+
+    return {"pdop":pdop,
+            "hdop":hdop,
+            "vdop":vdop,
+            "tdop":tdop,
+            "gdop":gdop}
+
 def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
-                              plot = True):
+                              plot = True, return_metadata = False):
     """
     Postprocess a short baseband sample record into a navigation solution.
 
@@ -517,13 +575,18 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
       e.g. from peregrine.initSettings.initSettings()
     plot : bool
       Make pretty graphs.
+    return_metadata : bool
+      Return dict of metadata from the solver
 
     Returns
     -------
     acq_results : [:class:`AcquisitionResult`]
       List of :class:`AcquisitionResult` objects loaded from the file.
-
+    sol_metadata
+      Dict of metadata from the solver (optional)
     """
+
+    metadata = {}
 
     if hasattr(prior_trajectory, '__call__'):
         prior_traj_func = True
@@ -532,7 +595,7 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
         prior_traj_func = False
         prior_traj = lambda t: prior_trajectory
 
-    sig_len_ms = len(signal) / settings.samplingFreq / 1E-3
+    sig_len_ms = len(signal) / settings.freq_profile['sampling_freq'] / 1E-3
     print "Signal is %.2f ms long." % sig_len_ms
 
     r_prior, v_prior = prior_traj(t_prior)
@@ -553,6 +616,18 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
                                                 ephem, settings,
                                                 n_codes_integrate)
 
+        # If acquisition failed, update the cache accordingly and abort
+        if len(acqed)==0:
+            logger.error("Acquisition failed, aborting processing of this capture")
+            if settings.useCache:
+                if not os.path.exists(obs_cache_dir):
+                    os.makedirs(obs_cache_dir)
+                with open(obs_cache_file, 'wb') as f:
+                    cPickle.dump(([], None, None), f,
+                                 protocol=cPickle.HIGHEST_PROTOCOL)
+                logger.error("Marked failed acquisition in cache")
+            return
+
         # Rearrange to put sat with smallest range-rate first.
         # This makes graphs a bit less hairy.
         acqed.sort(key = lambda a: abs(a.doppler))
@@ -569,6 +644,8 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
                 cPickle.dump((acqed_prns, obs_cp, obs_dopp), f,
                              protocol=cPickle.HIGHEST_PROTOCOL)
 
+    metadata['acqed_prns'] = len(acqed_prns)
+
     # Check whether we have enough satellites
     if len(acqed_prns) < 5:
         logger.error(("Acquired %d SVs; need at least 5 for a solution" +
@@ -583,18 +660,18 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
     # Improve the time part of the prior estimate by minimizing doppler residuals
     pred_ranges, pred_dopplers, times = predict_observables(prior_traj, t_prior,
                                                             acqed_prns, ephem,
-                                                            30)
+                                                            30, settings)
     i, t_better = minimize_doppler_error(obs_dopp, times, pred_dopplers,
                                          plot = plot)
 
     # Revise the prior state vector based on this new estimate of capture time
     r_better, v_better = prior_traj(t_better)
-    delta_t = t_better.second - t_prior.second + (t_better.microsecond - t_prior.microsecond)*1e-6
+    delta_t = (t_better - t_prior).total_seconds()
     delta_r = np.linalg.norm(np.array(r_better) - r_prior)
-    print "By minimizing doppler residuals, adjusted the prior time and position by %s seconds, %.1f km" % (
+    print "By minimizing doppler residuals, adjusted the prior time and position by %.6s seconds, %.3f km" % (
         delta_t, delta_r/ 1e3)
     pred_ranges, pred_dopplers, times = predict_observables(
-        prior_traj, t_better, acqed_prns, ephem, 1e-9)
+        prior_traj, t_better, acqed_prns, ephem, 1e-9, settings)
 
     pred_pr_t_better = {prn: pred_ranges[prn][0] for prn in acqed_prns}
 
@@ -604,12 +681,15 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
 
     if plot:
         plot_expected_vs_measured(acqed_prns, prn_ref, obs_pr, obs_dopp,
-                                  prior_traj, t_better, ephem)
+                                  prior_traj, t_better, ephem, settings)
 
     # Perform PVT navigation solution
     r_sol, t_sol, los, tot, residuals = pt_solve(r_better, t_better, obs_pr,
                                                  ephem)
     resid_norm_norm = norm(residuals) / len(acqed_prns)
+    print "PVT solution residuals:",residuals
+    print "PVT solution residual norm (meters per SV):",resid_norm_norm
+
     if resid_norm_norm > settings.navSanityMaxResid:
         logger.error("PVT solution not satisfactorily converged: %.0f > %.0f" % (
             resid_norm_norm, settings.navSanityMaxResid))
@@ -621,9 +701,17 @@ def postprocess_short_samples(signal, prior_trajectory, t_prior, settings,
     v_sol, rx_freq_err = vel_solve(r_sol, t_sol, ephem, obs_dopp, los, tot)
     print "Velocity: %s (%.1f m/s)" % (v_sol, norm(v_sol))
 
+    metadata['rx_freq_err'] = rx_freq_err
+
+    # Compute DOPs
+    metadata["dops"] = compute_dops(acqed_prns, ephem, r_sol, t_sol, disp=True)
+
     # How accurate is the time component of the solution?
     if plot:
         plot_t_recv_sensitivity(r_sol, t_sol, obs_pr, ephem,
                                 spread = 0.1, step = 0.01)
 
-    return r_sol, v_sol, t_sol
+    if return_metadata:
+        return r_sol, v_sol, t_sol, metadata
+    else:
+        return r_sol, v_sol, t_sol

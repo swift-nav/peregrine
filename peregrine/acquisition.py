@@ -54,14 +54,16 @@ class Acquisition:
     Array of samples to use for acquisition. Can be `None` but in this case
     `init_samples` *must* be called with an array of samples before any other
     acquisition functions are used.
-  sampling_freq : float, optional
+  sampling_freq : float
     The sampling frequency of the samples in Hz.
-  IF : float, optional
+  IF : float
     The receiver intermediate frequency used when capturing the samples.
-  samples_per_code : float, optional
+  samples_per_code : float
     The number of samples corresponding to one code length.
-  code_length : int, optional
+  code_length : int
     The number of chips in the chipping code.
+  n_codes_integrate : int, optional
+    The number of codes to integrate.
   offsets : int, optional
     Offsets, in units of code length (1ms), to use when performing long
     integrations to avoid clobbering by nav bit edges.
