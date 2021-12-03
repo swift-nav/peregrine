@@ -85,6 +85,7 @@ from peregrine.iqgen.bits.satellite_factory import factoryObject as satelliteFO
 from peregrine.iqgen.bits.tcxo_factory import factoryObject as tcxoFO
 
 from peregrine.log import default_logging_config
+from peregrine import defaults
 
 logger = logging.getLogger(__name__)
 
@@ -272,9 +273,9 @@ def prepareArgsParser():
           raise ValueError("Signal band must be specified before doppler")
       elif isinstance(sv, GLOSatellite):
         if sv.isL1Enabled():
-          frequency_hz = signals.GLONASS.L1S[sv.prn].CENTER_FREQUENCY_HZ
+          signal = signals.GLONASS.L1S[sv.prn]
         elif sv.isL2Enabled():
-          frequency_hz = signals.GLONASS.L2S[sv.prn].CENTER_FREQUENCY_HZ
+          signal = signals.GLONASS.L2S[sv.prn]
         else:
           raise ValueError("Signal band must be specified before doppler")
       else:
@@ -570,8 +571,7 @@ def prepareArgsParser():
   amplitudeGrp.add_argument('--amplitude-type',
                             default="poly",
                             choices=["poly", "sine"],
-                            help=
-                              "Configure amplitude type: polynomial or sine.",
+                            help="Configure amplitude type: polynomial or sine.",
                             action=UpdateAmplitudeType)
   amplitudeGrp.add_argument('--amplitude-units',
                             default="snr-db",
@@ -655,8 +655,7 @@ def prepareArgsParser():
                        action=UpdateTcxoType)
   parser.add_argument('--group-delays',
                       type=bool,
-                      help=
-                        "Enable/disable group delays simulation between bands")
+                      help="Enable/disable group delays simulation between bands")
   parser.add_argument('--debug',
                       type=argparse.FileType('wb'),
                       help="Debug output file")
@@ -666,7 +665,22 @@ def prepareArgsParser():
                       help="Amount of data to generate, in seconds")
   parser.add_argument('--encoder',
                       default="2bits",
-                      choices=["1bit", "2bits"],
+                      choices=["1bit", "2bits",
+                               defaults.FORMAT_1BIT_X1_GPS_L1,
+                               defaults.FORMAT_1BIT_X1_GPS_L2,
+                               defaults.FORMAT_1BIT_X1_GLO_L1,
+                               defaults.FORMAT_1BIT_X1_GLO_L2,
+                               defaults.FORMAT_1BIT_X2_GPS_L1L2,
+                               defaults.FORMAT_1BIT_X2_GLO_L1L2,
+                               defaults.FORMAT_1BIT_X4_GPS_L1L2_GLO_L1L2,
+                               defaults.FORMAT_2BITS_X1_GPS_L1,
+                               defaults.FORMAT_2BITS_X1_GPS_L2,
+                               defaults.FORMAT_2BITS_X1_GLO_L1,
+                               defaults.FORMAT_2BITS_X1_GLO_L2,
+                               defaults.FORMAT_2BITS_X2_GPS_L1L2,
+                               defaults.FORMAT_2BITS_X2_GLO_L1L2,
+                               defaults.FORMAT_2BITS_X4_GPS_L1L2_GLO_L1L2
+                               ],
                       help="Output data format")
   parser.add_argument('--output',
                       type=argparse.FileType('wb'),
@@ -739,9 +753,9 @@ def printOutputConfig(outputConfig, args):
   print "  GPS L1 IF:       ", outputConfig.GPS.L1.INTERMEDIATE_FREQUENCY_HZ
   print "  GPS L2 IF:       ", outputConfig.GPS.L2.INTERMEDIATE_FREQUENCY_HZ
   print "  GLONASS L1[0] IF:",\
-    outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
+      outputConfig.GLONASS.L1.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "  GLONASS L2[0] IF:",\
-    outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
+      outputConfig.GLONASS.L2.INTERMEDIATE_FREQUENCIES_HZ[0]
   print "Other parameters:"
   print "  TCXO:           ", args.tcxo
   print "  noise sigma:    ", args.noise_sigma
@@ -801,8 +815,39 @@ def selectEncoder(encoderType, outputConfig, enabledBands):
 
   enabledGPS = enabledGPSL1 or enabledGPSL2
   enabledGLONASS = enabledGLONASSL1 or enabledGLONASSL2
-  # Configure data encoder
-  if encoderType == "1bit":
+
+  # Explicitly defined encoders
+  if encoderType == defaults.FORMAT_1BIT_X1_GPS_L1:
+    encoder = GPSL1BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X1_GPS_L2:
+    encoder = GPSL2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X2_GPS_L1L2:
+    encoder = GPSL1L2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X1_GLO_L1:
+    encoder = GLONASSL1BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X1_GLO_L2:
+    encoder = GLONASSL2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X2_GLO_L1L2:
+    encoder = GLONASSL1L2BitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_1BIT_X4_GPS_L1L2_GLO_L1L2:
+    encoder = GPSGLONASSBitEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GPS_L1:
+    encoder = GPSL1TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GPS_L2:
+    encoder = GPSL2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X2_GPS_L1L2:
+    encoder = GPSL1L2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GLO_L1:
+    encoder = GLONASSL1TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X1_GLO_L2:
+    encoder = GLONASSL2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X2_GLO_L1L2:
+    encoder = GLONASSL1L2TwoBitsEncoder(outputConfig)
+  elif encoderType == defaults.FORMAT_2BITS_X4_GPS_L1L2_GLO_L1L2:
+    encoder = GPSGLONASSTwoBitsEncoder(outputConfig)
+
+  # Encoder auto-detection
+  elif encoderType == "1bit":
     if enabledGPS and enabledGLONASS:
       encoder = GPSGLONASSBitEncoder(outputConfig)
     elif enabledGPS:

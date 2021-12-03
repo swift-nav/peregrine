@@ -10,13 +10,15 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from peregrine.gps_constants import l1, l2, L1CA, L2C
+from peregrine.glo_constants import GLO_L1
 from test_common import generate_sample_file, fileformat_to_bands,\
-                        get_skip_params, run_peregrine
+    get_skip_params, run_peregrine
 from test_acquisition import get_acq_result_file_name
 from peregrine.analysis import tracking_loop
 from peregrine.tracking import TrackingLoop, NavBitSync, NavBitSyncSBAS,\
-                               NBSLibSwiftNav, NBSSBAS, NBSMatchBit,\
-                               NBSHistogram, NBSMatchEdge
+    NBSLibSwiftNav, NBSSBAS, NBSMatchBit,\
+    NBSHistogram, NBSMatchEdge
+from peregrine import defaults
 
 import cPickle
 import csv
@@ -30,15 +32,15 @@ def run_tracking_loop(prn, signal, dopp, phase, file_name, file_format,
                       freq_profile, skip_val, norun=False, l2chandover=False,
                       pipelining=None, short_long_cycles=None):
   parameters = [
-    'tracking_loop',
-    '-P', str(prn),
-    '-p', str(phase),
-    '-d', str(dopp),
-    '-S', signal,
-    '--file', file_name,
-    '--file-format', file_format,
-    '--profile', freq_profile,
-    '--skip-samples', str(skip_val)
+      'tracking_loop',
+      '-P', str(prn),
+      '-p', str(phase),
+      '-d', str(dopp),
+      '-S', signal,
+      '--file', file_name,
+      '--file-format', file_format,
+      '--profile', freq_profile,
+      '--skip-samples', str(skip_val)
   ]
 
   if pipelining:
@@ -61,17 +63,17 @@ def run_tracking_loop(prn, signal, dopp, phase, file_name, file_format,
 def get_track_result_file_name(sample_file, prn, band):
   sample_file, sample_file_extension = os.path.splitext(sample_file)
   return (sample_file + (".PRN-%d.%s" % (prn, band)) +
-         sample_file_extension + '.track_results',
-         "track.PRN-%d.%s.csv" % (prn, band))
+          sample_file_extension + '.track_results',
+          "track.PRN-%d.%s.csv" % (prn, band))
 
 
 def get_peregrine_tr_res_file_name(sample_file, prn, band):
-  per_fn, tr_loop_fn = get_track_result_file_name(sample_file, prn, band)
+  per_fn, _ = get_track_result_file_name(sample_file, prn, band)
   return per_fn
 
 
 def get_tr_loop_res_file_name(sample_file, prn, band):
-  per_fn, tr_loop_fn = get_track_result_file_name(sample_file, prn, band)
+  _, tr_loop_fn = get_track_result_file_name(sample_file, prn, band)
   return tr_loop_fn
 
 
@@ -97,9 +99,9 @@ def run_track_test(samples_file, expected_lock_ratio, init_doppler,
                       pipelining=pipelining,
                       short_long_cycles=short_long_cycles)
 
-  #code_phase = propagate_code_phase(init_code_phase,
-                 #get_sampling_freq(freq_profile),
-                 #skip_param, skip_val)
+  # code_phase = propagate_code_phase(init_code_phase,
+    # get_sampling_freq(freq_profile),
+    # skip_param, skip_val)
 
   check_per_track_results(expected_lock_ratio, samples_file, prn, bands,
                           pipelining, short_long_cycles)
@@ -126,7 +128,10 @@ def check_per_track_results(expected_lock_ratio, filename, prn, bands,
       while True:
         try:
           track_results = cPickle.load(f)
-          assert (track_results.prn + 1) == prn
+          if band == L1CA or band == L2C:
+            assert (track_results.prn + 1) == prn
+          else:
+            assert (track_results.prn) == prn
           assert track_results.status == 'T'
           assert track_results == track_results
           lock_detect_outp_sum += (track_results.lock_detect_outp == 1).sum()
@@ -167,7 +172,7 @@ def check_tr_loop_track(expected_lock_ratio, filename, prn, bands,
   return ret
 
 
-def test_tracking():
+def test_tracking_gps():
   """
   Test GPS L1C/A and L2C tracking
   """
@@ -175,7 +180,7 @@ def test_tracking():
   prn = 1
   init_doppler = 555
   init_code_phase = 0
-  file_format = '2bits_x2'
+  file_format = defaults.FORMAT_2BITS_X2_GPS_L1L2
   freq_profile = 'low_rate'
 
   samples = generate_sample_file(prn, init_doppler,
@@ -183,16 +188,16 @@ def test_tracking():
                                  file_format, freq_profile, generate=5)
 
   run_track_test(samples, 0.6, init_doppler, init_code_phase, prn, file_format,
-    freq_profile)
+                 freq_profile)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-    freq_profile, pipelining=0.5)
+                 freq_profile, pipelining=0.5)
   run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
-    freq_profile, short_long_cycles=0.5)
+                 freq_profile, short_long_cycles=0.5)
 
   os.remove(samples)
 
   # test --no-run
-  run_tracking_loop(1, L1CA, 0, 0, 'dummy', '2bits_x2', 'low_rate', 0,
+  run_tracking_loop(1, L1CA, 0, 0, 'dummy', file_format, 'low_rate', 0,
                     norun=True)
 
   # Test with different initial code phases
@@ -233,5 +238,35 @@ def test_tracking():
   assert NBSMatchEdge()
 
 
+def test_tracking_glo():
+  """
+  Test GLO L1 tracking
+  """
+
+  prn = 0
+  init_doppler = 555
+  init_code_phase = 0
+  file_format = defaults.FORMAT_2BITS_X1_GLO_L1
+  freq_profile = 'low_rate'
+
+  samples = generate_sample_file(prn, init_doppler,
+                                 init_code_phase,
+                                 file_format, freq_profile, generate=5)
+
+  run_track_test(samples, 0.6, init_doppler, init_code_phase, prn, file_format,
+                 freq_profile)
+  run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
+                 freq_profile, pipelining=0.5)
+  run_track_test(samples, 0.3, init_doppler, init_code_phase, prn, file_format,
+                 freq_profile, short_long_cycles=0.5)
+
+  os.remove(samples)
+
+  # test --no-run
+  run_tracking_loop(0, GLO_L1, 0, 0, 'dummy', file_format, 'low_rate', 0,
+                    norun=True)
+
+
 if __name__ == '__main__':
-  test_tracking()
+  test_tracking_gps()
+  test_tracking_glo()

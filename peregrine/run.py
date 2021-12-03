@@ -18,7 +18,8 @@ import numpy as np
 from operator import attrgetter
 
 from peregrine.samples import load_samples
-from peregrine.acquisition import Acquisition, load_acq_results, save_acq_results
+from peregrine.acquisition import Acquisition, load_acq_results,\
+    save_acq_results
 from peregrine.navigation import navigation
 import peregrine.tracking as tracking
 from peregrine.log import default_logging_config
@@ -27,6 +28,7 @@ import peregrine.gps_constants as gps
 from peregrine.tracking_file_utils import removeTrackingOutputFiles
 from peregrine.tracking_file_utils import TrackingResults
 from peregrine.tracking_file_utils import createTrackingDumpOutputFileName
+import peregrine.glo_constants as glo
 
 
 class SaveConfigAction(argparse.Action):
@@ -112,12 +114,10 @@ def populate_peregrine_cmd_line_arguments(parser):
                         help="How many milliseconds to skip")
 
   inputCtrl.add_argument("-f", "--file-format",
-                         choices=['piksi', 'int8', '1bit', '1bitrev',
-                                  '1bit_x2', '2bits', '2bits_x2', '2bits_x4'],
+                         choices=defaults.file_encoding_profile.keys(),
                          metavar='FORMAT',
                          help="The format of the sample data file "
-                         "('piksi', 'int8', '1bit', '1bitrev', "
-                         "'1bit_x2', '2bits', '2bits_x2', '2bits_x4')")
+                         "(%s)" % defaults.file_encoding_profile.keys())
 
   inputCtrl.add_argument("--ms-to-process",
                          metavar='MS',
@@ -183,6 +183,9 @@ def main():
   parser.add_argument("-n", "--skip-navigation",
                       help="use previously saved navigation results",
                       action="store_true")
+  parser.add_argument("--skip-glonass",
+                      help="skip glonass",
+                      action="store_true")
 
   populate_peregrine_cmd_line_arguments(parser)
 
@@ -229,6 +232,8 @@ def main():
 
   samples = {gps.L1CA: {'IF': freq_profile['GPS_L1_IF']},
              gps.L2C: {'IF': freq_profile['GPS_L2_IF']},
+             glo.GLO_L1: {'IF': freq_profile['GLO_L1_IF']},
+             glo.GLO_L2: {'IF': freq_profile['GLO_L2_IF']},
              'samples_total': -1,
              'sample_index': skip_samples}
 
@@ -243,10 +248,29 @@ def main():
                        acq_results_file)
       sys.exit(1)
   else:
-    for signal in [gps.L1CA]:
+    encoding_profile = defaults.file_encoding_profile[args.file_format]
 
-      samplesPerCode = int(round(freq_profile['sampling_freq'] /
-                                 (gps.l1ca_chip_rate / gps.l1ca_code_length)))
+    acq_results = []
+    for channel in encoding_profile:
+      if channel == defaults.sample_channel_GPS_L1:
+        signal = gps.L1CA
+        code_period = gps.l1ca_code_period
+        code_len = gps.l1ca_code_length
+        i_f = freq_profile['GPS_L1_IF']
+        samplesPerCode = int(round(freq_profile['sampling_freq'] /
+                                   (gps.l1ca_chip_rate / gps.l1ca_code_length)))
+      elif channel == defaults.sample_channel_GLO_L1:
+        if args.skip_glonass:
+          continue
+        signal = glo.GLO_L1
+        code_period = glo.glo_code_period
+        code_len = glo.glo_code_len
+        i_f = freq_profile['GLO_L1_IF']
+        samplesPerCode = int(round(freq_profile['sampling_freq'] /
+                                   (glo.glo_chip_rate / glo.glo_code_len)))
+      else:
+        # No acquisition for other signals
+        continue
 
       # Get 11ms of acquisition samples for fine frequency estimation
       load_samples(samples=samples,
@@ -257,13 +281,10 @@ def main():
       acq = Acquisition(signal,
                         samples[signal]['samples'],
                         freq_profile['sampling_freq'],
-                        freq_profile['GPS_L1_IF'],
-                        gps.l1ca_code_period * freq_profile['sampling_freq'],
-                        gps.l1ca_code_length)
-      # only one signal - L1CA is expected to be acquired at the moment
-      # TODO: add handling of acquisition results from GLONASS once GLONASS
-      # acquisition is supported.
-      acq_results = acq.acquisition(progress_bar_output=args.progress_bar)
+                        i_f,
+                        code_period * freq_profile['sampling_freq'],
+                        code_len)
+      acq_results += acq.acquisition(progress_bar_output=args.progress_bar)
 
     print "Acquisition is over!"
 

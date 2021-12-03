@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Swift Navigation Inc.
+# Copyright (C) 2014,2016 Swift Navigation Inc.
 # Contact: Adel Mamin <adelm@exafore.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
@@ -21,7 +21,7 @@ processing_block_size = int(20e6)  # [samples]
 
 # used to simulate real HW
 # [0..10230]
-l2c_short_step_chips = 500  # used to simulate real HW
+l2c_short_step_chips = 300  # used to simulate real HW
 
 chipping_rate = 1.023e6  # Hz
 code_length = 1023  # chips
@@ -34,11 +34,25 @@ sample_channel_GPS_L2 = 1
 sample_channel_GLO_L1 = 2
 sample_channel_GLO_L2 = 3
 
-file_encoding_1bit_x2 = [
+file_encoding_x1_gpsl1 = [
+    sample_channel_GPS_L1]  # GPS L1
+
+file_encoding_x1_gpsl2 = [
+    sample_channel_GPS_L2]  # GPS L2
+
+file_encoding_x1_glol1 = [
+    sample_channel_GLO_L1]  # GLO L1
+
+file_encoding_x1_glol2 = [
+    sample_channel_GLO_L2]  # GLO L2
+
+file_encoding_x2_gpsl1l2 = [
     sample_channel_GPS_L1,  # GPS L1
     sample_channel_GPS_L2]  # GPS L2
 
-file_encoding_2bits_x2 = file_encoding_1bit_x2
+file_encoding_x2_glol1l2 = [
+    sample_channel_GLO_L1,  # GLO L1
+    sample_channel_GLO_L2]  # GLO L2
 
 # encoding is taken from here:
 # https://swiftnav.hackpad.com/MicroZed-Sample-Grabber-IFgt5DbAunD
@@ -63,39 +77,98 @@ file_encoding_2bits_x2 = file_encoding_1bit_x2
 # GPS L2 @ 7.4MHz (1227.6MHz)
 # Galileo E5b-I/Q @ 27.86MHz (1207.14MHz)
 # Beidou B2 @ 27.86MHz  (1207.14MHz)
-file_encoding_2bits_x4 = [
+file_encoding_x4_gps_glo = [
     sample_channel_GPS_L2,  # RF4
     sample_channel_GLO_L2,  # RF3
     sample_channel_GLO_L1,  # RF2
     sample_channel_GPS_L1]  # RF1
 
+# Some of the format names for use with other components
+# The format has the following pattern: <encoding>_x<count>.<signals>
+FORMAT_PIKSI_X1_GPS_L1 = 'piksi_x1.gpsl1'
+FORMAT_PIKSI_X1_GPS_L2 = 'piksi_x1.gpsl2'
+FORMAT_PIKSI_X1_GLO_L1 = 'piksi_x1.glol1'
+FORMAT_PIKSI_X1_GLO_L2 = 'piksi_x1.glol2'
+
+FORMAT_1BIT_X1_GPS_L1 = '1bit_x1.gpsl1'
+FORMAT_1BIT_X1_GPS_L2 = '1bit_x1.gpsl2'
+FORMAT_1BIT_X2_GPS_L1L2 = '1bit_x2.gps'
+FORMAT_1BIT_X1_GLO_L1 = '1bit_x1.glol1'
+FORMAT_1BIT_X1_GLO_L2 = '1bit_x1.glol2'
+FORMAT_1BIT_X2_GLO_L1L2 = '1bit_x2.glo'
+FORMAT_1BIT_X4_GPS_L1L2_GLO_L1L2 = '1bit_x4'
+
+FORMAT_2BITS_X1_GPS_L1 = '2bits_x1.gpsl1'
+FORMAT_2BITS_X1_GPS_L2 = '2bits_x1.gpsl2'
+FORMAT_2BITS_X2_GPS_L1L2 = '2bits_x2.gps'
+FORMAT_2BITS_X1_GLO_L1 = '2bits_x1.glol1'
+FORMAT_2BITS_X1_GLO_L2 = '2bits_x1.glol2'
+FORMAT_2BITS_X2_GLO_L1L2 = '2bits_x2.glo'
+FORMAT_2BITS_X4_GPS_L1L2_GLO_L1L2 = '2bits_x4'
+
+# All supported file formats
+# The map contains encoding name as a key and value as a list of channels in
+# the file.
 file_encoding_profile = {
-    '1bit_x2': file_encoding_1bit_x2,
-    '2bits_x2': file_encoding_2bits_x2,
-    '2bits_x4': file_encoding_2bits_x4}
+    'piksi': file_encoding_x1_gpsl1,
+    FORMAT_PIKSI_X1_GPS_L1: file_encoding_x1_gpsl1,
+    FORMAT_PIKSI_X1_GPS_L2: file_encoding_x1_gpsl2,
+    FORMAT_PIKSI_X1_GLO_L1: file_encoding_x1_glol1,
+    FORMAT_PIKSI_X1_GLO_L2: file_encoding_x1_glol2,
+    'piksinew': file_encoding_x1_gpsl1,
+    'int8': file_encoding_x1_gpsl1,
+    'c8c8': file_encoding_x2_gpsl1l2,
+    '1bit': file_encoding_x1_gpsl1,
+    '1bitrev': file_encoding_x1_gpsl1,
+    '1bit_x1': file_encoding_x1_gpsl1,
+    FORMAT_1BIT_X1_GPS_L1: file_encoding_x1_gpsl1,
+    FORMAT_1BIT_X1_GPS_L2: file_encoding_x1_gpsl2,
+    FORMAT_1BIT_X1_GLO_L1: file_encoding_x1_glol1,
+    FORMAT_1BIT_X1_GLO_L2: file_encoding_x1_glol2,
+    '1bit_x2': file_encoding_x2_gpsl1l2,
+    FORMAT_1BIT_X2_GPS_L1L2: file_encoding_x2_gpsl1l2,
+    FORMAT_1BIT_X2_GLO_L1L2: file_encoding_x2_glol1l2,
+    FORMAT_1BIT_X4_GPS_L1L2_GLO_L1L2: file_encoding_x4_gps_glo,
+    '2bits': file_encoding_x1_gpsl1,
+    '2bits_x2': file_encoding_x2_gpsl1l2,
+    FORMAT_2BITS_X1_GPS_L1: file_encoding_x1_gpsl1,
+    FORMAT_2BITS_X1_GPS_L2: file_encoding_x1_gpsl2,
+    FORMAT_2BITS_X1_GLO_L1: file_encoding_x1_glol1,
+    FORMAT_2BITS_X1_GLO_L2: file_encoding_x1_glol2,
+    FORMAT_2BITS_X2_GPS_L1L2: file_encoding_x2_gpsl1l2,
+    FORMAT_2BITS_X2_GLO_L1L2: file_encoding_x2_glol1l2,
+    FORMAT_2BITS_X4_GPS_L1L2_GLO_L1L2: file_encoding_x4_gps_glo}
 
 # 'peregrine' frequencies profile
 freq_profile_peregrine = {
     'GPS_L1_IF': 4.092e6,
     'GPS_L2_IF': 4.092e6,
+    'GLO_L1_IF': 6e6,
+    'GLO_L2_IF': 6e6,
     'sampling_freq': 16.368e6}
 
 # 'low_rate' frequencies profile
 freq_profile_low_rate = {
     'GPS_L1_IF': 1026375.0,
     'GPS_L2_IF': 7.4e5,
+    'GLO_L1_IF': 12e5,
+    'GLO_L2_IF': 12e5,
     'sampling_freq': 24.84375e5}
 
 # 'normal_rate' frequencies profile
 freq_profile_normal_rate = {
     'GPS_L1_IF': 10263750.0,
     'GPS_L2_IF': 7.4e6,
+    'GLO_L1_IF': 12e6,
+    'GLO_L2_IF': 5.6e6,
     'sampling_freq': 24.84375e6}
 
 # 'high_rate' frequencies profile
 freq_profile_high_rate = {
-    'GPS_L1_IF': 14.58e6,
-    'GPS_L2_IF': 7.4e6,
+    'GPS_L1_IF': freq_profile_normal_rate['GPS_L1_IF'],
+    'GPS_L2_IF': freq_profile_normal_rate['GPS_L2_IF'],
+    'GLO_L1_IF': freq_profile_normal_rate['GLO_L1_IF'],
+    'GLO_L2_IF': freq_profile_normal_rate['GLO_L2_IF'],
     'sampling_freq': 99.375e6}
 
 freq_profile_lookup = {
@@ -106,6 +179,7 @@ freq_profile_lookup = {
 
 L1CA_CHANNEL_BANDWIDTH_HZ = 1000
 L2C_CHANNEL_BANDWIDTH_HZ = 1000
+GLOL1_CHANNEL_BANDWIDTH_HZ = 1000
 
 l1ca_stage1_loop_filter_params = {
     "loop_freq": 1e3,     # loop frequency [Hz]
@@ -264,7 +338,16 @@ l2c_lock_detect_params_20ms = {
     'lp': 50,      # 1000ms worth of I/Q samples to reach pessimistic lock
     'lo': 240}     # 4800ms worth of I/Q samples to lower optimistic lock
 
+# The time interval, over which the alias detection is done.
+# The alias detect algorithm averages the phase angle over this time [ms]
 alias_detect_interval_ms = 500
+
+# The correlator intermediate results are read with this timeout in [ms].
+# The intermediate results are the input for the alias lock detector.
+alias_detect_slice_ms = 1
 
 # Default pipelining prediction coefficient
 pipelining_k = .9549
+
+# Default coherent integration time for L2C tracker
+l2c_coherent_integration_time_ms = 20

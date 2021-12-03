@@ -16,7 +16,6 @@ import cPickle
 
 from swiftnav.track import LockDetector
 from swiftnav.track import CN0Estimator
-from swiftnav.track import AliasDetector
 from swiftnav.track import AidedTrackingLoop
 from swiftnav.correlate import track_correlate
 from swiftnav.nav_msg import NavMsg
@@ -26,9 +25,13 @@ from swiftnav.cnav_msg import CNavMsgDecoder
 from swiftnav.signal import signal_from_code_index
 from peregrine import defaults
 from peregrine import gps_constants
+from peregrine import glo_constants
+from peregrine import alias_detector
 from peregrine.acquisition import AcquisitionResult
+from peregrine.acquisition import GloAcquisitionResult
 from peregrine.include.generateCAcode import caCodes
 from peregrine.include.generateL2CMcode import L2CMCodes
+from peregrine.include.generateGLOcode import GLOCode
 from peregrine.tracking_file_utils import createTrackingOutputFileNames
 
 import logging
@@ -120,6 +123,8 @@ def _tracking_channel_factory(parameters):
     return TrackingChannelL1CA(parameters)
   if parameters['acq'].signal == gps_constants.L2C:
     return TrackingChannelL2C(parameters)
+  if parameters['acq'].signal == glo_constants.GLO_L1:
+    return TrackingChannelGLOL1(parameters)
 
 
 class TrackingChannel(object):
@@ -172,10 +177,6 @@ class TrackingChannel(object):
         lp=self.lock_detect_params["lp"],
         lo=self.lock_detect_params["lo"])
 
-    self.alias_detect = AliasDetector(
-        acc_len=defaults.alias_detect_interval_ms / self.coherent_ms,
-        time_diff=1)
-
     self.cn0_est = CN0Estimator(
         bw=1e3 / self.coherent_ms,
         cn0_0=self.cn0_0,
@@ -203,7 +204,6 @@ class TrackingChannel(object):
     self.track_result = TrackResults(self.results_num,
                                      self.acq.prn,
                                      self.acq.signal)
-    self.alias_detect_init = 1
     self.code_phase = 0.0
     self.carr_phase = 0.0
     self.samples_per_chip = int(round(self.sampling_freq / self.chipping_rate))
@@ -215,6 +215,9 @@ class TrackingChannel(object):
     self.code_phase_acc = 0.0
     self.samples_tracked = 0
     self.i = 0
+    self.started = False
+    self.lock_detect_outo = 0
+    self.lock_detect_outp = 0
 
     self.pipelining = False    # Flag if pipelining is used
     self.pipelining_k = 0.     # Error prediction coefficient for pipelining
@@ -248,6 +251,11 @@ class TrackingChannel(object):
     the initial parameters of the tracking channel.
 
     """
+
+    if self.started:
+      return
+
+    self.started = True
 
     logger.info("[PRN: %d (%s)] Tracking is started. "
                 "IF: %.1f, Doppler: %.1f, code phase: %.1f, "
@@ -363,7 +371,6 @@ class TrackingChannel(object):
       which can be redefined in subclasses
 
     """
-    self.start()
     self.samples = samples
 
     if self.sample_index < samples['sample_index']:
@@ -413,27 +420,32 @@ class TrackingChannel(object):
         corr_code_freq = self.next_code_freq
         corr_carr_freq = self.next_carr_freq
 
-      coherent_iter, code_chips_to_integrate = self._short_n_long_preprocess()
+      if self.short_n_long:
+        coherent_iter, code_chips_to_integrate = self._short_n_long_preprocess()
+      else:
+        coherent_iter, code_chips_to_integrate = \
+            self.alias_detector.preprocess()
+        self.E = self.P = self.L = 0.j
 
-      for _ in range(self.coherent_iter):
+      # Estimated blksize might change as a result of a change of
+      # the coherent integration time.
+      estimated_blksize = self.coherent_ms * self.sampling_freq / 1e3
+      if (sample_index + 2 * estimated_blksize) > samples_total:
+        continue
 
-        if (sample_index + 2 * estimated_blksize) >= samples_total:
-          break
+      for _ in range(coherent_iter):
 
         samples_ = samples[self.signal]['samples'][sample_index:]
 
         E_, P_, L_, blksize, self.code_phase, self.carr_phase = self.correlator(
             samples_,
-            code_chips_to_integrate,
+            self.code_phase + code_chips_to_integrate,
             corr_code_freq + self.chipping_rate, self.code_phase,
             corr_carr_freq + self.IF, self.carr_phase,
             self.prn_code,
             self.sampling_freq,
             self.signal
         )
-
-        if blksize > estimated_blksize:
-          estimated_blksize = blksize
 
         sample_index += blksize
         samples_processed += blksize
@@ -444,34 +456,35 @@ class TrackingChannel(object):
         self.P += P_
         self.L += L_
 
-      more_integration_needed = self._short_n_long_postprocess()
-      if more_integration_needed:
-        continue
+        if self.short_n_long:
+          continue
+
+        if self.lock_detect_outo:
+          code_chips_to_integrate = self.alias_detector.postprocess(P_)
+        else:
+          self.alias_detector.reinit(self.coherent_ms)
+
+      if self.short_n_long:
+        more_integration_needed = self._short_n_long_postprocess()
+        if more_integration_needed:
+          continue
+
+      err_hz = self.alias_detector.get_err_hz()
+      if abs(err_hz) > 0:
+        logger.info("[PRN: %d (%s)] False lock detected. "
+                    "Error: %.1f Hz. Correcting..." %
+                    (self.prn + 1, self.signal, -err_hz))
+        self.loop_filter.adjust_freq(err_hz)
 
       # Update PLL lock detector
-      lock_detect_outo, \
-          lock_detect_outp, \
+      self.lock_detect_outo, \
+          self.lock_detect_outp, \
           lock_detect_pcount1, \
           lock_detect_pcount2, \
           lock_detect_lpfi, \
           lock_detect_lpfq = self.lock_detect.update(self.P.real,
                                                      self.P.imag,
                                                      coherent_iter)
-
-      if lock_detect_outo:
-        if self.alias_detect_init:
-          self.alias_detect_init = 0
-          self.alias_detect.reinit(defaults.alias_detect_interval_ms /
-                                   self.coherent_iter,
-                                   time_diff=1)
-          self.alias_detect.first(self.P.real, self.P.imag)
-        alias_detect_err_hz = \
-            self.alias_detect.second(self.P.real, self.P.imag) * np.pi * \
-            (1e3 / defaults.alias_detect_interval_ms)
-        self.alias_detect.first(self.P.real, self.P.imag)
-      else:
-        self.alias_detect_init = 1
-        alias_detect_err_hz = 0
 
       self.loop_filter.update(self.E, self.P, self.L)
       self.track_result.coherent_ms[self.i] = self.coherent_ms
@@ -498,14 +511,14 @@ class TrackingChannel(object):
       self.track_result.cn0[self.i] = self.cn0_est.update(
           self.P.real, self.P.imag)
 
-      self.track_result.lock_detect_outo[self.i] = lock_detect_outo
-      self.track_result.lock_detect_outp[self.i] = lock_detect_outp
+      self.track_result.lock_detect_outo[self.i] = self.lock_detect_outo
+      self.track_result.lock_detect_outp[self.i] = self.lock_detect_outp
       self.track_result.lock_detect_pcount1[self.i] = lock_detect_pcount1
       self.track_result.lock_detect_pcount2[self.i] = lock_detect_pcount2
       self.track_result.lock_detect_lpfi[self.i] = lock_detect_lpfi
       self.track_result.lock_detect_lpfq[self.i] = lock_detect_lpfq
 
-      self.track_result.alias_detect_err_hz[self.i] = alias_detect_err_hz
+      self.track_result.alias_detect_err_hz[self.i] = err_hz
 
       self._run_postprocess()
 
@@ -556,6 +569,8 @@ class TrackingChannelL1CA(TrackingChannel):
     params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
     params['chipping_rate'] = gps_constants.l1ca_chip_rate
     params['sample_index'] = params['samples']['sample_index']
+    params['alias_detector'] = \
+        alias_detector.AliasDetectorL1CA(params['coherent_ms'])
 
     TrackingChannel.__init__(self, params)
 
@@ -581,6 +596,8 @@ class TrackingChannelL1CA(TrackingChannel):
 
       self.stage1 = False
       self.coherent_ms = self.stage2_coherent_ms
+
+      self.alias_detector.reinit(self.coherent_ms)
 
       self.loop_filter.retune(**self.stage2_loop_filter_params)
       self.lock_detect.reinit(
@@ -614,7 +631,9 @@ class TrackingChannelL1CA(TrackingChannel):
     return None
 
   def _short_n_long_preprocess(self):
-    if self.short_n_long and not self.stage1:
+    if self.stage1:
+      self.E = self.P = self.L = 0.j
+    else:
       # When simulating short and long cycles, short step resets EPL
       # registers, and long one adds up to them
       if self.short_step:
@@ -622,8 +641,6 @@ class TrackingChannelL1CA(TrackingChannel):
         self.coherent_iter = 1
       else:
         self.coherent_iter = self.coherent_ms - 1
-    else:
-      self.E = self.P = self.L = 0.j
 
     self.code_chips_to_integrate = gps_constants.chips_per_code
 
@@ -631,11 +648,10 @@ class TrackingChannelL1CA(TrackingChannel):
 
   def _short_n_long_postprocess(self):
     more_integration_needed = False
-    if not self.stage1 and self.short_n_long:
+    if not self.stage1:
       if self.short_step:
         # In case of short step - go to next integration period
         self.short_step = False
-        self.alias_detect.first(self.P.real, self.P.imag)
         more_integration_needed = True
       else:
         # Next step is short cycle
@@ -675,6 +691,7 @@ class TrackingChannelL1CA(TrackingChannel):
 
     # Handover to L2C if possible
     if self.l2c_handover and not self.l2c_handover_acq and \
+        gps_constants.L2C in self.samples and \
        'samples' in self.samples[gps_constants.L2C] and sync:
       chan_snr = self.track_result.cn0[self.i]
       chan_snr -= 10 * np.log10(defaults.L1CA_CHANNEL_BANDWIDTH_HZ)
@@ -712,7 +729,7 @@ class TrackingChannelL2C(TrackingChannel):
     cn0_0 = 10 * np.log10(params['acq'].snr)
     cn0_0 += 10 * np.log10(defaults.L2C_CHANNEL_BANDWIDTH_HZ)
     params['cn0_0'] = cn0_0
-    params['coherent_ms'] = 20
+    params['coherent_ms'] = defaults.l2c_coherent_integration_time_ms
     params['coherent_iter'] = 1
     params['loop_filter_params'] = defaults.l2c_loop_filter_params
     params['lock_detect_params'] = defaults.l2c_lock_detect_params_20ms
@@ -722,6 +739,8 @@ class TrackingChannelL2C(TrackingChannel):
         gps_constants.l2c_chip_rate / gps_constants.l2
     params['chipping_rate'] = gps_constants.l2c_chip_rate
     params['sample_index'] = 0
+    params['alias_detector'] = \
+        alias_detector.AliasDetectorL2C(params['coherent_ms'])
 
     TrackingChannel.__init__(self, params)
 
@@ -739,39 +758,31 @@ class TrackingChannelL2C(TrackingChannel):
     return False
 
   def _short_n_long_preprocess(self):
-    if self.short_n_long:
-      # When simulating short and long cycles, short step resets EPL
-      # registers, and long one adds up to them
-      if self.short_step:
-        self.E = self.P = self.L = 0.j
-        # L2C CM code is only half of the PRN code length.
-        # The other half is CL code. Thus multiply by 2.
-        self.code_chips_to_integrate = \
-          int(2 * defaults.l2c_short_step_chips)
-      else:
-        # L2C CM code is only half of the PRN code length.
-        # The other half is CL code. Thus multiply by 2.
-        self.code_chips_to_integrate = \
-          2 * gps_constants.l2_cm_chips_per_code - \
-          self.code_chips_to_integrate + self.code_phase
-      code_chips_to_integrate = self.code_chips_to_integrate
-    else:
+    # When simulating short and long cycles, short step resets EPL
+    # registers, and long one adds up to them
+    if self.short_step:
       self.E = self.P = self.L = 0.j
-      code_chips_to_integrate = 2 * gps_constants.l2_cm_chips_per_code
+      # L2C CM code is only half of the PRN code length.
+      # The other half is CL code. Thus multiply by 2.
+      self.code_chips_to_integrate = \
+          int(2 * defaults.l2c_short_step_chips)
+    else:
+      # L2C CM code is only half of the PRN code length.
+      # The other half is CL code. Thus multiply by 2.
+      self.code_chips_to_integrate = \
+          2 * gps_constants.l2_cm_chips_per_code - \
+          self.code_chips_to_integrate
+    code_chips_to_integrate = self.code_chips_to_integrate
 
     return self.coherent_iter, code_chips_to_integrate
 
   def _short_n_long_postprocess(self):
     more_integration_needed = False
-    if self.short_n_long:
-      if self.short_step:
-        # In case of short step - go to next integration period
-        self.short_step = False
-        self.alias_detect.first(self.P.real, self.P.imag)
-        more_integration_needed = True
-      else:
-        # Next step is short cycle
-        self.short_step = True
+    if self.short_step:
+      self.short_step = False
+      more_integration_needed = True
+    else:
+      self.short_step = True
 
     return more_integration_needed
 
@@ -803,6 +814,139 @@ class TrackingChannelL2C(TrackingChannel):
           self.coherent_ms
 
 
+class TrackingChannelGLOL1(TrackingChannel):
+  """
+  GLO L1 tracking channel.
+  """
+
+  def __init__(self, params):
+    """
+    Initialize GLO L1 tracking channel with GLO L1 specific data.
+
+    Parameters
+    ----------
+    params : dictionary
+    GLO L1 tracking initialization parameters
+
+    """
+    # Convert acquisition SNR to C/N0
+    cn0_0 = 10 * np.log10(params['acq'].snr)
+    cn0_0 += 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+    params['cn0_0'] = cn0_0
+    params['coherent_ms'] = 1
+    params['coherent_iter'] = 1
+    params['loop_filter_params'] = defaults.l1ca_stage1_loop_filter_params
+    params['lock_detect_params'] = defaults.l1ca_lock_detect_params_opt
+    params['IF'] = params['samples'][glo_constants.GLO_L1]['IF']
+    params['prn_code'] = GLOCode
+    params['code_freq_init'] = params['acq'].doppler * \
+        glo_constants.glo_chip_rate / glo_constants.glo_l1
+    params['chipping_rate'] = glo_constants.glo_chip_rate
+    params['sample_index'] = 0
+    params['alias_detector'] = \
+        alias_detector.AliasDetectorGLO(params['coherent_ms'])
+
+    TrackingChannel.__init__(self, params)
+
+    self.glol2_handover_acq = None
+    self.glol2_handover_done = False
+
+    # TODO add nav msg decoder (GLO L1)
+
+  def is_pickleable(self):
+    """
+    GLO L1 tracking channel object is not pickleable due to complexity
+    of serializing cnav_msg_decoder Cython object.
+
+    out : bool
+       False - the GLO L1 tracking object is not pickleable
+    """
+    return False
+
+  def _get_result(self):
+    """
+    Get GLO L1 tracking results.
+    The possible outcome of GLO L1 tracking operation is
+    the GLO L1 handover to GLO L2 in the form of an GloAcquisitionResult object.
+
+    Returns
+    -------
+    out : AcquisitionResult
+      GLO L2 acquisition result or None
+
+    """
+
+    if self.glol2_handover_acq and not self.glol2_handover_done:
+      self.glol2_handover_done = True
+      return self.glol2_handover_acq
+    return None
+
+  def _run_preprocess(self):
+    """
+    Run GLONASS tracking loop preprocessor operation.
+    It runs before every coherent integration round.
+
+    """
+
+    self.coherent_iter = self.coherent_ms
+
+  def _short_n_long_preprocess(self):
+    if self.stage1:
+      self.E = self.P = self.L = 0.j
+    else:
+      # When simulating short and long cycles, short step resets EPL
+      # registers, and long one adds up to them
+      if self.short_step:
+        self.E = self.P = self.L = 0.j
+        self.coherent_iter = 1
+      else:
+        self.coherent_iter = self.coherent_ms - 1
+
+    self.code_chips_to_integrate = glo_constants.glo_code_len
+
+    return self.coherent_iter, self.code_chips_to_integrate
+
+  def _short_n_long_postprocess(self):
+    more_integration_needed = False
+    if not self.stage1:
+      if self.short_step:
+        # In case of short step - go to next integration period
+        self.short_step = False
+        more_integration_needed = True
+      else:
+        # Next step is short cycle
+        self.short_step = True
+    return more_integration_needed
+
+  def _run_postprocess(self):
+    """
+    Run GLO L1 coherent integration postprocessing.
+    Runs navigation bit sync decoding operation and
+    GLO L1 to GLO L2 handover.
+    """
+
+    # Handover to L2C if possible
+    if self.glol2_handover and not self.glol2_handover_acq and \
+        glo_constants.GLO_L2 in  self.samples and \
+       'samples' in self.samples[glo_constants.GLO_L2]:  # and sync:
+      chan_snr = self.track_result.cn0[self.i]
+      # chan_snr -= 10 * np.log10(defaults.GLOL1_CHANNEL_BANDWIDTH_HZ)
+      chan_snr = np.power(10, chan_snr / 10)
+      glol2_doppler = self.loop_filter.to_dict()['carr_freq'] * \
+          glo_constants.glo_l2 / glo_constants.glo_l1
+      self.glol2_handover_acq = \
+          GloAcquisitionResult(self.prn,
+                               self.samples[glo_constants.GLO_L2]['IF'] +
+                               glol2_doppler,
+                               glol2_doppler,  # carrier doppler
+                               self.track_result.code_phase[
+                                   self.i],
+                               chan_snr,
+                               'A',
+                               glo_constants.GLO_L2,
+                               self.track_result.absolute_sample[self.i])
+
+
 class Tracker(object):
   """
   Tracker class.
@@ -817,6 +961,7 @@ class Tracker(object):
                sampling_freq,
                check_l2c_mask=False,
                l2c_handover=True,
+               glol2_handover=True,
                progress_bar_output='none',
                loop_filter_class=AidedTrackingLoop,
                correlator=track_correlate,
@@ -872,6 +1017,7 @@ class Tracker(object):
     self.tracker_options = tracker_options
     self.output_file = output_file
     self.l2c_handover = l2c_handover
+    self.glol2_handover = glol2_handover
     self.check_l2c_mask = check_l2c_mask
     self.correlator = correlator
     self.stage2_coherent_ms = stage2_coherent_ms
@@ -888,8 +1034,8 @@ class Tracker(object):
       self.samples_to_track = self.ms_to_track * sampling_freq / 1e3
       if samples['samples_total'] < self.samples_to_track:
         logger.warning(
-          "Samples set too short for requested tracking length (%.4fs)"
-          % (self.ms_to_track * 1e-3))
+            "Samples set too short for requested tracking length (%.4fs)"
+            % (self.ms_to_track * 1e-3))
         self.samples_to_track = samples['samples_total']
     else:
       self.samples_to_track = samples['samples_total']
@@ -969,8 +1115,8 @@ class Tracker(object):
     if self.pbar:
       self.pbar.finish()
     res = map(lambda chan: chan.track_result.makeOutputFileNames(
-                chan.output_file),
-                self.tracking_channels)
+        chan.output_file),
+        self.tracking_channels)
 
     fn_analysis = map(lambda x: x[0], res)
     fn_results = map(lambda x: x[1], res)
@@ -1016,6 +1162,7 @@ class Tracker(object):
                   'samples_to_track': self.samples_to_track,
                   'sampling_freq': self.sampling_freq,
                   'l2c_handover': l2c_handover,
+                  'glol2_handover': self.glol2_handover,
                   'show_progress': self.show_progress,
                   'correlator': self.correlator,
                   'stage2_coherent_ms': self.stage2_coherent_ms,
@@ -1191,13 +1338,13 @@ class TrackResults:
     with open(fn_analysis, mode) as f1:
       if self.print_start:
         f1.write(
-          "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
-          "code_phase,code_freq,"
-          "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
-          "lock_detect_outp,lock_detect_outo,"
-          "lock_detect_pcount1,lock_detect_pcount2,"
-          "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
-          "code_phase_acc\n")
+            "sample_index,ms_tracked,coherent_ms,IF,doppler_phase,carr_doppler,"
+            "code_phase,code_freq,"
+            "CN0,E_I,E_Q,P_I,P_Q,L_I,L_Q,"
+            "lock_detect_outp,lock_detect_outo,"
+            "lock_detect_pcount1,lock_detect_pcount2,"
+            "lock_detect_lpfi,lock_detect_lpfq,alias_detect_err_hz,"
+            "code_phase_acc\n")
       for i in range(size):
         f1.write("%s," % int(self.absolute_sample[i]))
         f1.write("%s," % self.ms_tracked[i])
@@ -1229,8 +1376,11 @@ class TrackResults:
 
   def makeOutputFileNames(self, outputFileName):
     # mangle the output file names with the tracked signal name
+    prn = self.prn
+    if self.signal == gps_constants.L1CA or self.signal == gps_constants.L2C:
+      prn += 1
     fn_analysis, fn_results = createTrackingOutputFileNames(outputFileName,
-                                                            self.prn + 1,
+                                                            prn,
                                                             self.signal)
     return fn_analysis, fn_results
 
